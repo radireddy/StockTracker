@@ -9,8 +9,12 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { config } from "dotenv";
 import { parse } from "csv-parse/sync";
 import { createClient } from "@supabase/supabase-js";
+
+// Load .env.local
+config({ path: path.resolve(process.cwd(), ".env.local") });
 
 const BATCH_SIZE = 500;
 
