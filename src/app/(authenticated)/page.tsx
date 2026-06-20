@@ -15,11 +15,16 @@ export default async function DashboardPage() {
     .order("name");
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-6xl mx-auto space-y-3">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">All Companies</h1>
+        <h1 className="text-lg font-semibold">
+          All Companies
+          <span className="ml-2 text-sm font-normal text-muted-foreground">
+            ({companies?.length ?? 0})
+          </span>
+        </h1>
         <Link href="/company/new">
-          <Button>Add Company</Button>
+          <Button size="sm" className="h-8 text-sm">+ Add Company</Button>
         </Link>
       </div>
       <CompaniesTable companies={companies ?? []} />
