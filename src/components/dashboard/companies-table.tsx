@@ -90,7 +90,7 @@ export function CompaniesTable({
           onChange={(e) => setSearch(e.target.value)}
           className="w-64"
         />
-        <Select value={starFilter} onValueChange={setStarFilter}>
+        <Select value={starFilter} onValueChange={(v) => setStarFilter(v ?? "all")}>
           <SelectTrigger className="w-32">
             <SelectValue placeholder="Stars" />
           </SelectTrigger>
@@ -103,7 +103,7 @@ export function CompaniesTable({
             ))}
           </SelectContent>
         </Select>
-        <Select value={strategyFilter} onValueChange={setStrategyFilter}>
+        <Select value={strategyFilter} onValueChange={(v) => setStrategyFilter(v ?? "all")}>
           <SelectTrigger className="w-32">
             <SelectValue placeholder="Strategy" />
           </SelectTrigger>
