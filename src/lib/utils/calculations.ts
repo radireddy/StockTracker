@@ -126,8 +126,3 @@ export function fmtNum(val: number | null | undefined, decimals = 2): string {
 export function roundPrice(val: number): number {
   return Math.round(val * 100) / 100;
 }
-
-/** Round market cap to whole number */
-export function roundMarketCap(val: number): number {
-  return Math.round(val);
-}
