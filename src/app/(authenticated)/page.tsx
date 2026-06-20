@@ -11,15 +11,15 @@ export default async function DashboardPage() {
 
   const { data: companies } = await supabase
     .from("companies")
-    .select("*, valuation_scenarios(*)")
+    .select("*, projection_models(*, valuation_scenarios(*))")
     .order("name");
 
   return (
     <div className="max-w-6xl mx-auto space-y-3">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">
+        <h1 className="text-xl font-semibold">
           All Companies
-          <span className="ml-2 text-sm font-normal text-muted-foreground">
+          <span className="ml-2 text-base font-normal text-muted-foreground">
             ({companies?.length ?? 0})
           </span>
         </h1>

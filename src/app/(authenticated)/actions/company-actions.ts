@@ -16,7 +16,7 @@ export async function getCompanies(portfolioId?: string) {
 
   let query = supabase
     .from("companies")
-    .select("*, valuation_scenarios(*)")
+    .select("*, projection_models(*, valuation_scenarios(*))")
     .order("name");
 
   if (portfolioId) {
@@ -37,8 +37,7 @@ export async function getCompany(id: string) {
     .from("companies")
     .select(`
       *,
-      valuation_scenarios(*),
-      financial_years(*),
+      projection_models(*, financial_years(*), valuation_scenarios(*)),
       timeline_entries(*),
       segment_valuations(*),
       market_perceptions(*)
@@ -59,14 +58,14 @@ export async function createCompany(formData: FormData) {
     user_id: user.id,
     portfolio_id: formData.get("portfolio_id") as string,
     name: formData.get("name") as string,
-    symbol: formData.get("symbol") as string | null,
+    symbol: formData.get("symbol") as string,
     sector: formData.get("sector") as string | null,
     market_cap: formData.get("market_cap") ? Number(formData.get("market_cap")) : null,
     current_price: formData.get("current_price") ? Number(formData.get("current_price")) : null,
     buy_price: formData.get("buy_price") ? Number(formData.get("buy_price")) : null,
-    star_rating: formData.get("star_rating") ? Number(formData.get("star_rating")) : null,
+    star_rating: Number(formData.get("star_rating")) || 2,
     strategy: formData.get("strategy") as "core" | "satellite" | null,
-    investment_horizon_years: formData.get("investment_horizon_years") ? Number(formData.get("investment_horizon_years")) : null,
+    investment_horizon_years: formData.get("investment_horizon_years") ? Number(formData.get("investment_horizon_years")) : 0,
     thesis: sanitizeHtml(formData.get("thesis") as string | null),
     highlights: sanitizeHtml(formData.get("highlights") as string | null),
   });
@@ -99,6 +98,19 @@ export async function deleteCompany(id: string) {
   if (!user) throw new Error("Unauthorized");
 
   const { error } = await supabase.from("companies").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/");
+}
+
+export async function deleteAllCompanies() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const { error } = await supabase
+    .from("companies")
+    .delete()
+    .eq("user_id", user.id);
   if (error) throw new Error(error.message);
   revalidatePath("/");
 }
