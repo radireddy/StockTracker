@@ -12,18 +12,34 @@ export default async function AuthenticatedLayout({
 
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
+  // Try to get profile; if it doesn't exist yet (trigger delay), create it
+  let { data: profile } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", user.id)
     .single();
+
+  if (!profile) {
+    // Profile trigger may not have fired yet — create it manually
+    const { data: newProfile } = await supabase
+      .from("profiles")
+      .upsert({
+        id: user.id,
+        email: user.email,
+        display_name: user.user_metadata?.full_name || user.email,
+        avatar_url: user.user_metadata?.avatar_url,
+      })
+      .select()
+      .single();
+    profile = newProfile;
+  }
 
   if (!profile) redirect("/login");
 
   return (
     <div className="min-h-screen bg-background">
       <AppHeader profile={profile} />
-      <main className="p-4">{children}</main>
+      <main className="px-4 md:px-8 py-4">{children}</main>
     </div>
   );
 }
