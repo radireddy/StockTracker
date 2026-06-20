@@ -47,17 +47,26 @@ async function main() {
 
   console.log(`Found ${companies.length} companies with NULL isin\n`);
 
-  // 2. Fetch all indian_stocks for matching
-  const { data: stocks, error: stockErr } = await supabase
-    .from("indian_stocks")
-    .select("isin, name, nse_symbol");
-
-  if (stockErr) {
-    console.error("Error fetching indian_stocks:", stockErr.message);
-    process.exit(1);
+  // 2. Fetch all indian_stocks for matching (paginate to get all rows)
+  const stocks: { isin: string; name: string; nse_symbol: string | null }[] = [];
+  let from = 0;
+  const PAGE_SIZE = 1000;
+  while (true) {
+    const { data, error: stockErr } = await supabase
+      .from("indian_stocks")
+      .select("isin, name, nse_symbol")
+      .range(from, from + PAGE_SIZE - 1);
+    if (stockErr) {
+      console.error("Error fetching indian_stocks:", stockErr.message);
+      process.exit(1);
+    }
+    if (!data || data.length === 0) break;
+    stocks.push(...data);
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
   }
 
-  if (!stocks || stocks.length === 0) {
+  if (stocks.length === 0) {
     console.error(
       "No indian_stocks found. Run the seed script first (npm run seed:stocks)."
     );

@@ -35,7 +35,9 @@ const nseByIsin = new Map<
 
 for (const row of nseRecords) {
   const series = (row["SERIES"] || "").trim();
-  if (series !== "EQ") continue;
+  // Include all equity series: EQ (regular), SM (SME), BE (book entry), etc.
+  // Skip non-equity like IV (InvIT), RR (rights), etc.
+  if (!["EQ", "SM", "BE", "BZ"].includes(series)) continue;
 
   const isin = (row["ISIN NUMBER"] || "").trim();
   if (!isin.startsWith("INE")) continue;
@@ -139,7 +141,7 @@ writeFileSync(OUTPUT_PATH, csvOutput);
 
 // --- Print stats ---
 console.log("=== Stock List Merge Complete ===");
-console.log(`NSE input (EQ series, valid ISIN): ${nseByIsin.size}`);
+console.log(`NSE input (EQ/SM/BE/BZ series, valid ISIN): ${nseByIsin.size}`);
 console.log(`BSE input (valid ISIN):            ${bseByIsin.size}`);
 console.log(`---`);
 console.log(`Dual-listed (BOTH):  ${both}`);
