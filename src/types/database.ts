@@ -25,15 +25,28 @@ export interface Portfolio {
   updated_at: string;
 }
 
+export interface IndianStock {
+  isin: string;
+  name: string;
+  nse_symbol: string | null;
+  bse_code: string | null;
+  sector: string | null;
+  industry: string | null;
+  series: string | null;
+  exchange: "NSE" | "BSE" | "BOTH";
+  price: number | null;
+  change: number | null;
+  change_pct: number | null;
+  volume: number | null;
+  last_updated: string | null;
+  created_at: string;
+}
+
 export interface Company {
   id: string;
   portfolio_id: string;
   user_id: string;
-  name: string;
-  symbol: string | null;
-  sector: string | null;
-  market_cap: number | null;
-  current_price: number | null;
+  isin: string;
   buy_price: number | null;
   star_rating: number | null;
   strategy: "core" | "satellite" | null;
@@ -43,6 +56,8 @@ export interface Company {
   highlights: string | null;
   created_at: string;
   updated_at: string;
+  // Joined from indian_stocks
+  indian_stocks?: IndianStock;
 }
 
 export interface ProjectionModel {
