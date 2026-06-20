@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -20,47 +19,21 @@ export function ThesisTab({ company }: { company: Company }) {
     content: company.thesis ?? "",
   });
 
-  const highlightsEditor = useEditor({
-    extensions: [
-      StarterKit,
-      Placeholder.configure({ placeholder: "Key highlights..." }),
-    ],
-    content: company.highlights ?? "",
-  });
-
   const handleSave = async () => {
     setSaving(true);
     await updateCompany(company.id, {
       thesis: thesisEditor?.getHTML(),
-      highlights: highlightsEditor?.getHTML(),
     });
     setSaving(false);
   };
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Investment Thesis</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="prose prose-sm max-w-none min-h-[200px] rounded-md border p-3">
-            <EditorContent editor={thesisEditor} />
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Highlights</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="prose prose-sm max-w-none min-h-[100px] rounded-md border p-3">
-            <EditorContent editor={highlightsEditor} />
-          </div>
-        </CardContent>
-      </Card>
-      <Button onClick={handleSave} disabled={saving}>
-        {saving ? "Saving..." : "Save"}
+    <div className="space-y-3">
+      <div className="prose prose-sm max-w-none min-h-[200px] rounded-md border border-border/50 p-3">
+        <EditorContent editor={thesisEditor} />
+      </div>
+      <Button size="sm" onClick={handleSave} disabled={saving}>
+        {saving ? "Saving..." : "Save Thesis"}
       </Button>
     </div>
   );
