@@ -1,3 +1,5 @@
+export type ProjectionType = 'pe_earnings' | 'ev_ebitda';
+
 export interface Profile {
   id: string;
   email: string;
@@ -43,9 +45,25 @@ export interface Company {
   updated_at: string;
 }
 
+export interface ProjectionModel {
+  id: string;
+  company_id: string;
+  user_id: string;
+  projection_type: ProjectionType;
+  name: string;
+  is_default: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  // Nested data (populated by Supabase joins)
+  financial_years?: FinancialYear[];
+  valuation_scenarios?: ValuationScenario[];
+}
+
 export interface FinancialYear {
   id: string;
   company_id: string;
+  projection_model_id: string | null;
   user_id: string;
   year: string;
   is_estimate: boolean;
@@ -67,6 +85,10 @@ export interface FinancialYear {
   pat_for_shareholders: number | null;
   pe: number | null;
   peg: number | null;
+  net_debt: number | null;
+  lease_liability: number | null;
+  total_debt: number | null;
+  ev_ebitda_ratio: number | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -75,6 +97,7 @@ export interface FinancialYear {
 export interface ValuationScenario {
   id: string;
   company_id: string;
+  projection_model_id: string | null;
   user_id: string;
   scenario_type: "bull" | "base" | "bare";
   target_pe: number | null;
@@ -82,6 +105,9 @@ export interface ValuationScenario {
   irr: number | null;
   buying_market_cap: number | null;
   buy_price: number | null;
+  target_ev_ebitda_ratio: number | null;
+  expected_ev: number | null;
+  net_debt_terminal: number | null;
   created_at: string;
   updated_at: string;
 }
