@@ -42,12 +42,12 @@ export async function POST(request: Request) {
           portfolio_id: portfolio!.id,
           name: c.name,
           symbol: c.symbol,
-          market_cap: c.market_cap,
-          current_price: c.current_price,
-          buy_price: c.buy_price,
+          market_cap: c.market_cap != null ? Math.round(c.market_cap) : null,
+          current_price: c.current_price != null ? Math.round(c.current_price * 100) / 100 : null,
+          buy_price: c.buy_price != null ? Math.round(c.buy_price * 100) / 100 : null,
           star_rating: c.star_rating,
           strategy: c.strategy,
-          investment_horizon_years: c.investment_horizon_years,
+          investment_horizon_years: Math.max(0, c.financial_years.filter((fy) => fy.is_estimate).length),
           expected_returns: c.expected_returns,
           thesis: c.thesis,
           highlights: c.highlights,
@@ -57,21 +57,42 @@ export async function POST(request: Request) {
 
       if (compErr) throw compErr;
 
-      if (c.financial_years.length) {
+      // Create a default PE/Earnings projection model for imported data
+      let projectionModelId: string | null = null;
+      if (c.financial_years.length || c.valuation_scenarios.length) {
+        const { data: pm, error: pmErr } = await supabase
+          .from("projection_models")
+          .insert({
+            company_id: company!.id,
+            user_id: user.id,
+            projection_type: "pe_earnings",
+            name: "PE / Earnings",
+            is_default: true,
+            sort_order: 0,
+          })
+          .select("id")
+          .single();
+        if (pmErr) throw pmErr;
+        projectionModelId = pm!.id;
+      }
+
+      if (c.financial_years.length && projectionModelId) {
         await supabase.from("financial_years").insert(
           c.financial_years.map((fy) => ({
             company_id: company!.id,
             user_id: user.id,
+            projection_model_id: projectionModelId,
             ...fy,
           }))
         );
       }
 
-      if (c.valuation_scenarios.length) {
+      if (c.valuation_scenarios.length && projectionModelId) {
         await supabase.from("valuation_scenarios").insert(
           c.valuation_scenarios.map((vs) => ({
             company_id: company!.id,
             user_id: user.id,
+            projection_model_id: projectionModelId,
             ...vs,
           }))
         );
