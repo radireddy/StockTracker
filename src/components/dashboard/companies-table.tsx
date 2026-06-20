@@ -1,10 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -23,6 +19,11 @@ function getScenarioReturn(
 ): number | null {
   const s = scenarios.find((v) => v.scenario_type === type);
   return s?.irr ?? null;
+}
+
+function fmtPrice(val: number | null): string {
+  if (val == null) return "-";
+  return val.toLocaleString("en-IN");
 }
 
 export function CompaniesTable({
@@ -81,17 +82,23 @@ export function CompaniesTable({
     }
   };
 
+  const SortIcon = ({ field }: { field: string }) => {
+    if (sortField !== field) return null;
+    return <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>;
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
+      {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <Input
           placeholder="Search companies..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-64"
+          className="w-64 h-8 text-sm"
         />
         <Select value={starFilter} onValueChange={(v) => setStarFilter(v ?? "all")}>
-          <SelectTrigger className="w-32">
+          <SelectTrigger className="w-28 h-8 text-sm">
             <SelectValue placeholder="Stars" />
           </SelectTrigger>
           <SelectContent>
@@ -104,7 +111,7 @@ export function CompaniesTable({
           </SelectContent>
         </Select>
         <Select value={strategyFilter} onValueChange={(v) => setStrategyFilter(v ?? "all")}>
-          <SelectTrigger className="w-32">
+          <SelectTrigger className="w-28 h-8 text-sm">
             <SelectValue placeholder="Strategy" />
           </SelectTrigger>
           <SelectContent>
@@ -113,7 +120,7 @@ export function CompaniesTable({
             <SelectItem value="satellite">Satellite</SelectItem>
           </SelectContent>
         </Select>
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-1.5 text-xs">
           <input
             type="checkbox"
             checked={buyOnlyFilter}
@@ -121,80 +128,108 @@ export function CompaniesTable({
           />
           Buy signals only
         </label>
-        <span className="ml-auto text-sm text-muted-foreground">
+        <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} companies
         </span>
       </div>
 
-      <div className="rounded-md border overflow-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="cursor-pointer" onClick={() => toggleSort("name")}>
-                Company {sortField === "name" && (sortDir === "asc" ? "↑" : "↓")}
-              </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => toggleSort("star_rating")}>
-                Star {sortField === "star_rating" && (sortDir === "asc" ? "↑" : "↓")}
-              </TableHead>
-              <TableHead>Strategy</TableHead>
-              <TableHead className="cursor-pointer text-right" onClick={() => toggleSort("buy_price")}>
-                Buy Price {sortField === "buy_price" && (sortDir === "asc" ? "↑" : "↓")}
-              </TableHead>
-              <TableHead className="cursor-pointer text-right" onClick={() => toggleSort("current_price")}>
-                Current Price {sortField === "current_price" && (sortDir === "asc" ? "↑" : "↓")}
-              </TableHead>
-              <TableHead className="text-right">Base Returns</TableHead>
-              <TableHead className="text-right">Bare Returns</TableHead>
-              <TableHead className="text-right">MoS</TableHead>
-              <TableHead className="text-center">Buy Signal</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((company) => {
+      {/* Dense table */}
+      <div className="border border-border/60 overflow-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="border-b-2 border-border/40 bg-muted/30">
+              <th
+                className="sticky top-0 z-10 bg-muted/30 text-left px-3 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                onClick={() => toggleSort("name")}
+              >
+                Company<SortIcon field="name" />
+              </th>
+              <th
+                className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                onClick={() => toggleSort("star_rating")}
+              >
+                Star<SortIcon field="star_rating" />
+              </th>
+              <th className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2 text-xs font-medium text-muted-foreground">
+                Strategy
+              </th>
+              <th className="sticky top-0 z-10 bg-muted/30 text-left px-2 py-2 text-xs font-medium text-muted-foreground">
+                Sector
+              </th>
+              <th
+                className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                onClick={() => toggleSort("market_cap")}
+              >
+                MCap<SortIcon field="market_cap" />
+              </th>
+              <th
+                className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                onClick={() => toggleSort("buy_price")}
+              >
+                Buy<SortIcon field="buy_price" />
+              </th>
+              <th
+                className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                onClick={() => toggleSort("current_price")}
+              >
+                CMP<SortIcon field="current_price" />
+              </th>
+              <th className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2 text-xs font-medium text-muted-foreground">
+                MoS%
+              </th>
+              <th className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2 text-xs font-medium text-muted-foreground">
+                IRR
+              </th>
+              <th className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2 text-xs font-medium text-muted-foreground">
+                Signal
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((company, idx) => {
               const mos =
                 company.buy_price && company.current_price
                   ? marginOfSafety(company.buy_price, company.current_price)
                   : null;
               const buy = isBuySignal(company.current_price, company.buy_price);
               const baseReturn = getScenarioReturn(company.valuation_scenarios, "base");
-              const bareReturn = getScenarioReturn(company.valuation_scenarios, "bare");
 
               return (
-                <TableRow
+                <tr
                   key={company.id}
-                  className="cursor-pointer hover:bg-muted/50"
+                  className={`cursor-pointer border-b border-border/20 hover:bg-muted/40 transition-colors ${
+                    idx % 2 === 0 ? "" : "bg-muted/15"
+                  }`}
                   onClick={() => router.push(`/company/${company.id}`)}
                 >
-                  <TableCell className="font-medium">
+                  <td className="px-3 py-1.5 font-medium">
                     {company.name}
                     {company.symbol && (
-                      <span className="ml-2 text-xs text-muted-foreground">
+                      <span className="ml-1.5 text-[11px] text-muted-foreground">
                         {company.symbol}
                       </span>
                     )}
-                  </TableCell>
-                  <TableCell>{"★".repeat(company.star_rating ?? 0)}</TableCell>
-                  <TableCell>
-                    {company.strategy && (
-                      <Badge variant={company.strategy === "core" ? "default" : "secondary"}>
-                        {company.strategy}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {company.buy_price != null ? `₹${company.buy_price.toLocaleString("en-IN")}` : "-"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {company.current_price != null ? `₹${company.current_price.toLocaleString("en-IN")}` : "-"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {baseReturn != null ? `${(baseReturn * 100).toFixed(0)}%` : "-"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {bareReturn != null ? `${(bareReturn * 100).toFixed(0)}%` : "-"}
-                  </TableCell>
-                  <TableCell
-                    className={`text-right font-medium ${
+                  </td>
+                  <td className="px-2 py-1.5 text-center text-xs">
+                    {"★".repeat(company.star_rating ?? 0)}
+                  </td>
+                  <td className="px-2 py-1.5 text-center text-xs capitalize text-muted-foreground">
+                    {company.strategy ?? "-"}
+                  </td>
+                  <td className="px-2 py-1.5 text-xs text-muted-foreground truncate max-w-[120px]">
+                    {company.sector ?? "-"}
+                  </td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">
+                    {company.market_cap != null ? fmtPrice(company.market_cap) : "-"}
+                  </td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">
+                    {company.buy_price != null ? fmtPrice(company.buy_price) : "-"}
+                  </td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">
+                    {company.current_price != null ? fmtPrice(company.current_price) : "-"}
+                  </td>
+                  <td
+                    className={`px-3 py-1.5 text-right tabular-nums font-medium ${
                       mos != null
                         ? mos > 0
                           ? "text-green-600"
@@ -205,22 +240,29 @@ export function CompaniesTable({
                     }`}
                   >
                     {mos != null ? `${(mos * 100).toFixed(0)}%` : "-"}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {buy && <Badge className="bg-green-600 text-white">BUY</Badge>}
-                  </TableCell>
-                </TableRow>
+                  </td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">
+                    {baseReturn != null ? `${(baseReturn * 100).toFixed(0)}%` : "-"}
+                  </td>
+                  <td className="px-2 py-1.5 text-center">
+                    {buy && (
+                      <span className="text-[10px] font-semibold text-green-600 bg-green-50 dark:bg-green-950/30 px-1.5 py-0.5 rounded">
+                        BUY
+                      </span>
+                    )}
+                  </td>
+                </tr>
               );
             })}
             {filtered.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                  No companies found. Add your first company to get started.
-                </TableCell>
-              </TableRow>
+              <tr>
+                <td colSpan={10} className="text-center py-8 text-sm text-muted-foreground">
+                  No companies found.
+                </td>
+              </tr>
             )}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
     </div>
   );
