@@ -15,6 +15,7 @@ export default async function CompanyPage({
     .from("companies")
     .select(`
       *,
+      indian_stocks(*),
       projection_models(*, financial_years(*), valuation_scenarios(*)),
       timeline_entries(*),
       segment_valuations(*),

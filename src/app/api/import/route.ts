@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { parseExcel } from "@/lib/import/excel-parser";
 import { NextResponse } from "next/server";
 
@@ -30,20 +31,52 @@ export async function POST(request: Request) {
     portfolio = data;
   }
 
+  // Use admin client to query indian_stocks (no RLS needed for lookup)
+  const adminClient = createAdminClient();
+
   let imported = 0;
   const errors: string[] = [];
 
   for (const c of companies) {
     try {
+      // Resolve ISIN from indian_stocks
+      const cleanSymbol = c.symbol?.replace(/^NSE:/i, "").trim() ?? null;
+
+      let isin: string | null = null;
+
+      // Try matching by NSE symbol first
+      if (cleanSymbol) {
+        const { data: bySymbol } = await adminClient
+          .from("indian_stocks")
+          .select("isin")
+          .ilike("nse_symbol", cleanSymbol)
+          .limit(1)
+          .single();
+        if (bySymbol) isin = bySymbol.isin;
+      }
+
+      // Fall back to name ilike match
+      if (!isin && c.name) {
+        const { data: byName } = await adminClient
+          .from("indian_stocks")
+          .select("isin")
+          .ilike("name", `%${c.name}%`)
+          .limit(1)
+          .single();
+        if (byName) isin = byName.isin;
+      }
+
+      if (!isin) {
+        errors.push(`${c.name}: Could not match to any stock in indian_stocks (symbol: ${cleanSymbol})`);
+        continue;
+      }
+
       const { data: company, error: compErr } = await supabase
         .from("companies")
         .insert({
           user_id: user.id,
           portfolio_id: portfolio!.id,
-          name: c.name,
-          symbol: c.symbol,
-          market_cap: c.market_cap != null ? Math.round(c.market_cap) : null,
-          current_price: c.current_price != null ? Math.round(c.current_price * 100) / 100 : null,
+          isin,
           buy_price: c.buy_price != null ? Math.round(c.buy_price * 100) / 100 : null,
           star_rating: c.star_rating,
           strategy: c.strategy,

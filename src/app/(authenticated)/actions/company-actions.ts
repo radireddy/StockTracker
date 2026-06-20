@@ -16,8 +16,8 @@ export async function getCompanies(portfolioId?: string) {
 
   let query = supabase
     .from("companies")
-    .select("*, projection_models(*, valuation_scenarios(*))")
-    .order("name");
+    .select("*, indian_stocks(*), projection_models(*, valuation_scenarios(*))")
+    .order("created_at");
 
   if (portfolioId) {
     query = query.eq("portfolio_id", portfolioId);
@@ -37,6 +37,7 @@ export async function getCompany(id: string) {
     .from("companies")
     .select(`
       *,
+      indian_stocks(*),
       projection_models(*, financial_years(*), valuation_scenarios(*)),
       timeline_entries(*),
       segment_valuations(*),
@@ -57,11 +58,7 @@ export async function createCompany(formData: FormData) {
   const { error } = await supabase.from("companies").insert({
     user_id: user.id,
     portfolio_id: formData.get("portfolio_id") as string,
-    name: formData.get("name") as string,
-    symbol: formData.get("symbol") as string,
-    sector: formData.get("sector") as string | null,
-    market_cap: formData.get("market_cap") ? Number(formData.get("market_cap")) : null,
-    current_price: formData.get("current_price") ? Number(formData.get("current_price")) : null,
+    isin: formData.get("isin") as string,
     buy_price: formData.get("buy_price") ? Number(formData.get("buy_price")) : null,
     star_rating: Number(formData.get("star_rating")) || 2,
     strategy: formData.get("strategy") as "core" | "satellite" | null,

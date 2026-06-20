@@ -350,11 +350,13 @@ export function ProjectionsValuationTab({
     try {
       const models = modelStates.map((ms) => {
         const strategy = getStrategy(ms.model.projection_type);
-        const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, company.market_cap);
+        const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, null);
         const terminalYear = computedYears[computedYears.length - 1] ?? null;
         const companyForCalc = {
-          ...company,
+          market_cap: null as number | null,
+          current_price: company.indian_stocks?.price ?? null,
           expected_returns: ms.expReturns,
+          investment_horizon_years: company.investment_horizon_years,
         };
         const scenarios = (["bull", "base", "bare"] as const).map((type) => ({
           scenario_type: type,
@@ -440,7 +442,7 @@ export function ProjectionsValuationTab({
           const isExpanded = expandedIds.has(ms.model.id);
 
           // Compute data for the grid (reactive to state changes)
-          const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, company.market_cap);
+          const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, null);
 
           return (
             <div key={ms.model.id} className="rounded-lg border border-border/60 overflow-hidden">
@@ -508,7 +510,12 @@ export function ProjectionsValuationTab({
                       strategy={strategy}
                       scenarioData={ms.scenarioData}
                       financialYears={computedYears}
-                      company={company}
+                      company={{
+                        market_cap: null,
+                        current_price: company.indian_stocks?.price ?? null,
+                        expected_returns: company.expected_returns,
+                        investment_horizon_years: company.investment_horizon_years,
+                      }}
                       expReturns={ms.expReturns}
                       onExpReturnsChange={(val) =>
                         handleExpReturnsChange(ms.model.id, val)

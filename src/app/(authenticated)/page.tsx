@@ -11,8 +11,8 @@ export default async function DashboardPage() {
 
   const { data: companies } = await supabase
     .from("companies")
-    .select("*, projection_models(*, valuation_scenarios(*))")
-    .order("name");
+    .select("*, indian_stocks(*), projection_models(*, valuation_scenarios(*))")
+    .order("created_at");
 
   return (
     <div className="max-w-6xl mx-auto space-y-3">

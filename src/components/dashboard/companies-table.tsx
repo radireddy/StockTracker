@@ -46,8 +46,8 @@ export function CompaniesTable({
       const q = search.toLowerCase();
       result = result.filter(
         (c) =>
-          c.name.toLowerCase().includes(q) ||
-          c.symbol?.toLowerCase().includes(q)
+          (c.indian_stocks?.name ?? "").toLowerCase().includes(q) ||
+          (c.indian_stocks?.nse_symbol ?? "").toLowerCase().includes(q)
       );
     }
     if (starFilter !== "all") {
@@ -58,21 +58,28 @@ export function CompaniesTable({
     }
     if (buyOnlyFilter) {
       result = result.filter((c) =>
-        isBuySignal(c.current_price, effectiveBuyPrice(c.buy_price, getDefaultScenarios(c)))
+        isBuySignal(c.indian_stocks?.price ?? null, effectiveBuyPrice(c.buy_price, getDefaultScenarios(c)))
       );
     }
 
     const getSortValue = (c: CompanyWithProjections): string | number | null => {
       switch (sortField) {
+        case "name":
+          return c.indian_stocks?.name ?? "";
+        case "sector":
+          return c.indian_stocks?.sector ?? "";
+        case "current_price":
+          return c.indian_stocks?.price ?? null;
         case "mos": {
           const bp = effectiveBuyPrice(c.buy_price, getDefaultScenarios(c));
-          return bp && c.current_price ? marginOfSafety(bp, c.current_price) : null;
+          const price = c.indian_stocks?.price ?? null;
+          return bp && price ? marginOfSafety(bp, price) : null;
         }
         case "irr":
           return getScenarioReturn(getDefaultScenarios(c), "base");
         case "signal": {
           const bp = effectiveBuyPrice(c.buy_price, getDefaultScenarios(c));
-          return isBuySignal(c.current_price, bp) ? 1 : 0;
+          return isBuySignal(c.indian_stocks?.price ?? null, bp) ? 1 : 0;
         }
         default:
           return c[sortField as keyof Company] as string | number | null;
@@ -183,12 +190,6 @@ export function CompaniesTable({
               </th>
               <th
                 className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
-                onClick={() => toggleSort("market_cap")}
-              >
-                MCap<SortIcon field="market_cap" />
-              </th>
-              <th
-                className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                 onClick={() => toggleSort("buy_price")}
               >
                 Buy Price<SortIcon field="buy_price" />
@@ -221,13 +222,14 @@ export function CompaniesTable({
           </thead>
           <tbody>
             {filtered.map((company, idx) => {
+              const currentPrice = company.indian_stocks?.price ?? null;
               const buyPrice = effectiveBuyPrice(company.buy_price, getDefaultScenarios(company));
               const isDefaulted = company.buy_price == null && buyPrice != null;
               const mos =
-                buyPrice && company.current_price
-                  ? marginOfSafety(buyPrice, company.current_price)
+                buyPrice && currentPrice
+                  ? marginOfSafety(buyPrice, currentPrice)
                   : null;
-              const buy = isBuySignal(company.current_price, buyPrice);
+              const buy = isBuySignal(currentPrice, buyPrice);
               const baseReturn = getScenarioReturn(getDefaultScenarios(company), "base");
 
               return (
@@ -239,10 +241,10 @@ export function CompaniesTable({
                   onClick={() => router.push(`/company/${company.id}`)}
                 >
                   <td className="px-3 py-2.5 font-medium">
-                    {company.name}
-                    {company.symbol && (
+                    {company.indian_stocks?.name ?? ""}
+                    {company.indian_stocks?.nse_symbol && (
                       <span className="ml-1.5 text-xs text-muted-foreground">
-                        {company.symbol}
+                        {company.indian_stocks.nse_symbol}
                       </span>
                     )}
                   </td>
@@ -253,16 +255,13 @@ export function CompaniesTable({
                     {company.strategy ?? "-"}
                   </td>
                   <td className="px-2 py-2.5 text-sm text-muted-foreground truncate max-w-[140px]">
-                    {company.sector ?? "-"}
-                  </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums">
-                    {company.market_cap != null ? Math.round(company.market_cap).toLocaleString("en-IN") : "-"}
+                    {company.indian_stocks?.sector ?? "-"}
                   </td>
                   <td className={`px-3 py-2.5 text-right tabular-nums ${isDefaulted ? "text-muted-foreground italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
                     {fmtPriceShort(buyPrice)}
                   </td>
                   <td className="px-3 py-2.5 text-right tabular-nums">
-                    {fmtPriceShort(company.current_price)}
+                    {fmtPriceShort(currentPrice)}
                   </td>
                   <td
                     className={`px-3 py-2.5 text-right tabular-nums font-medium ${
@@ -292,7 +291,7 @@ export function CompaniesTable({
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={10} className="text-center py-8 text-sm text-muted-foreground">
+                <td colSpan={9} className="text-center py-8 text-sm text-muted-foreground">
                   No companies found.
                 </td>
               </tr>

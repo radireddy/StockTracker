@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,13 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Save } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { updateCompany } from "@/app/(authenticated)/actions/company-actions";
 import { roundPrice } from "@/lib/utils/calculations";
 import type { Company } from "@/types/database";
 
-export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company; baseCaseBuyPrice?: number | null }) {
+export function EditCompanyDialog({ company }: { company: Company }) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -32,6 +39,7 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
         star_rating: Number(fd.get("star_rating")) || 2,
         strategy: (fd.get("strategy") as "core" | "satellite") || null,
       });
+      setOpen(false);
       router.refresh();
     } finally {
       setSaving(false);
@@ -39,10 +47,20 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
   };
 
   return (
-    <div className="max-w-2xl">
-      <div>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={<Button variant="outline" size="sm" className="gap-1.5" />}
+      >
+        <Pencil className="h-3.5 w-3.5" />
+        Edit
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Company Details</DialogTitle>
+        </DialogHeader>
+
         {/* Read-only stock info */}
-        <div className="rounded-md border border-input bg-muted/50 px-3 py-2 mb-4">
+        <div className="rounded-md border border-input bg-muted/50 px-3 py-2 mb-2">
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="font-medium">{company.indian_stocks?.name ?? "Unknown"}</span>
             {company.indian_stocks?.nse_symbol && (
@@ -56,11 +74,6 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
               {company.indian_stocks.sector}
             </p>
           )}
-          {company.indian_stocks?.price != null && (
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Current Price: ₹{roundPrice(company.indian_stocks.price).toLocaleString("en-IN")}
-            </p>
-          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -71,15 +84,9 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
                 id="edit-buy_price"
                 name="buy_price"
                 type="number"
-                step="0.01"
-                defaultValue={company.buy_price != null ? roundPrice(company.buy_price) : ""}
-                placeholder={baseCaseBuyPrice != null ? `${roundPrice(baseCaseBuyPrice)} (base case)` : undefined}
+                step="any"
+                defaultValue={company.buy_price ?? ""}
               />
-              {company.buy_price == null && baseCaseBuyPrice != null && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Defaults to base case: ₹{roundPrice(baseCaseBuyPrice).toLocaleString("en-IN")}
-                </p>
-              )}
             </div>
             <div>
               <Label htmlFor="edit-star_rating">Star Rating *</Label>
@@ -130,14 +137,20 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button type="submit" disabled={saving} size="sm" className="gap-1.5">
-              <Save className="h-3.5 w-3.5" />
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
               {saving ? "Saving..." : "Save Changes"}
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
