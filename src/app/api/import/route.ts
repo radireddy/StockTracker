@@ -2,18 +2,23 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseExcel } from "@/lib/import/excel-parser";
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger({ service: "import" });
 
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const start = Date.now();
   const formData = await request.formData();
   const file = formData.get("file") as File;
   if (!file) return NextResponse.json({ error: "No file" }, { status: 400 });
 
   const buffer = await file.arrayBuffer();
   const companies = parseExcel(buffer);
+  log.info("Excel parsed", { fileName: file.name, fileSize: file.size, companiesFound: companies.length });
 
   // Ensure default portfolio
   let { data: portfolio } = await supabase
@@ -143,10 +148,13 @@ export async function POST(request: Request) {
       }
 
       imported++;
+      log.info("Company imported", { name: c.name, isin });
     } catch (err) {
+      log.error("Company import failed", { name: c.name, symbol: c.symbol, error: (err as Error).message });
       errors.push(`${c.name}: ${(err as Error).message}`);
     }
   }
 
+  log.info("Import completed", { imported, total: companies.length, failed: errors.length, duration_ms: Date.now() - start });
   return NextResponse.json({ imported, total: companies.length, errors });
 }

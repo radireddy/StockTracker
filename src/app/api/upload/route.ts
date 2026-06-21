@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { storageRegistry } from "@/lib/providers/storage/registry";
 import { isAllowedType, getMaxSize } from "@/lib/providers/storage/types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger({ service: "upload" });
 
 export async function POST(request: NextRequest) {
   // 1. Authenticate
@@ -55,6 +58,7 @@ export async function POST(request: NextRequest) {
     const provider = storageRegistry.getActive();
     const result = await provider.upload(buffer, path, contentType);
 
+    log.info("Upload successful", { fileName: file.name, fileSize: file.size, contentType, path });
     return NextResponse.json({
       url: result.url,
       path: result.path,
@@ -63,7 +67,13 @@ export async function POST(request: NextRequest) {
       size: result.size,
     });
   } catch (err) {
-    console.error("Upload failed:", err);
+    log.error("Upload failed", {
+      error: err instanceof Error ? err.message : String(err),
+      fileName: file.name,
+      fileSize: file.size,
+      contentType,
+      companyId,
+    });
     return NextResponse.json(
       { error: "Upload failed. Please try again." },
       { status: 500 }
