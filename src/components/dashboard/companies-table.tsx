@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
 import { marginOfSafety, isBuySignal, effectiveBuyPrice, fmtPriceShort, fmtPctShort, fmtIrr } from "@/lib/utils/calculations";
+import { useLivePricesContext } from "@/components/auto-refresh";
 import type { Company, ProjectionModel, ValuationScenario } from "@/types/database";
 
 type CompanyWithProjections = Company & {
@@ -32,12 +33,18 @@ export function CompaniesTable({
   companies: CompanyWithProjections[];
 }) {
   const router = useRouter();
+  const livePrices = useLivePricesContext();
   const [search, setSearch] = useState("");
   const [starFilter, setStarFilter] = useState<string>("all");
   const [strategyFilter, setStrategyFilter] = useState<string>("all");
   const [buyOnlyFilter, setBuyOnlyFilter] = useState(false);
   const [sortField, setSortField] = useState<string>("star_rating");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const getPrice = (c: CompanyWithProjections) => {
+    const isin = c.isin;
+    return livePrices[isin]?.price ?? c.indian_stocks?.price ?? null;
+  };
 
   const filtered = useMemo(() => {
     let result = companies;
@@ -58,7 +65,7 @@ export function CompaniesTable({
     }
     if (buyOnlyFilter) {
       result = result.filter((c) =>
-        isBuySignal(c.indian_stocks?.price ?? null, effectiveBuyPrice(c.buy_price, getDefaultScenarios(c)))
+        isBuySignal(getPrice(c), effectiveBuyPrice(c.buy_price, getDefaultScenarios(c)))
       );
     }
 
@@ -69,17 +76,17 @@ export function CompaniesTable({
         case "sector":
           return c.indian_stocks?.sector ?? "";
         case "current_price":
-          return c.indian_stocks?.price ?? null;
+          return getPrice(c);
         case "mos": {
           const bp = effectiveBuyPrice(c.buy_price, getDefaultScenarios(c));
-          const price = c.indian_stocks?.price ?? null;
+          const price = getPrice(c);
           return bp && price ? marginOfSafety(bp, price) : null;
         }
         case "irr":
           return getScenarioReturn(getDefaultScenarios(c), "base");
         case "signal": {
           const bp = effectiveBuyPrice(c.buy_price, getDefaultScenarios(c));
-          return isBuySignal(c.indian_stocks?.price ?? null, bp) ? 1 : 0;
+          return isBuySignal(getPrice(c), bp) ? 1 : 0;
         }
         default:
           return c[sortField as keyof Company] as string | number | null;
@@ -97,7 +104,7 @@ export function CompaniesTable({
     });
 
     return result;
-  }, [companies, search, starFilter, strategyFilter, buyOnlyFilter, sortField, sortDir]);
+  }, [companies, search, starFilter, strategyFilter, buyOnlyFilter, sortField, sortDir, livePrices]);
 
   const toggleSort = (field: string) => {
     if (sortField === field) {
@@ -222,7 +229,7 @@ export function CompaniesTable({
           </thead>
           <tbody>
             {filtered.map((company, idx) => {
-              const currentPrice = company.indian_stocks?.price ?? null;
+              const currentPrice = getPrice(company);
               const buyPrice = effectiveBuyPrice(company.buy_price, getDefaultScenarios(company));
               const isDefaulted = company.buy_price == null && buyPrice != null;
               const mos =

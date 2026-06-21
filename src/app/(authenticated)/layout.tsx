@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/layout/app-header";
+import { LivePricesProvider } from "@/components/auto-refresh";
 
 export default async function AuthenticatedLayout({
   children,
@@ -39,7 +40,9 @@ export default async function AuthenticatedLayout({
   return (
     <div className="min-h-screen bg-background">
       <AppHeader profile={profile} />
-      <main className="px-4 md:px-8 py-4">{children}</main>
+      <LivePricesProvider>
+        <main className="px-4 md:px-8 py-4">{children}</main>
+      </LivePricesProvider>
     </div>
   );
 }

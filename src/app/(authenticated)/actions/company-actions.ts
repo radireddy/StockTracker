@@ -99,6 +99,24 @@ export async function deleteCompany(id: string) {
   revalidatePath("/");
 }
 
+export async function getLivePrices(): Promise<
+  Record<string, { price: number | null; market_cap: number | null }>
+> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("indian_stocks")
+    .select("isin, price, market_cap");
+
+  if (error) throw new Error(error.message);
+
+  const map: Record<string, { price: number | null; market_cap: number | null }> = {};
+  for (const row of data ?? []) {
+    map[row.isin] = { price: row.price, market_cap: row.market_cap };
+  }
+  return map;
+}
+
 export async function deleteAllCompanies() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
