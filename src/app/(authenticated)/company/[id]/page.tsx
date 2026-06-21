@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import { CompanyHeader } from "@/components/company/company-header";
-import { CompanyTabs } from "@/components/company/company-tabs";
+import { CompanyPageClient } from "@/components/company/company-page-client";
+import { getDefaultModelIRR } from "@/lib/utils/calculations";
 
 export default async function CompanyPage({
   params,
@@ -36,16 +36,15 @@ export default async function CompanyPage({
     }));
 
   const timelineEntries = company.timeline_entries ?? [];
-  const defaultModel = projectionModels.find((pm: any) => pm.is_default);
-  const defaultScenarios = defaultModel?.valuation_scenarios ?? [];
+  const initialBaseIrr = getDefaultModelIRR(projectionModels);
 
   return (
     <div className="max-w-6xl mx-auto">
-      <CompanyHeader company={company} scenarios={defaultScenarios} />
-      <CompanyTabs
+      <CompanyPageClient
         company={company}
         projectionModels={projectionModels}
         timelineEntries={timelineEntries}
+        initialBaseIrr={initialBaseIrr}
       />
     </div>
   );

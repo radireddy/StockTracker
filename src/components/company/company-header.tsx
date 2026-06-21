@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
-import { marginOfSafety, isBuySignal, effectiveBuyPrice, fmtPrice, fmtPct } from "@/lib/utils/calculations";
+import { marginOfSafety, isBuySignal, effectiveBuyPrice, fmtPrice, fmtIrr, fmtMarketCap } from "@/lib/utils/calculations";
 import { DeleteCompanyButton } from "@/components/dashboard/delete-company-dialogs";
-import type { Company, ValuationScenario } from "@/types/database";
+import type { Company } from "@/types/database";
 
 function MetricItem({ label, value, className, title }: { label: string; value: string; className?: string; title?: string }) {
   return (
@@ -14,12 +14,17 @@ function MetricItem({ label, value, className, title }: { label: string; value: 
 
 export function CompanyHeader({
   company,
-  scenarios,
+  baseIrr,
 }: {
   company: Company;
-  scenarios: ValuationScenario[];
+  baseIrr: number | null;
 }) {
   const currentPrice = company.indian_stocks?.price ?? null;
+  const scenarios = (() => {
+    const models = (company as any).projection_models ?? [];
+    const defaultModel = models.find((pm: any) => pm.is_default);
+    return defaultModel?.valuation_scenarios ?? [];
+  })();
   const buyPrice = effectiveBuyPrice(company.buy_price, scenarios);
   const isDefaulted = company.buy_price == null && buyPrice != null;
   const mos =
@@ -27,11 +32,6 @@ export function CompanyHeader({
       ? marginOfSafety(buyPrice, currentPrice)
       : null;
   const buy = isBuySignal(currentPrice, buyPrice);
-
-  const getIRR = (type: string) => {
-    const s = scenarios.find((v) => v.scenario_type === type);
-    return s?.irr ?? null;
-  };
 
   const mosColor = mos != null ? (mos > 0 ? "text-green-600" : mos < -0.1 ? "text-red-600" : "text-yellow-600") : "";
 
@@ -55,15 +55,16 @@ export function CompanyHeader({
       </div>
 
       {/* Metrics grid */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-x-6 gap-y-3 py-3 border-y border-border/50">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-x-6 gap-y-3 py-3 border-y border-border/50">
         <MetricItem label="Current Price" value={fmtPrice(currentPrice)} />
+        <MetricItem label="Market Cap" value={fmtMarketCap(company.indian_stocks?.market_cap ?? null)} />
         <MetricItem label="Buy Price" value={fmtPrice(buyPrice)} className={isDefaulted ? "text-muted-foreground italic" : ""} title={isDefaulted ? "Base case buy price (no manual override)" : undefined} />
         <MetricItem label="MoS" value={mos != null ? `${(mos * 100).toFixed(1)}%` : "-"} className={mosColor} />
         <MetricItem label="Star Rating" value={company.star_rating ? "★".repeat(company.star_rating) : "-"} />
         <MetricItem label="Strategy" value={company.strategy ?? "-"} />
         <MetricItem label="Sector" value={company.indian_stocks?.sector ?? "-"} />
         <MetricItem label="Horizon" value={company.investment_horizon_years ? `${company.investment_horizon_years}y` : "0y"} className="cursor-help" title="Auto-calculated from Financial Model estimates" />
-        <MetricItem label="Base IRR" value={fmtPct(getIRR("base"))} className={getIRR("base") != null && getIRR("base")! > 0 ? "text-green-600" : ""} />
+        <MetricItem label="Base IRR" value={fmtIrr(baseIrr)} className={baseIrr != null && baseIrr > 0 ? "text-green-600" : ""} />
       </div>
     </div>
   );

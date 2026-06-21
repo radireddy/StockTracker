@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ import {
   setDefaultProjectionModel,
 } from "@/app/(authenticated)/actions/projection-actions";
 import { updateCompany } from "@/app/(authenticated)/actions/company-actions";
+import { marketCapInCrores } from "@/lib/utils/calculations";
 import type { Company, ProjectionModel, FinancialYear, ProjectionType } from "@/types/database";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -152,9 +153,11 @@ function initModelState(model: ProjectionModel, company: Company): ModelState {
 export function ProjectionsValuationTab({
   company,
   projectionModels,
+  onBaseIrrChange,
 }: {
   company: Company;
   projectionModels: ProjectionModel[];
+  onBaseIrrChange?: (irr: number | null) => void;
 }) {
   const router = useRouter();
 
@@ -169,6 +172,32 @@ export function ProjectionsValuationTab({
 
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+
+  // Compute and report base IRR from default model whenever state changes
+  const computedBaseIrr = useMemo(() => {
+    const defaultMs = modelStates.find((ms) => ms.model.is_default);
+    if (!defaultMs) return null;
+
+    const strategy = getStrategy(defaultMs.model.projection_type);
+    const computedYears = strategy.computeFields(defaultMs.financialYears, defaultMs.overrides, null);
+    const terminalYear = computedYears[computedYears.length - 1] ?? null;
+    const companyForCalc = {
+      market_cap: marketCapInCrores(company.indian_stocks?.market_cap),
+      current_price: company.indian_stocks?.price ?? null,
+      expected_returns: defaultMs.expReturns,
+      investment_horizon_years: company.investment_horizon_years,
+    };
+    const derived = strategy.computeValuationDerived(
+      defaultMs.scenarioData.base,
+      terminalYear,
+      companyForCalc
+    );
+    return derived.irr ?? null;
+  }, [modelStates, company]);
+
+  useEffect(() => {
+    onBaseIrrChange?.(computedBaseIrr);
+  }, [computedBaseIrr, onBaseIrrChange]);
 
   // Available model types to add
   const availableTypes = useMemo(() => {
@@ -353,7 +382,7 @@ export function ProjectionsValuationTab({
         const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, null);
         const terminalYear = computedYears[computedYears.length - 1] ?? null;
         const companyForCalc = {
-          market_cap: null as number | null,
+          market_cap: marketCapInCrores(company.indian_stocks?.market_cap),
           current_price: company.indian_stocks?.price ?? null,
           expected_returns: ms.expReturns,
           investment_horizon_years: company.investment_horizon_years,
@@ -511,7 +540,7 @@ export function ProjectionsValuationTab({
                       scenarioData={ms.scenarioData}
                       financialYears={computedYears}
                       company={{
-                        market_cap: null,
+                        market_cap: marketCapInCrores(company.indian_stocks?.market_cap),
                         current_price: company.indian_stocks?.price ?? null,
                         expected_returns: company.expected_returns,
                         investment_horizon_years: company.investment_horizon_years,

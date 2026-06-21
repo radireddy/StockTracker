@@ -7,7 +7,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { handleGridKeyDown } from "@/lib/grid-keyboard-nav";
-import { fmtNum, fmtPct, fmtPriceShort } from "@/lib/utils/calculations";
+import { fmtNum, fmtIrr, fmtPriceShort } from "@/lib/utils/calculations";
 import type { ProjectionStrategy } from "@/lib/projections/types";
 import type { FinancialYear } from "@/types/database";
 
@@ -23,7 +23,7 @@ const SCENARIO_LABELS: Record<ScenarioType, { label: string; color: string }> = 
 
 function formatFieldValue(key: string, val: number | null): string {
   if (val == null || !isFinite(val)) return "";
-  if (key === "irr") return fmtPct(val / 100); // irr is stored as percentage number (e.g. 25.3), fmtPct expects decimal
+  if (key === "irr") return fmtIrr(val);
   if (key === "buy_price") return fmtPriceShort(val);
   if (key === "target_market_cap" || key === "buying_market_cap" || key === "expected_ev") {
     return `₹${Math.round(val).toLocaleString("en-IN")}`;
@@ -72,7 +72,7 @@ export function ValuationScenarios({
   const terminalMetricLabel = strategy.getTerminalMetricLabel();
   const terminalMetricValue = strategy.getTerminalMetricValue(terminalYear);
 
-  const curMC = company.market_cap ?? 0;
+  const curMC = company.market_cap ?? 0; // market_cap may be null in new schema
   const horizon = company.investment_horizon_years ?? 2;
 
   // Build company object with current expReturns for valuation computation

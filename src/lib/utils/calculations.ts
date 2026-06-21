@@ -77,14 +77,23 @@ export function effectiveBuyPrice(
   return companyBuyPrice ?? getBaseCaseBuyPrice(scenarios);
 }
 
+// --- Conversion helpers ---
+
+/** Convert market cap from raw rupees (DB/API) to Crores */
+export function marketCapInCrores(rawRupees: number | null | undefined): number | null {
+  if (rawRupees == null) return null;
+  return rawRupees / 1e7;
+}
+
 // --- Financial formatting ---
 
 const IN_LOCALE = "en-IN";
 
-/** Market cap in Cr — whole numbers only */
-export function fmtMarketCap(val: number | null): string {
-  if (val == null) return "-";
-  return `₹${Math.round(val).toLocaleString(IN_LOCALE)} Cr`;
+/** Market cap in Cr — accepts raw rupees from DB, converts and formats */
+export function fmtMarketCap(rawRupees: number | null): string {
+  const cr = marketCapInCrores(rawRupees);
+  if (cr == null) return "-";
+  return `₹${Math.round(cr).toLocaleString(IN_LOCALE)} Cr`;
 }
 
 /** Price in ₹ — max 2 decimals, drop trailing zeros */
@@ -109,6 +118,12 @@ export function fmtPct(val: number | null): string {
 export function fmtPctShort(val: number | null): string {
   if (val == null || !isFinite(val)) return "-";
   return `${(val * 100).toFixed(0)}%`;
+}
+
+/** Format IRR stored as percentage number (9.9 → "9.9%"). Used for valuation scenario IRR values. */
+export function fmtIrr(val: number | null): string {
+  if (val == null || !isFinite(val)) return "-";
+  return `${val.toFixed(1)}%`;
 }
 
 /** Number with Indian locale, fixed decimals */

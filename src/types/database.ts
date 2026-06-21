@@ -38,6 +38,7 @@ export interface IndianStock {
   change: number | null;
   change_pct: number | null;
   volume: number | null;
+  market_cap: number | null;
   last_updated: string | null;
   created_at: string;
 }

@@ -70,5 +70,14 @@ export async function bulkUpsertFinancialYears(
     .upsert(rows, { onConflict: "company_id,year" });
 
   if (error) throw new Error(error.message);
+
+  // Auto-update investment_horizon_years: count of estimate years (current + future FY)
+  const horizonYears = rows.filter((r) => r.is_estimate).length;
+  await supabase
+    .from("companies")
+    .update({ investment_horizon_years: Math.max(0, horizonYears) })
+    .eq("id", companyId);
+
   revalidatePath(`/company/${companyId}`);
+  revalidatePath("/");
 }
