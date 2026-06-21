@@ -6,7 +6,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
-import { marginOfSafety, isBuySignal, effectiveBuyPrice, fmtPriceShort, fmtPctShort } from "@/lib/utils/calculations";
+import { marginOfSafety, isBuySignal, effectiveBuyPrice, fmtPriceShort, fmtPctShort, fmtIrr } from "@/lib/utils/calculations";
 import type { Company, ProjectionModel, ValuationScenario } from "@/types/database";
 
 type CompanyWithProjections = Company & {
@@ -277,7 +277,7 @@ export function CompaniesTable({
                     {fmtPctShort(mos)}
                   </td>
                   <td className="px-3 py-2.5 text-right tabular-nums">
-                    {fmtPctShort(baseReturn)}
+                    {fmtIrr(baseReturn)}
                   </td>
                   <td className="px-2 py-2.5 text-center">
                     {buy && (
