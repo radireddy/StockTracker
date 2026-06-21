@@ -4,6 +4,7 @@ export interface StockQuote {
   change: number;
   changePct: number;
   volume?: number;
+  marketCap?: number;
   timestamp: Date;
 }
 

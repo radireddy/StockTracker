@@ -1,5 +1,6 @@
 import { StockPriceProvider } from "./types";
 import { ManualPriceProvider } from "./manual-provider";
+import { YahooFinanceProvider } from "./yahoo-finance-provider";
 
 class StockPriceProviderRegistry {
   private providers = new Map<string, StockPriceProvider>();
@@ -7,6 +8,8 @@ class StockPriceProviderRegistry {
 
   constructor() {
     this.register(new ManualPriceProvider());
+    this.register(new YahooFinanceProvider());
+    this.setActive("yahoo-finance");
   }
 
   register(provider: StockPriceProvider) {
