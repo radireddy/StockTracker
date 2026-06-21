@@ -63,6 +63,7 @@ export async function refreshPrices(
         change: quote.change,
         change_pct: quote.changePct,
         volume: quote.volume ?? null,
+        market_cap: quote.marketCap ?? null,
         last_updated: new Date().toISOString(),
       })
       .eq("isin", isin);

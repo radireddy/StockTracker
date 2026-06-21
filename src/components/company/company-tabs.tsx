@@ -23,10 +23,12 @@ export function CompanyTabs({
   company,
   projectionModels,
   timelineEntries,
+  onBaseIrrChange,
 }: {
   company: Company & { segment_valuations: any[]; market_perceptions: any[] };
   projectionModels: ProjectionModel[];
   timelineEntries: TimelineEntry[];
+  onBaseIrrChange?: (irr: number | null) => void;
 }) {
   const [activeTab, setActiveTab] = useState<TabId>("details");
 
@@ -56,6 +58,7 @@ export function CompanyTabs({
           <ProjectionsValuationTab
             company={company}
             projectionModels={projectionModels}
+            onBaseIrrChange={onBaseIrrChange}
           />
         )}
         {activeTab === "timeline" && (
