@@ -108,7 +108,13 @@ export async function saveAllProjections(
   if (!user) throw new Error("Unauthorized");
 
   for (const model of models) {
-    // Upsert financial years for this projection model
+    // Delete existing financial years then insert fresh set
+    // (upsert alone cannot remove deleted years)
+    await supabase
+      .from("financial_years")
+      .delete()
+      .eq("projection_model_id", model.projection_model_id);
+
     if (model.financial_years.length > 0) {
       const fyRows = model.financial_years.map((fy) => ({
         ...fy,
@@ -119,7 +125,7 @@ export async function saveAllProjections(
 
       const { error: fyError } = await supabase
         .from("financial_years")
-        .upsert(fyRows, { onConflict: "projection_model_id,year" });
+        .insert(fyRows);
 
       if (fyError) throw new Error(fyError.message);
     }
