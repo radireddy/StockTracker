@@ -36,7 +36,11 @@ export default async function CompanyPage({
     }));
 
   const timelineEntries = company.timeline_entries ?? [];
-  const initialBaseIrr = getDefaultModelIRR(projectionModels);
+  const initialBaseIrr = getDefaultModelIRR(
+    projectionModels,
+    company.indian_stocks?.market_cap,
+    company.investment_horizon_years
+  );
 
   return (
     <div className="max-w-6xl mx-auto">

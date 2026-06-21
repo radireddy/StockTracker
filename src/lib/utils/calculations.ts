@@ -62,12 +62,46 @@ export function getDefaultModelBuyPrice(
 
 /** Get default model's base case IRR */
 export function getDefaultModelIRR(
-  projectionModels: ProjectionModel[]
+  projectionModels: ProjectionModel[],
+  currentMarketCapRaw?: number | null,
+  investmentHorizon?: number | null
 ): number | null {
   const defaultModel = projectionModels.find((pm) => pm.is_default);
   if (!defaultModel?.valuation_scenarios) return null;
   const base = defaultModel.valuation_scenarios.find((s) => s.scenario_type === "base");
-  return base?.irr ?? null;
+  if (!base) return null;
+  return computeLiveIrr(base.target_market_cap, currentMarketCapRaw ?? null, investmentHorizon ?? null) ?? base.irr ?? null;
+}
+
+/** Compute IRR live from stored target_market_cap and current market data.
+ *  target_market_cap is in Cr, currentMarketCapRaw is in raw rupees from DB. */
+export function computeLiveIrr(
+  targetMarketCapCr: number | null,
+  currentMarketCapRaw: number | null,
+  horizon: number | null
+): number | null {
+  const curMCCr = marketCapInCrores(currentMarketCapRaw);
+  if (targetMarketCapCr == null || curMCCr == null || curMCCr <= 0 || horizon == null || horizon <= 0) return null;
+  const val = (Math.pow(targetMarketCapCr / curMCCr, 1 / horizon) - 1) * 100;
+  if (!isFinite(val)) return null;
+  return Math.round(val * 10) / 10;
+}
+
+/** Compute buy price live from stored target_market_cap and current market data. */
+export function computeLiveBuyPrice(
+  targetMarketCapCr: number | null,
+  currentMarketCapRaw: number | null,
+  currentPrice: number | null,
+  expectedReturnsPct: number | null,
+  horizon: number | null
+): number | null {
+  const curMCCr = marketCapInCrores(currentMarketCapRaw);
+  if (targetMarketCapCr == null || curMCCr == null || curMCCr <= 0) return null;
+  if (currentPrice == null || expectedReturnsPct == null || horizon == null) return null;
+  const buyingMC = targetMarketCapCr / Math.pow(1 + expectedReturnsPct / 100, horizon);
+  const buyPrice = buyingMC * (currentPrice / curMCCr);
+  if (!isFinite(buyPrice)) return null;
+  return Math.round(buyPrice);
 }
 
 export function effectiveBuyPrice(

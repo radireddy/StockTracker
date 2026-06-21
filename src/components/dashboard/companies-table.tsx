@@ -6,7 +6,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
-import { marginOfSafety, isBuySignal, effectiveBuyPrice, fmtPriceShort, fmtPctShort, fmtIrr } from "@/lib/utils/calculations";
+import { marginOfSafety, isBuySignal, effectiveBuyPrice, computeLiveIrr, fmtPriceShort, fmtPctShort, fmtIrr } from "@/lib/utils/calculations";
 import { useLivePricesContext } from "@/components/auto-refresh";
 import type { Company, ProjectionModel, ValuationScenario } from "@/types/database";
 
@@ -21,10 +21,13 @@ function getDefaultScenarios(company: CompanyWithProjections): ValuationScenario
 
 function getScenarioReturn(
   scenarios: ValuationScenario[],
-  type: "base" | "bare"
+  type: "base" | "bare",
+  currentMarketCapRaw: number | null,
+  horizon: number | null
 ): number | null {
   const s = scenarios.find((v) => v.scenario_type === type);
-  return s?.irr ?? null;
+  if (!s) return null;
+  return computeLiveIrr(s.target_market_cap, currentMarketCapRaw, horizon) ?? s.irr ?? null;
 }
 
 export function CompaniesTable({
@@ -42,8 +45,11 @@ export function CompaniesTable({
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const getPrice = (c: CompanyWithProjections) => {
-    const isin = c.isin;
-    return livePrices[isin]?.price ?? c.indian_stocks?.price ?? null;
+    return livePrices[c.isin]?.price ?? c.indian_stocks?.price ?? null;
+  };
+
+  const getMarketCap = (c: CompanyWithProjections) => {
+    return livePrices[c.isin]?.market_cap ?? c.indian_stocks?.market_cap ?? null;
   };
 
   const filtered = useMemo(() => {
@@ -83,7 +89,7 @@ export function CompaniesTable({
           return bp && price ? marginOfSafety(bp, price) : null;
         }
         case "irr":
-          return getScenarioReturn(getDefaultScenarios(c), "base");
+          return getScenarioReturn(getDefaultScenarios(c), "base", getMarketCap(c), c.investment_horizon_years);
         case "signal": {
           const bp = effectiveBuyPrice(c.buy_price, getDefaultScenarios(c));
           return isBuySignal(getPrice(c), bp) ? 1 : 0;
@@ -237,7 +243,7 @@ export function CompaniesTable({
                   ? marginOfSafety(buyPrice, currentPrice)
                   : null;
               const buy = isBuySignal(currentPrice, buyPrice);
-              const baseReturn = getScenarioReturn(getDefaultScenarios(company), "base");
+              const baseReturn = getScenarioReturn(getDefaultScenarios(company), "base", getMarketCap(company), company.investment_horizon_years);
 
               return (
                 <tr
