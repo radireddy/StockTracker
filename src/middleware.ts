@@ -1,9 +1,10 @@
 import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { withAxiom } from "next-axiom";
 
-export async function middleware(request: NextRequest) {
+export const middleware = withAxiom(async function middleware(request: NextRequest) {
   return await updateSession(request);
-}
+});
 
 export const config = {
   matcher: [
