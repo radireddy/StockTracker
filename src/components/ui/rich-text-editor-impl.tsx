@@ -606,7 +606,7 @@ export default function RichTextEditorImpl({
       editorInstanceRef.current = null;
       editorRef?.(null);
     },
-    editorProps: (companyId && !disableMedia) ? {
+    editorProps: companyId ? {
       handleDrop: (_view, event, _slice, moved) => {
         if (moved || !event.dataTransfer?.files.length) return false;
         const file = event.dataTransfer.files[0];
@@ -629,7 +629,7 @@ export default function RichTextEditorImpl({
         }
         return false;
       },
-    } : undefined,
+    } : {},
   });
 
   if (!editor) return null;
