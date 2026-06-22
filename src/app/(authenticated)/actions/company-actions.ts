@@ -25,7 +25,7 @@ export async function getCompanies(portfolioId?: string) {
 
   let query = supabase
     .from("companies")
-    .select("*, indian_stocks(*), projection_models(*, valuation_scenarios(*))")
+    .select("id, portfolio_id, user_id, isin, buy_price, star_rating, strategy, investment_horizon_years, expected_returns, created_at, updated_at, indian_stocks(*), projection_models(*, valuation_scenarios(*))")
     .order("created_at");
 
   if (portfolioId) {
@@ -184,6 +184,24 @@ export async function getLivePrices(): Promise<
     }
   }
   return map;
+}
+
+export async function getCompanyHighlights(id: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const { data, error } = await supabase
+    .from("companies")
+    .select("highlights")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    log.error("getCompanyHighlights failed", { error: error.message, companyId: id });
+    throw new Error(error.message);
+  }
+  return data?.highlights ?? null;
 }
 
 export async function deleteAllCompanies() {

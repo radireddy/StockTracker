@@ -575,6 +575,7 @@ export default function RichTextEditorImpl({
   }, [companyId, uploadFile]);
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit,
       Placeholder.configure({ placeholder }),

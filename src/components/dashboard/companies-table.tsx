@@ -8,7 +8,8 @@ import {
 import { useRouter } from "next/navigation";
 import { marginOfSafety, isBuySignal, effectiveBuyPrice, computeLiveIrr, fmtPriceShort, fmtPctShort, fmtIrr } from "@/lib/utils/calculations";
 import { useLivePricesContext } from "@/components/auto-refresh";
-import { FileText, X } from "lucide-react";
+import { FileText, X, Loader2 } from "lucide-react";
+import { getCompanyHighlights } from "@/app/(authenticated)/actions/company-actions";
 import type { Company, ProjectionModel, ValuationScenario } from "@/types/database";
 
 type CompanyWithProjections = Company & {
@@ -45,6 +46,27 @@ export function CompaniesTable({
   const [sortField, setSortField] = useState<string>("star_rating");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [expandedHighlights, setExpandedHighlights] = useState<string | null>(null);
+  const [highlightsCache, setHighlightsCache] = useState<Record<string, string | null>>({});
+  const [highlightsLoading, setHighlightsLoading] = useState<string | null>(null);
+
+  const toggleHighlights = async (companyId: string) => {
+    if (expandedHighlights === companyId) {
+      setExpandedHighlights(null);
+      return;
+    }
+    setExpandedHighlights(companyId);
+    if (!(companyId in highlightsCache)) {
+      setHighlightsLoading(companyId);
+      try {
+        const html = await getCompanyHighlights(companyId);
+        setHighlightsCache((prev) => ({ ...prev, [companyId]: html }));
+      } catch {
+        setHighlightsCache((prev) => ({ ...prev, [companyId]: null }));
+      } finally {
+        setHighlightsLoading(null);
+      }
+    }
+  };
 
   const getPrice = (c: CompanyWithProjections) => {
     return livePrices[c.isin]?.price ?? c.indian_stocks?.price ?? null;
@@ -234,7 +256,7 @@ export function CompaniesTable({
                 Signal<SortIcon field="signal" />
               </th>
               <th className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2.5 text-sm font-medium text-muted-foreground">
-                Notes
+                Highlights
               </th>
             </tr>
           </thead>
@@ -306,33 +328,40 @@ export function CompaniesTable({
                     )}
                   </td>
                   <td className="px-2 py-2.5 text-center">
-                    {company.highlights && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setExpandedHighlights(
-                            expandedHighlights === company.id ? null : company.id
-                          );
-                        }}
-                        className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-                        title="View highlights"
-                      >
-                        {expandedHighlights === company.id ? (
-                          <X size={14} />
-                        ) : (
-                          <FileText size={14} />
-                        )}
-                      </button>
-                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleHighlights(company.id);
+                      }}
+                      className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                      title="View highlights"
+                    >
+                      {highlightsLoading === company.id ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : expandedHighlights === company.id ? (
+                        <X size={14} />
+                      ) : (
+                        <FileText size={14} />
+                      )}
+                    </button>
                   </td>
                 </tr>
-                {expandedHighlights === company.id && company.highlights && (
+                {expandedHighlights === company.id && (
                   <tr className={idx % 2 === 0 ? "" : "bg-muted/15"}>
                     <td colSpan={10} className="px-4 py-3 border-b border-border/20">
-                      <div
-                        className="prose prose-sm max-w-none text-sm text-foreground prose-headings:text-foreground prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5"
-                        dangerouslySetInnerHTML={{ __html: company.highlights }}
-                      />
+                      {highlightsLoading === company.id ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 size={14} className="animate-spin" />
+                          Loading...
+                        </div>
+                      ) : highlightsCache[company.id] ? (
+                        <div
+                          className="prose prose-sm max-w-none text-sm text-foreground prose-headings:text-foreground prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5"
+                          dangerouslySetInnerHTML={{ __html: highlightsCache[company.id]! }}
+                        />
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No highlights yet.</p>
+                      )}
                     </td>
                   </tr>
                 )}
