@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { IndianStock } from "@/types/database";
+import { createLogger } from "@/lib/logger";
+const log = createLogger({ service: "stock-actions" });
 
 export async function searchStocks(query: string): Promise<IndianStock[]> {
   const supabase = await createClient();
@@ -19,7 +21,10 @@ export async function searchStocks(query: string): Promise<IndianStock[]> {
     .order("name")
     .limit(20);
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("searchStocks failed", { error: error.message, query: q });
+    throw new Error(error.message);
+  }
   return data ?? [];
 }
 
@@ -34,6 +39,9 @@ export async function getStockByIsin(isin: string): Promise<IndianStock | null> 
     .eq("isin", isin)
     .single();
 
-  if (error) return null;
+  if (error) {
+    log.error("getStockByIsin failed", { error: error.message, isin });
+    return null;
+  }
   return data;
 }

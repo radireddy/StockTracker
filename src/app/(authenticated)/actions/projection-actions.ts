@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { ProjectionType } from "@/types/database";
+import { createLogger } from "@/lib/logger";
+const log = createLogger({ service: "projection-actions" });
 
 export async function createProjectionModel(
   companyId: string,
@@ -35,8 +37,12 @@ export async function createProjectionModel(
     .select()
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("createProjectionModel failed", { error: error.message, companyId, projectionType });
+    throw new Error(error.message);
+  }
   revalidatePath(`/company/${companyId}`);
+  log.info("Projection model created", { companyId, projectionType, isDefault });
   return data;
 }
 
@@ -55,8 +61,12 @@ export async function deleteProjectionModel(
     .eq("id", projectionModelId)
     .single();
 
-  if (fetchError) throw new Error(fetchError.message);
+  if (fetchError) {
+    log.error("deleteProjectionModel fetch failed", { error: fetchError.message, projectionModelId });
+    throw new Error(fetchError.message);
+  }
   if (model?.is_default) {
+    log.warn("Attempted to delete default projection model", { projectionModelId, companyId });
     throw new Error("Cannot delete the default projection model");
   }
 
@@ -65,8 +75,12 @@ export async function deleteProjectionModel(
     .delete()
     .eq("id", projectionModelId);
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("deleteProjectionModel failed", { error: error.message, projectionModelId, companyId });
+    throw new Error(error.message);
+  }
   revalidatePath(`/company/${companyId}`);
+  log.info("Projection model deleted", { projectionModelId, companyId });
 }
 
 export async function setDefaultProjectionModel(
@@ -90,9 +104,13 @@ export async function setDefaultProjectionModel(
     .update({ is_default: true })
     .eq("id", projectionModelId);
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("setDefaultProjectionModel failed", { error: error.message, companyId, projectionModelId });
+    throw new Error(error.message);
+  }
   revalidatePath(`/company/${companyId}`);
   revalidatePath("/");
+  log.info("Default projection model set", { companyId, projectionModelId });
 }
 
 export async function saveAllProjections(
@@ -121,7 +139,10 @@ export async function saveAllProjections(
         .from("financial_years")
         .upsert(fyRows, { onConflict: "projection_model_id,year" });
 
-      if (fyError) throw new Error(fyError.message);
+      if (fyError) {
+        log.error("saveAllProjections financial years failed", { error: fyError.message, companyId, projectionModelId: model.projection_model_id });
+        throw new Error(fyError.message);
+      }
     }
 
     // Upsert valuation scenarios for this projection model
@@ -137,7 +158,10 @@ export async function saveAllProjections(
         .from("valuation_scenarios")
         .upsert(vsRows, { onConflict: "projection_model_id,scenario_type" });
 
-      if (vsError) throw new Error(vsError.message);
+      if (vsError) {
+        log.error("saveAllProjections valuation scenarios failed", { error: vsError.message, companyId, projectionModelId: model.projection_model_id });
+        throw new Error(vsError.message);
+      }
     }
   }
 
@@ -164,4 +188,5 @@ export async function saveAllProjections(
 
   revalidatePath(`/company/${companyId}`);
   revalidatePath("/");
+  log.info("All projections saved", { companyId, modelCount: models.length });
 }

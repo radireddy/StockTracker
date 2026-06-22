@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isIndianTradingHours } from "@/lib/services/price-refresh";
 import { YahooFinanceProvider } from "@/lib/providers/stock-price/yahoo-finance-provider";
 import { revalidatePath } from "next/cache";
+import { createLogger } from "@/lib/logger";
+const log = createLogger({ service: "price-actions" });
 
 const provider = new YahooFinanceProvider();
 
@@ -12,6 +14,8 @@ export async function manualRefreshPrices() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
+
+  const start = Date.now();
 
   // Get symbols from user's companies joined with indian_stocks (RLS scoped)
   const { data: companies, error } = await supabase
@@ -65,7 +69,7 @@ export async function manualRefreshPrices() {
       .eq("isin", isin);
 
     if (updateError) {
-      console.error(`Failed to update ${symbol}:`, updateError);
+      log.error("Failed to update stock price", { symbol, isin, error: updateError.message });
       failed.push(symbol);
     } else {
       updated++;
@@ -73,6 +77,8 @@ export async function manualRefreshPrices() {
   }
 
   revalidatePath("/");
+
+  log.info("Manual price refresh completed", { updated, failed, totalSymbols: symbols.length, duration_ms: Date.now() - start });
 
   return {
     updated,
