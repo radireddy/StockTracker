@@ -24,6 +24,7 @@ export function HighlightsSection({ company }: { company: Company }) {
         minHeight="100px"
         onChange={(html) => { htmlRef.current = html; }}
         companyId={company.id}
+        disableMedia
       />
       <Button size="sm" onClick={handleSave} disabled={saving}>
         {saving ? "Saving..." : "Save Highlights"}

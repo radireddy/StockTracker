@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -8,6 +8,7 @@ import {
 import { useRouter } from "next/navigation";
 import { marginOfSafety, isBuySignal, effectiveBuyPrice, computeLiveIrr, fmtPriceShort, fmtPctShort, fmtIrr } from "@/lib/utils/calculations";
 import { useLivePricesContext } from "@/components/auto-refresh";
+import { FileText, X } from "lucide-react";
 import type { Company, ProjectionModel, ValuationScenario } from "@/types/database";
 
 type CompanyWithProjections = Company & {
@@ -43,6 +44,7 @@ export function CompaniesTable({
   const [buyOnlyFilter, setBuyOnlyFilter] = useState(false);
   const [sortField, setSortField] = useState<string>("star_rating");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [expandedHighlights, setExpandedHighlights] = useState<string | null>(null);
 
   const getPrice = (c: CompanyWithProjections) => {
     return livePrices[c.isin]?.price ?? c.indian_stocks?.price ?? null;
@@ -79,8 +81,6 @@ export function CompaniesTable({
       switch (sortField) {
         case "name":
           return c.indian_stocks?.name ?? "";
-        case "sector":
-          return c.indian_stocks?.sector ?? "";
         case "current_price":
           return getPrice(c);
         case "mos": {
@@ -198,12 +198,6 @@ export function CompaniesTable({
                 Strategy<SortIcon field="strategy" />
               </th>
               <th
-                className="sticky top-0 z-10 bg-muted/30 text-left px-2 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
-                onClick={() => toggleSort("sector")}
-              >
-                Sector<SortIcon field="sector" />
-              </th>
-              <th
                 className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                 onClick={() => toggleSort("buy_price")}
               >
@@ -239,6 +233,9 @@ export function CompaniesTable({
               >
                 Signal<SortIcon field="signal" />
               </th>
+              <th className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2.5 text-sm font-medium text-muted-foreground">
+                Notes
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -255,8 +252,8 @@ export function CompaniesTable({
               const bareReturn = getScenarioReturn(getDefaultScenarios(company), "bare", getMarketCap(company), company.investment_horizon_years);
 
               return (
+                <Fragment key={company.id}>
                 <tr
-                  key={company.id}
                   className={`cursor-pointer border-b border-border/20 hover:bg-muted/40 transition-colors ${
                     idx % 2 === 0 ? "" : "bg-muted/15"
                   }`}
@@ -275,9 +272,6 @@ export function CompaniesTable({
                   </td>
                   <td className="px-2 py-2.5 text-center text-sm capitalize text-muted-foreground">
                     {company.strategy ?? "-"}
-                  </td>
-                  <td className="px-2 py-2.5 text-sm text-muted-foreground truncate max-w-[140px]">
-                    {company.indian_stocks?.sector ?? "-"}
                   </td>
                   <td className={`px-3 py-2.5 text-right tabular-nums ${isDefaulted ? "text-muted-foreground italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
                     {fmtPriceShort(buyPrice)}
@@ -311,7 +305,38 @@ export function CompaniesTable({
                       </span>
                     )}
                   </td>
+                  <td className="px-2 py-2.5 text-center">
+                    {company.highlights && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedHighlights(
+                            expandedHighlights === company.id ? null : company.id
+                          );
+                        }}
+                        className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                        title="View highlights"
+                      >
+                        {expandedHighlights === company.id ? (
+                          <X size={14} />
+                        ) : (
+                          <FileText size={14} />
+                        )}
+                      </button>
+                    )}
+                  </td>
                 </tr>
+                {expandedHighlights === company.id && company.highlights && (
+                  <tr className={idx % 2 === 0 ? "" : "bg-muted/15"}>
+                    <td colSpan={10} className="px-4 py-3 border-b border-border/20">
+                      <div
+                        className="prose prose-sm max-w-none text-sm text-foreground prose-headings:text-foreground prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5"
+                        dangerouslySetInnerHTML={{ __html: company.highlights }}
+                      />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               );
             })}
             {filtered.length === 0 && (

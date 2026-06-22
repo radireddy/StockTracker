@@ -94,6 +94,7 @@ export interface RichTextEditorProps {
   onChange?: (html: string) => void;
   editorRef?: (editor: Editor | null) => void;
   companyId?: string;
+  disableMedia?: boolean;
 }
 
 const FONT_SIZES = ["12px", "14px", "16px", "18px", "20px", "24px", "28px", "32px"];
@@ -295,12 +296,13 @@ function TableMenu({ editor }: { editor: Editor }) {
   );
 }
 
-function Toolbar({ editor, companyId, uploading, fileInputRef, pdfInputRef }: {
+function Toolbar({ editor, companyId, uploading, fileInputRef, pdfInputRef, disableMedia }: {
   editor: Editor;
   companyId?: string;
   uploading: boolean;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   pdfInputRef: React.RefObject<HTMLInputElement | null>;
+  disableMedia?: boolean;
 }) {
   const iconSize = 15;
 
@@ -486,13 +488,17 @@ function Toolbar({ editor, companyId, uploading, fileInputRef, pdfInputRef }: {
           <Unlink size={iconSize} />
         </ToolbarButton>
       )}
-      <ToolbarButton onClick={addImage} title="Insert Image" disabled={uploading}>
-        {uploading ? <Loader2 size={iconSize} className="animate-spin" /> : <ImagePlus size={iconSize} />}
-      </ToolbarButton>
-      {companyId && (
-        <ToolbarButton onClick={() => pdfInputRef.current?.click()} title="Attach PDF" disabled={uploading}>
-          <Paperclip size={iconSize} />
-        </ToolbarButton>
+      {!disableMedia && (
+        <>
+          <ToolbarButton onClick={addImage} title="Insert Image" disabled={uploading}>
+            {uploading ? <Loader2 size={iconSize} className="animate-spin" /> : <ImagePlus size={iconSize} />}
+          </ToolbarButton>
+          {companyId && (
+            <ToolbarButton onClick={() => pdfInputRef.current?.click()} title="Attach PDF" disabled={uploading}>
+              <Paperclip size={iconSize} />
+            </ToolbarButton>
+          )}
+        </>
       )}
 
       {/* Table */}
@@ -526,6 +532,7 @@ export default function RichTextEditorImpl({
   onChange,
   editorRef,
   companyId,
+  disableMedia,
 }: RichTextEditorProps) {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -598,7 +605,7 @@ export default function RichTextEditorImpl({
       editorInstanceRef.current = null;
       editorRef?.(null);
     },
-    editorProps: companyId ? {
+    editorProps: (companyId && !disableMedia) ? {
       handleDrop: (_view, event, _slice, moved) => {
         if (moved || !event.dataTransfer?.files.length) return false;
         const file = event.dataTransfer.files[0];
@@ -634,6 +641,7 @@ export default function RichTextEditorImpl({
         uploading={uploading}
         fileInputRef={fileInputRef}
         pdfInputRef={pdfInputRef}
+        disableMedia={disableMedia}
       />
       {uploading && (
         <div className="px-3 py-1.5 bg-muted/50 border-b border-border/50 flex items-center gap-2 text-xs text-muted-foreground">
