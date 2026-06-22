@@ -168,8 +168,8 @@ export async function getLivePrices(): Promise<
   }
 
   const { data, error } = await supabase
-    .from("indian_stocks")
-    .select("isin, price, market_cap");
+    .from("companies")
+    .select("isin, indian_stocks(isin, price, market_cap)");
 
   if (error) {
     log.error("getLivePrices failed", { error: error.message });
@@ -178,7 +178,10 @@ export async function getLivePrices(): Promise<
 
   const map: Record<string, { price: number | null; market_cap: number | null }> = {};
   for (const row of data ?? []) {
-    map[row.isin] = { price: row.price, market_cap: row.market_cap };
+    const stock = row.indian_stocks as unknown as { isin: string; price: number | null; market_cap: number | null } | null;
+    if (stock) {
+      map[stock.isin] = { price: stock.price, market_cap: stock.market_cap };
+    }
   }
   return map;
 }
