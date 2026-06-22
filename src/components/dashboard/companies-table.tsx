@@ -199,18 +199,7 @@ export function CompaniesTable({
       {/* Dense table */}
       <div className="border border-border/60 overflow-auto">
         <table className="w-full text-sm border-collapse table-fixed">
-          <colgroup>
-            <col className="w-[22%]" />  {/* Company */}
-            <col className="w-[6%]" />   {/* Star */}
-            <col className="w-[8%]" />   {/* Strategy */}
-            <col className="w-[10%]" />  {/* Buy Price */}
-            <col className="w-[9%]" />   {/* CMP */}
-            <col className="w-[8%]" />   {/* MoS% */}
-            <col className="w-[11%]" />  {/* Base CAGR */}
-            <col className="w-[11%]" />  {/* Bare CAGR */}
-            <col className="w-[8%]" />   {/* Signal */}
-            <col className="w-[7%]" />   {/* Highlights */}
-          </colgroup>
+          <colgroup><col className="w-[22%]" /><col className="w-[6%]" /><col className="w-[8%]" /><col className="w-[10%]" /><col className="w-[9%]" /><col className="w-[8%]" /><col className="w-[11%]" /><col className="w-[11%]" /><col className="w-[8%]" /><col className="w-[7%]" /></colgroup>
           <thead>
             <tr className="border-b-2 border-border/40 bg-muted/30">
               <th
