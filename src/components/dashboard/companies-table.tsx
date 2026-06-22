@@ -88,8 +88,10 @@ export function CompaniesTable({
           const price = getPrice(c);
           return bp && price ? marginOfSafety(bp, price) : null;
         }
-        case "irr":
+        case "base_cagr":
           return getScenarioReturn(getDefaultScenarios(c), "base", getMarketCap(c), c.investment_horizon_years);
+        case "bare_cagr":
+          return getScenarioReturn(getDefaultScenarios(c), "bare", getMarketCap(c), c.investment_horizon_years);
         case "signal": {
           const bp = effectiveBuyPrice(c.buy_price, getDefaultScenarios(c));
           return isBuySignal(getPrice(c), bp) ? 1 : 0;
@@ -221,9 +223,15 @@ export function CompaniesTable({
               </th>
               <th
                 className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
-                onClick={() => toggleSort("irr")}
+                onClick={() => toggleSort("base_cagr")}
               >
-                IRR<SortIcon field="irr" />
+                Base CAGR<SortIcon field="base_cagr" />
+              </th>
+              <th
+                className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                onClick={() => toggleSort("bare_cagr")}
+              >
+                Bare CAGR<SortIcon field="bare_cagr" />
               </th>
               <th
                 className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
@@ -244,6 +252,7 @@ export function CompaniesTable({
                   : null;
               const buy = isBuySignal(currentPrice, buyPrice);
               const baseReturn = getScenarioReturn(getDefaultScenarios(company), "base", getMarketCap(company), company.investment_horizon_years);
+              const bareReturn = getScenarioReturn(getDefaultScenarios(company), "bare", getMarketCap(company), company.investment_horizon_years);
 
               return (
                 <tr
@@ -292,6 +301,9 @@ export function CompaniesTable({
                   <td className="px-3 py-2.5 text-right tabular-nums">
                     {fmtIrr(baseReturn)}
                   </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">
+                    {fmtIrr(bareReturn)}
+                  </td>
                   <td className="px-2 py-2.5 text-center">
                     {buy && (
                       <span className="text-xs font-semibold text-green-600 bg-green-50 dark:bg-green-950/30 px-1.5 py-0.5 rounded">
@@ -304,7 +316,7 @@ export function CompaniesTable({
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={9} className="text-center py-8 text-sm text-muted-foreground">
+                <td colSpan={10} className="text-center py-8 text-sm text-muted-foreground">
                   No companies found.
                 </td>
               </tr>
