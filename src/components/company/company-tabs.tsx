@@ -53,28 +53,28 @@ export function CompanyTabs({
       </nav>
 
       <div className="py-6">
-        {activeTab === "details" && (
+        <div className={activeTab === "details" ? undefined : "hidden"}>
           <EditCompanyTab
             company={company}
             baseCaseBuyPrice={getDefaultModelBuyPrice(projectionModels)}
           />
-        )}
-        {activeTab === "thesis" && (
+        </div>
+        <div className={activeTab === "thesis" ? undefined : "hidden"}>
           <ThesisTab company={company} />
-        )}
-        {activeTab === "projections" && (
+        </div>
+        <div className={activeTab === "projections" ? undefined : "hidden"}>
           <ProjectionsValuationTab
             company={company}
             projectionModels={projectionModels}
             onBaseIrrChange={onBaseIrrChange}
           />
-        )}
-        {activeTab === "timeline" && (
+        </div>
+        <div className={activeTab === "timeline" ? undefined : "hidden"}>
           <TimelineTab companyId={company.id} entries={timelineEntries} />
-        )}
-        {activeTab === "highlights" && (
+        </div>
+        <div className={activeTab === "highlights" ? undefined : "hidden"}>
           <HighlightsSection company={company} />
-        )}
+        </div>
       </div>
     </div>
   );
