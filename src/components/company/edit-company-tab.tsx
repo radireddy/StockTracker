@@ -21,6 +21,8 @@ import type { Company } from "@/types/database";
 export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company; baseCaseBuyPrice?: number | null }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [starRating, setStarRating] = useState(String(company.star_rating ?? 2));
+  const [strategy, setStrategy] = useState(company.strategy ?? "");
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -29,8 +31,8 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
     try {
       await updateCompany(company.id, {
         buy_price: fd.get("buy_price") ? roundPrice(Number(fd.get("buy_price"))) : null,
-        star_rating: Number(fd.get("star_rating")) || 2,
-        strategy: (fd.get("strategy") as "core" | "satellite") || null,
+        star_rating: Number(starRating) || 2,
+        strategy: (strategy as "core" | "satellite") || null,
       });
       router.refresh();
     } finally {
@@ -84,8 +86,8 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
             <div>
               <Label htmlFor="edit-star_rating">Star Rating *</Label>
               <Select
-                name="star_rating"
-                defaultValue={String(company.star_rating ?? 2)}
+                value={starRating}
+                onValueChange={(v) => setStarRating(v ?? "2")}
                 required
               >
                 <SelectTrigger>
@@ -103,8 +105,8 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
             <div>
               <Label htmlFor="edit-strategy">Strategy</Label>
               <Select
-                name="strategy"
-                defaultValue={company.strategy ?? ""}
+                value={strategy}
+                onValueChange={(v) => setStrategy(v ?? "")}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select" />
