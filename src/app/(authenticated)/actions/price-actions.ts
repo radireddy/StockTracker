@@ -10,6 +10,47 @@ const log = createLogger({ service: "price-actions" });
 
 const provider = new YahooFinanceProvider();
 
+export async function fetchStockPrice(isin: string) {
+  const adminClient = createAdminClient();
+
+  const { data: stock } = await adminClient
+    .from("indian_stocks")
+    .select("isin, nse_symbol, bse_code, price")
+    .eq("isin", isin)
+    .single();
+
+  if (!stock) return;
+
+  // Already has a price — skip
+  if (stock.price != null) return;
+
+  const symbol = stock.nse_symbol || stock.bse_code;
+  if (!symbol) return;
+
+  try {
+    const quote = await provider.fetchQuote(symbol);
+    await adminClient
+      .from("indian_stocks")
+      .update({
+        price: quote.price,
+        change: quote.change,
+        change_pct: quote.changePct,
+        volume: quote.volume ?? null,
+        market_cap: quote.marketCap ?? null,
+        last_updated: new Date().toISOString(),
+      })
+      .eq("isin", isin);
+
+    log.info("Fetched initial price for stock", { isin, symbol, price: quote.price });
+  } catch (err) {
+    log.error("Failed to fetch initial price", {
+      isin,
+      symbol,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 export async function manualRefreshPrices() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

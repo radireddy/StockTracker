@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { refreshPrices, isIndianTradingHours } from "@/lib/services/price-refresh";
+import { fetchStockPrice } from "@/app/(authenticated)/actions/price-actions";
 import { revalidatePath } from "next/cache";
 import DOMPurify from "isomorphic-dompurify";
 import { createLogger } from "@/lib/logger";
@@ -85,8 +86,12 @@ export async function createCompany(formData: FormData) {
     log.error("createCompany failed", { error: error.message });
     throw new Error(error.message);
   }
+
+  const isin = formData.get("isin") as string;
+  await fetchStockPrice(isin);
+
   revalidatePath("/");
-  log.info("Company created");
+  log.info("Company created", { isin });
 }
 
 export async function updateCompany(id: string, data: Record<string, unknown>) {
