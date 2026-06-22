@@ -1,11 +1,16 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { refreshPrices, isIndianTradingHours } from "@/lib/services/price-refresh";
 import { revalidatePath } from "next/cache";
 import DOMPurify from "isomorphic-dompurify";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger({ service: "company-actions" });
+
+const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+let refreshInProgress = false;
 
 function sanitizeHtml(html: string | null): string | null {
   if (!html) return null;
@@ -124,6 +129,38 @@ export async function getLivePrices(): Promise<
   Record<string, { price: number | null; market_cap: number | null }>
 > {
   const supabase = await createClient();
+
+  // Check if prices are stale and trigger background refresh
+  if (isIndianTradingHours() && !refreshInProgress) {
+    const { data: staleness } = await supabase
+      .from("indian_stocks")
+      .select("last_updated")
+      .order("last_updated", { ascending: true })
+      .limit(1)
+      .single();
+
+    const lastUpdated = staleness?.last_updated
+      ? new Date(staleness.last_updated).getTime()
+      : 0;
+    const isStale = Date.now() - lastUpdated > STALE_THRESHOLD_MS;
+
+    if (isStale) {
+      refreshInProgress = true;
+      const adminClient = createAdminClient();
+      refreshPrices(adminClient)
+        .then((result) => {
+          log.info("Auto-refresh completed", result);
+        })
+        .catch((err) => {
+          log.error("Auto-refresh failed", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        })
+        .finally(() => {
+          refreshInProgress = false;
+        });
+    }
+  }
 
   const { data, error } = await supabase
     .from("indian_stocks")
