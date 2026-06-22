@@ -1,5 +1,8 @@
 import YahooFinance from "yahoo-finance2";
 import type { StockPriceProvider, StockQuote } from "./types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger({ service: "stock-price", provider: "yahoo-finance" });
 
 const BATCH_SIZE = 8;
 
@@ -48,13 +51,13 @@ export class YahooFinanceProvider implements StockPriceProvider {
           }
         }
       } catch (error) {
-        console.warn(`Yahoo Finance: batch fetch failed, falling back to individual:`, error);
+        log.warn("Batch fetch failed, falling back to individual", { batchSize: batch.length, error: error instanceof Error ? error.message : String(error) });
         for (const symbol of batch) {
           try {
             const quote = await this.fetchQuote(symbol);
             results.set(symbol, quote);
           } catch (e) {
-            console.warn(`Yahoo Finance: failed to fetch ${symbol}:`, e);
+            log.warn("Individual fetch failed", { symbol, error: e instanceof Error ? e.message : String(e) });
           }
         }
       }
@@ -63,6 +66,8 @@ export class YahooFinanceProvider implements StockPriceProvider {
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
+
+    log.info("Bulk quotes fetched", { requested: symbols.length, received: results.size });
 
     return results;
   }

@@ -1,5 +1,8 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { YahooFinanceProvider } from "@/lib/providers/stock-price/yahoo-finance-provider";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger({ service: "price-refresh" });
 
 const provider = new YahooFinanceProvider();
 
@@ -43,6 +46,8 @@ export async function refreshPrices(
     return { updated: 0, failed: [], totalSymbols: 0 };
   }
 
+  log.info("Price refresh started", { totalSymbols: uniqueSymbols.length });
+
   const quotes = await provider.fetchBulkQuotes(uniqueSymbols);
 
   let updated = 0;
@@ -69,12 +74,14 @@ export async function refreshPrices(
       .eq("isin", isin);
 
     if (updateError) {
-      console.error(`Failed to update indian_stocks for ${symbol} (${isin}):`, updateError);
+      log.error("Failed to update stock", { symbol, isin, error: updateError.message });
       failed.push(symbol);
     } else {
       updated++;
     }
   }
+
+  log.info("Price refresh completed", { updated, failed: failed.length, totalSymbols: uniqueSymbols.length });
 
   return { updated, failed, totalSymbols: uniqueSymbols.length };
 }

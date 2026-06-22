@@ -1,4 +1,7 @@
 import type { StockPriceProvider, StockQuote } from "./types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger({ service: "stock-price", provider: "twelve-data" });
 
 const TWELVE_DATA_BASE_URL = "https://api.twelvedata.com";
 const BATCH_SIZE = 8; // Twelve Data free tier: 8 symbols per request
@@ -36,7 +39,7 @@ export class TwelveDataProvider implements StockPriceProvider {
 
       const response = await fetch(url);
       if (!response.ok) {
-        console.error(`Twelve Data API error: ${response.status} ${response.statusText}`);
+        log.error("API request failed", { status: response.status, statusText: response.statusText, batchSize: batch.length });
         continue;
       }
 
@@ -65,6 +68,8 @@ export class TwelveDataProvider implements StockPriceProvider {
       }
     }
 
+    log.info("Bulk quotes fetched", { requested: symbols.length, received: results.size });
+
     return results;
   }
 
@@ -74,7 +79,7 @@ export class TwelveDataProvider implements StockPriceProvider {
 
   private parseQuote(originalSymbol: string, data: Record<string, unknown>): StockQuote | null {
     if (data.status === "error" || !data.close) {
-      console.warn(`Twelve Data: no data for ${originalSymbol}`, data);
+      log.warn("No data for symbol", { symbol: originalSymbol });
       return null;
     }
 
