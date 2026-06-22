@@ -126,7 +126,17 @@ export async function saveAllProjections(
   if (!user) throw new Error("Unauthorized");
 
   for (const model of models) {
-    // Upsert financial years for this projection model
+    // Delete existing financial years then insert current ones
+    const { error: delFyError } = await supabase
+      .from("financial_years")
+      .delete()
+      .eq("projection_model_id", model.projection_model_id);
+
+    if (delFyError) {
+      log.error("saveAllProjections delete financial years failed", { error: delFyError.message, companyId, projectionModelId: model.projection_model_id });
+      throw new Error(delFyError.message);
+    }
+
     if (model.financial_years.length > 0) {
       const fyRows = model.financial_years.map((fy) => ({
         ...fy,
@@ -137,7 +147,7 @@ export async function saveAllProjections(
 
       const { error: fyError } = await supabase
         .from("financial_years")
-        .upsert(fyRows, { onConflict: "projection_model_id,year" });
+        .insert(fyRows);
 
       if (fyError) {
         log.error("saveAllProjections financial years failed", { error: fyError.message, companyId, projectionModelId: model.projection_model_id });

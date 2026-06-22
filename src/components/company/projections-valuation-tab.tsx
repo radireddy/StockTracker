@@ -77,10 +77,11 @@ function getCurrentFYNum(): number {
     : now.getFullYear() % 100;
 }
 
-function generateDefaultYears(companyId: string, projectionModelId: string): FinancialYear[] {
+function generateDefaultYears(companyId: string, projectionModelId: string, horizonYears: number): FinancialYear[] {
   const currentFY = getCurrentFYNum();
   const prevFY = currentFY - 1;
-  return Array.from({ length: 4 }, (_, i) => {
+  const columnCount = 1 + horizonYears; // 1 actual + horizon projected
+  return Array.from({ length: columnCount }, (_, i) => {
     const fyNum = prevFY + i;
     const isEst = i > 0;
     return {
@@ -116,7 +117,7 @@ function initModelState(model: ProjectionModel, company: Company): ModelState {
   if (rawYears.length > 0) {
     financialYears = normalizeFinancialYears(rawYears);
   } else {
-    financialYears = generateDefaultYears(company.id, model.id);
+    financialYears = generateDefaultYears(company.id, model.id, company.investment_horizon_years ?? 3);
   }
 
   // Build overrides set from existing auto fields that have values
