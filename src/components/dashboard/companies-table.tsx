@@ -198,7 +198,19 @@ export function CompaniesTable({
 
       {/* Dense table */}
       <div className="border border-border/60 overflow-auto">
-        <table className="w-full text-sm border-collapse">
+        <table className="w-full text-sm border-collapse table-fixed">
+          <colgroup>
+            <col className="w-[22%]" />  {/* Company */}
+            <col className="w-[6%]" />   {/* Star */}
+            <col className="w-[8%]" />   {/* Strategy */}
+            <col className="w-[10%]" />  {/* Buy Price */}
+            <col className="w-[9%]" />   {/* CMP */}
+            <col className="w-[8%]" />   {/* MoS% */}
+            <col className="w-[11%]" />  {/* Base CAGR */}
+            <col className="w-[11%]" />  {/* Bare CAGR */}
+            <col className="w-[8%]" />   {/* Signal */}
+            <col className="w-[7%]" />   {/* Highlights */}
+          </colgroup>
           <thead>
             <tr className="border-b-2 border-border/40 bg-muted/30">
               <th
@@ -346,25 +358,34 @@ export function CompaniesTable({
                     </button>
                   </td>
                 </tr>
-                {expandedHighlights === company.id && (
-                  <tr className={idx % 2 === 0 ? "" : "bg-muted/15"}>
-                    <td colSpan={10} className="px-4 py-3 border-b border-border/20">
-                      {highlightsLoading === company.id ? (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Loader2 size={14} className="animate-spin" />
-                          Loading...
-                        </div>
-                      ) : highlightsCache[company.id] ? (
-                        <div
-                          className="prose prose-sm max-w-none text-sm text-foreground prose-headings:text-foreground prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5"
-                          dangerouslySetInnerHTML={{ __html: highlightsCache[company.id]! }}
-                        />
-                      ) : (
-                        <p className="text-sm text-muted-foreground">No highlights yet.</p>
-                      )}
-                    </td>
-                  </tr>
-                )}
+                <tr className={idx % 2 === 0 ? "" : "bg-muted/15"}>
+                  <td colSpan={10} className="p-0 border-b border-border/20">
+                    <div
+                      className="grid transition-[grid-template-rows] duration-250 ease-out"
+                      style={{ gridTemplateRows: expandedHighlights === company.id ? "1fr" : "0fr" }}
+                    >
+                      <div className="overflow-hidden">
+                        {(expandedHighlights === company.id || company.id in highlightsCache) && (
+                          <div className="px-4 py-3">
+                            {highlightsLoading === company.id ? (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground h-[60px]">
+                                <Loader2 size={14} className="animate-spin" />
+                                Loading...
+                              </div>
+                            ) : highlightsCache[company.id] ? (
+                              <div
+                                className="prose prose-sm max-w-none text-sm text-foreground prose-headings:text-foreground prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5"
+                                dangerouslySetInnerHTML={{ __html: highlightsCache[company.id]! }}
+                              />
+                            ) : (
+                              <p className="text-sm text-muted-foreground">No highlights yet.</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
                 </Fragment>
               );
             })}
