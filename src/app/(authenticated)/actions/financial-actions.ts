@@ -2,6 +2,9 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger({ service: "financial-actions" });
 
 export async function upsertFinancialYear(
   companyId: string,
@@ -42,8 +45,12 @@ export async function upsertFinancialYear(
     { onConflict: "company_id,year" }
   );
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("upsertFinancialYear failed", { error: error.message, companyId, year: yearData.year });
+    throw new Error(error.message);
+  }
   revalidatePath(`/company/${companyId}`);
+  log.info("Financial year upserted", { companyId, year: yearData.year });
 }
 
 export async function bulkUpsertFinancialYears(
@@ -69,7 +76,10 @@ export async function bulkUpsertFinancialYears(
     .from("financial_years")
     .upsert(rows, { onConflict: "company_id,year" });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("bulkUpsertFinancialYears failed", { error: error.message, companyId, yearCount: years.length });
+    throw new Error(error.message);
+  }
 
   // Auto-update investment_horizon_years: count of estimate years (current + future FY)
   const horizonYears = rows.filter((r) => r.is_estimate).length;
@@ -80,4 +90,5 @@ export async function bulkUpsertFinancialYears(
 
   revalidatePath(`/company/${companyId}`);
   revalidatePath("/");
+  log.info("Financial years bulk upserted", { companyId, yearCount: rows.length, horizonYears });
 }
