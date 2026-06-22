@@ -7,7 +7,7 @@ import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
-import ImageResize from "tiptap-extension-resize-image";
+import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
@@ -586,7 +586,7 @@ export default function RichTextEditorImpl({
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Link.configure({ openOnClick: true, autolink: true, HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' } }),
-      ImageResize,
+      ...disableMedia ? [] : [Image.configure({ inline: false, allowBase64: false })],
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
