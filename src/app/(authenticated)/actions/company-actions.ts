@@ -3,6 +3,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import DOMPurify from "isomorphic-dompurify";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger({ service: "company-actions" });
 
 function sanitizeHtml(html: string | null): string | null {
   if (!html) return null;
@@ -24,7 +27,10 @@ export async function getCompanies(portfolioId?: string) {
   }
 
   const { data, error } = await query;
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("getCompanies failed", { error: error.message, portfolioId });
+    throw new Error(error.message);
+  }
   return data;
 }
 
@@ -46,7 +52,10 @@ export async function getCompany(id: string) {
     .eq("id", id)
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("getCompany failed", { error: error.message, companyId: id });
+    throw new Error(error.message);
+  }
   return data;
 }
 
@@ -67,8 +76,12 @@ export async function createCompany(formData: FormData) {
     highlights: sanitizeHtml(formData.get("highlights") as string | null),
   });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("createCompany failed", { error: error.message });
+    throw new Error(error.message);
+  }
   revalidatePath("/");
+  log.info("Company created");
 }
 
 export async function updateCompany(id: string, data: Record<string, unknown>) {
@@ -84,9 +97,13 @@ export async function updateCompany(id: string, data: Record<string, unknown>) {
     .update(data)
     .eq("id", id);
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("updateCompany failed", { error: error.message, companyId: id });
+    throw new Error(error.message);
+  }
   revalidatePath(`/company/${id}`);
   revalidatePath("/");
+  log.info("Company updated", { companyId: id });
 }
 
 export async function deleteCompany(id: string) {
@@ -95,8 +112,12 @@ export async function deleteCompany(id: string) {
   if (!user) throw new Error("Unauthorized");
 
   const { error } = await supabase.from("companies").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("deleteCompany failed", { error: error.message, companyId: id });
+    throw new Error(error.message);
+  }
   revalidatePath("/");
+  log.info("Company deleted", { companyId: id });
 }
 
 export async function getLivePrices(): Promise<
@@ -108,7 +129,10 @@ export async function getLivePrices(): Promise<
     .from("indian_stocks")
     .select("isin, price, market_cap");
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("getLivePrices failed", { error: error.message });
+    throw new Error(error.message);
+  }
 
   const map: Record<string, { price: number | null; market_cap: number | null }> = {};
   for (const row of data ?? []) {
@@ -126,6 +150,10 @@ export async function deleteAllCompanies() {
     .from("companies")
     .delete()
     .eq("user_id", user.id);
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("deleteAllCompanies failed", { error: error.message });
+    throw new Error(error.message);
+  }
   revalidatePath("/");
+  log.warn("All companies deleted by user");
 }

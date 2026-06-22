@@ -2,6 +2,9 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger({ service: "portfolio-actions" });
 
 export async function createPortfolio(formData: FormData) {
   const supabase = await createClient();
@@ -17,8 +20,12 @@ export async function createPortfolio(formData: FormData) {
     description,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("createPortfolio failed", { error: error.message, name });
+    throw new Error(error.message);
+  }
   revalidatePath("/");
+  log.info("Portfolio created", { name });
 }
 
 export async function getPortfolios() {
@@ -31,7 +38,10 @@ export async function getPortfolios() {
     .select("*")
     .order("created_at", { ascending: true });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("getPortfolios failed", { error: error.message });
+    throw new Error(error.message);
+  }
   return data;
 }
 
@@ -58,6 +68,10 @@ export async function ensureDefaultPortfolio() {
     .select("id")
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("ensureDefaultPortfolio failed", { error: error.message });
+    throw new Error(error.message);
+  }
+  log.info("Default portfolio created");
   return data!.id;
 }
