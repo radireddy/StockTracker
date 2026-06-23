@@ -2,12 +2,12 @@ import { createClient } from "@/lib/supabase/server";
 import { CompaniesTable } from "@/components/dashboard/companies-table";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ensureDefaultPortfolio } from "./actions/portfolio-actions";
+import { getDefaultPortfolioId } from "./actions/portfolio-actions";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  await ensureDefaultPortfolio();
+  await getDefaultPortfolioId();
 
   const { data: companies } = await supabase
     .from("companies")

@@ -1,8 +1,8 @@
 import { CompanyForm } from "@/components/company/company-form";
-import { ensureDefaultPortfolio } from "../../actions/portfolio-actions";
+import { getDefaultPortfolioId } from "../../actions/portfolio-actions";
 
 export default async function NewCompanyPage() {
-  const portfolioId = await ensureDefaultPortfolio();
+  const portfolioId = await getDefaultPortfolioId();
 
   return (
     <div>
