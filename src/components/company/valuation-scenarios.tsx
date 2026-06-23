@@ -96,6 +96,12 @@ export function ValuationScenarios({
     return result;
   }, [strategy, scenarioData, terminalYear, companyForCalc]);
 
+  // Compute horizon-level Forward PEG metrics
+  const horizonPeg = useMemo(() => {
+    if (!strategy.computeHorizonPeg) return null;
+    return strategy.computeHorizonPeg(financialYears, company.market_cap);
+  }, [strategy, financialYears, company.market_cap]);
+
   return (
     <div className="space-y-4">
       {/* Top info row */}
@@ -205,6 +211,51 @@ export function ValuationScenarios({
           </TableBody>
         </Table>
       </div>
+
+      {/* Forward PEG Ratio summary */}
+      {horizonPeg && (
+        <div className="flex flex-wrap items-end gap-6 rounded-md border border-border/50 px-4 py-3">
+          <div>
+            <span className="text-xs text-muted-foreground">Trailing PE</span>
+            <div className="text-sm font-semibold tabular-nums">
+              {horizonPeg.currentPe != null
+                ? horizonPeg.currentPe.toLocaleString("en-IN", { maximumFractionDigits: 1, minimumFractionDigits: 1 })
+                : "—"}
+            </div>
+          </div>
+          <div>
+            <span className="text-xs text-muted-foreground">Earnings CAGR ({horizon}Y)</span>
+            <div className="text-sm font-semibold tabular-nums">
+              {horizonPeg.earningsCagr != null ? `${horizonPeg.earningsCagr}%` : "—"}
+            </div>
+          </div>
+          <div>
+            <span className="text-xs text-muted-foreground">Forward PEG Ratio</span>
+            <div className={`text-sm font-bold tabular-nums ${
+              horizonPeg.forwardPeg == null
+                ? ""
+                : horizonPeg.forwardPeg < 1
+                  ? "text-green-700 dark:text-green-400"
+                  : horizonPeg.forwardPeg <= 2
+                    ? "text-amber-700 dark:text-amber-400"
+                    : "text-red-700 dark:text-red-400"
+            }`}>
+              {horizonPeg.forwardPeg != null
+                ? horizonPeg.forwardPeg.toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 })
+                : "—"}
+            </div>
+          </div>
+          {horizonPeg.forwardPeg != null && (
+            <div className="text-xs text-muted-foreground">
+              {horizonPeg.forwardPeg < 1
+                ? "Potentially undervalued"
+                : horizonPeg.forwardPeg <= 2
+                  ? "Fairly valued"
+                  : "Potentially overvalued"}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

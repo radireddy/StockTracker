@@ -20,6 +20,12 @@ export interface ValuationFieldConfig {
   isInput: boolean;
 }
 
+export interface HorizonPegMetrics {
+  currentPe: number | null;
+  earningsCagr: number | null;
+  forwardPeg: number | null;
+}
+
 export interface ProjectionStrategy {
   type: ProjectionType;
   label: string;
@@ -33,4 +39,5 @@ export interface ProjectionStrategy {
   ): Record<string, number | null>;
   getTerminalMetricLabel(): string;
   getTerminalMetricValue(terminalYear: FinancialYear | null): number | null;
+  computeHorizonPeg?(financialYears: FinancialYear[], marketCap: number | null): HorizonPegMetrics | null;
 }

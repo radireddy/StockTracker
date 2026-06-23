@@ -1,4 +1,5 @@
-import type { ProjectionModel } from "@/types/database";
+import type { FinancialYear, ProjectionModel } from "@/types/database";
+import type { HorizonPegMetrics } from "@/lib/projections/types";
 
 export function marginOfSafety(
   buyPrice: number,
@@ -109,6 +110,68 @@ export function effectiveBuyPrice(
   scenarios: { scenario_type: string; buy_price: number | null }[]
 ): number | null {
   return companyBuyPrice ?? getBaseCaseBuyPrice(scenarios);
+}
+
+// --- Horizon PEG ---
+
+/**
+ * Compute Forward PEG metrics using previous year (FY before current) and terminal year.
+ * - Trailing PE = Market Cap / Previous Year PAT
+ * - Earnings CAGR = (Terminal PAT / Previous Year PAT)^(1/n) - 1
+ * - Forward PEG = Trailing PE / Earnings CAGR (%)
+ * Current FY from calendar, previous year = current FY - 1, n = terminal FY - previous FY.
+ */
+export function computeHorizonPegMetrics(
+  financialYears: FinancialYear[],
+  marketCap: number | null
+): HorizonPegMetrics | null {
+  if (financialYears.length < 2 || marketCap == null) return null;
+
+  // Current FY from calendar (e.g. June 2026 → FY27)
+  const now = new Date();
+  const currentFYNum = now.getMonth() >= 3
+    ? (now.getFullYear() + 1) % 100
+    : now.getFullYear() % 100;
+  const prevFYNum = currentFYNum - 1;
+
+  // Find previous year in array by FY number (match FY26 or FY26E)
+  const prevYear = financialYears.find((fy) => {
+    const match = fy.year.match(/FY(\d+)/);
+    return match ? parseInt(match[1]) === prevFYNum : false;
+  });
+  if (!prevYear) return null;
+
+  // Terminal year = last year in array
+  const terminalYear = financialYears[financialYears.length - 1];
+  const terminalMatch = terminalYear.year.match(/FY(\d+)/);
+  if (!terminalMatch) return null;
+  const terminalFYNum = parseInt(terminalMatch[1]);
+
+  // n = years between previous year and terminal year
+  const n = terminalFYNum - prevFYNum;
+  if (n <= 0) return null;
+
+  const prevPat = prevYear.pat;
+  const terminalPat = terminalYear.pat;
+
+  // Trailing PE = Market Cap / Previous Year PAT
+  const trailingPe =
+    prevPat != null && prevPat > 0
+      ? Math.round((marketCap / prevPat) * 10) / 10
+      : null;
+
+  // Earnings CAGR = (Terminal PAT / Previous Year PAT)^(1/n) - 1
+  const earningsCagr =
+    prevPat != null && prevPat > 0 && terminalPat != null && terminalPat > 0
+      ? Math.round((Math.pow(terminalPat / prevPat, 1 / n) - 1) * 1000) / 10
+      : null;
+
+  const fwdPeg =
+    trailingPe != null && earningsCagr != null && earningsCagr > 0
+      ? Math.round((trailingPe / earningsCagr) * 100) / 100
+      : null;
+
+  return { currentPe: trailingPe, earningsCagr, forwardPeg: fwdPeg };
 }
 
 // --- Conversion helpers ---
