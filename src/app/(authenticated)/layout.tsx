@@ -1,7 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { AppHeader } from "@/components/layout/app-header";
-import { LivePricesProvider } from "@/components/auto-refresh";
+import { AuthenticatedShell } from "@/components/layout/authenticated-shell";
+import {
+  getPortfolios,
+  getDefaultPortfolioId,
+} from "@/app/(authenticated)/actions/portfolio-actions";
 
 export default async function AuthenticatedLayout({
   children,
@@ -21,7 +24,6 @@ export default async function AuthenticatedLayout({
     .single();
 
   if (!profile) {
-    // Profile trigger may not have fired yet — create it manually
     const { data: newProfile } = await supabase
       .from("profiles")
       .upsert({
@@ -37,12 +39,18 @@ export default async function AuthenticatedLayout({
 
   if (!profile) redirect("/login");
 
+  const [portfolios, defaultPortfolioId] = await Promise.all([
+    getPortfolios(),
+    getDefaultPortfolioId(),
+  ]);
+
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader profile={profile} />
-      <LivePricesProvider>
-        <main className="px-4 md:px-8 py-4">{children}</main>
-      </LivePricesProvider>
-    </div>
+    <AuthenticatedShell
+      profile={profile}
+      portfolios={portfolios}
+      defaultPortfolioId={defaultPortfolioId}
+    >
+      {children}
+    </AuthenticatedShell>
   );
 }

@@ -21,6 +21,10 @@ export interface Portfolio {
   name: string;
   description: string | null;
   is_default: boolean;
+  type: 'holdings' | 'watchlist';
+  sort_order: number;
+  color: string | null;
+  icon: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -55,6 +59,11 @@ export interface Company {
   expected_returns: number | null;
   thesis: string | null;
   highlights: string | null;
+  quantity: number | null;
+  avg_buy_price: number | null;
+  buy_date: string | null;
+  notes: string | null;
+  sort_order: number;
   created_at: string;
   updated_at: string;
   // Joined from indian_stocks
@@ -164,3 +173,17 @@ export interface MarketPerception {
   created_at: string;
   updated_at: string;
 }
+
+export type Transaction = {
+  id: string;
+  company_id: string;
+  user_id: string;
+  type: 'BUY' | 'SELL';
+  quantity: number;
+  price: number;
+  fees: number;
+  date: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};

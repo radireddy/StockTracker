@@ -10,11 +10,13 @@ export function CompanyPageClient({
   projectionModels,
   timelineEntries,
   initialBaseIrr,
+  portfolioType = "holdings",
 }: {
   company: Company & { segment_valuations: any[]; market_perceptions: any[] };
   projectionModels: ProjectionModel[];
   timelineEntries: TimelineEntry[];
   initialBaseIrr: number | null;
+  portfolioType?: "holdings" | "watchlist";
 }) {
   const [baseIrr, setBaseIrr] = useState<number | null>(initialBaseIrr);
 
@@ -30,6 +32,7 @@ export function CompanyPageClient({
         projectionModels={projectionModels}
         timelineEntries={timelineEntries}
         onBaseIrrChange={handleBaseIrrChange}
+        portfolioType={portfolioType}
       />
     </>
   );

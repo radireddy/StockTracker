@@ -20,12 +20,27 @@ export async function POST(request: Request) {
   const companies = parseExcel(buffer);
   log.info("Excel parsed", { fileName: file.name, fileSize: file.size, companiesFound: companies.length });
 
-  // Ensure default portfolio
-  let { data: portfolio } = await supabase
-    .from("portfolios")
-    .select("id")
-    .eq("is_default", true)
-    .single();
+  // Use provided portfolio_id or fall back to default
+  const portfolioId = formData.get("portfolio_id") as string | null;
+  let portfolio: { id: string } | null = null;
+
+  if (portfolioId) {
+    const { data } = await supabase
+      .from("portfolios")
+      .select("id")
+      .eq("id", portfolioId)
+      .single();
+    portfolio = data;
+  }
+
+  if (!portfolio) {
+    const { data } = await supabase
+      .from("portfolios")
+      .select("id")
+      .eq("is_default", true)
+      .single();
+    portfolio = data;
+  }
 
   if (!portfolio) {
     const { data } = await supabase

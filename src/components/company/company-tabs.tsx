@@ -1,42 +1,51 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ThesisTab } from "@/components/company/thesis-tab";
 import { ProjectionsValuationTab } from "@/components/company/projections-valuation-tab";
 import { TimelineTab } from "@/components/company/timeline-tab";
 import { HighlightsSection } from "@/components/company/highlights-section";
 import { EditCompanyTab } from "@/components/company/edit-company-tab";
+import { TransactionsTab } from "@/components/company/transactions-tab";
 import { getDefaultModelBuyPrice } from "@/lib/utils/calculations";
 import type { Company, ProjectionModel, TimelineEntry } from "@/types/database";
 
-const TABS = [
-  { id: "details", label: "Details" },
-  { id: "thesis", label: "Thesis" },
-  { id: "projections", label: "Projections & Valuations" },
-  { id: "timeline", label: "Timeline" },
-  { id: "highlights", label: "Highlights" },
-] as const;
-
-type TabId = (typeof TABS)[number]["id"];
+type TabDef = { id: string; label: string };
 
 export function CompanyTabs({
   company,
   projectionModels,
   timelineEntries,
   onBaseIrrChange,
+  portfolioType = "holdings",
 }: {
   company: Company & { segment_valuations: any[]; market_perceptions: any[] };
   projectionModels: ProjectionModel[];
   timelineEntries: TimelineEntry[];
   onBaseIrrChange?: (irr: number | null) => void;
+  portfolioType?: "holdings" | "watchlist";
 }) {
-  const [activeTab, setActiveTab] = useState<TabId>("details");
+  const tabs = useMemo(() => {
+    const base: TabDef[] = [
+      { id: "details", label: "Details" },
+      { id: "thesis", label: "Thesis" },
+      { id: "projections", label: "Projections & Valuations" },
+      { id: "timeline", label: "Timeline" },
+      { id: "highlights", label: "Highlights" },
+    ];
+    if (portfolioType === "holdings") {
+      base.splice(1, 0, { id: "transactions", label: "Transactions" });
+    }
+    return base;
+  }, [portfolioType]);
+
+  const [activeTab, setActiveTab] = useState("details");
 
   return (
     <div>
       <nav className="border-b border-border/50 mt-2">
         <div className="flex gap-0 overflow-x-auto">
-          {TABS.map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -59,6 +68,11 @@ export function CompanyTabs({
             baseCaseBuyPrice={getDefaultModelBuyPrice(projectionModels)}
           />
         </div>
+        {portfolioType === "holdings" && (
+          <div className={activeTab === "transactions" ? undefined : "hidden"}>
+            <TransactionsTab companyId={company.id} />
+          </div>
+        )}
         <div className={activeTab === "thesis" ? undefined : "hidden"}>
           <ThesisTab company={company} />
         </div>

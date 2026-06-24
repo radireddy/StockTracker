@@ -3,75 +3,391 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { createLogger } from "@/lib/logger";
+import type { Portfolio } from "@/types/database";
 
 const log = createLogger({ service: "portfolio-actions" });
 
-export async function createPortfolio(formData: FormData) {
+// ---------------------------------------------------------------------------
+// Read functions
+// ---------------------------------------------------------------------------
+
+export async function getPortfolios(): Promise<
+  (Portfolio & { company_count: number })[]
+> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
-
-  const name = formData.get("name") as string;
-  const description = formData.get("description") as string | null;
-
-  const { error } = await supabase.from("portfolios").insert({
-    user_id: user.id,
-    name,
-    description,
-  });
-
-  if (error) {
-    log.error("createPortfolio failed", { error: error.message, name });
-    throw new Error(error.message);
-  }
-  revalidatePath("/");
-  log.info("Portfolio created", { name });
-}
-
-export async function getPortfolios() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
   const { data, error } = await supabase
     .from("portfolios")
-    .select("*")
+    .select("*, companies(count)")
+    .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
 
   if (error) {
     log.error("getPortfolios failed", { error: error.message });
     throw new Error(error.message);
   }
-  return data;
+
+  return (data ?? []).map((p) => {
+    const { companies, ...portfolio } = p as Portfolio & {
+      companies: { count: number }[];
+    };
+    return {
+      ...portfolio,
+      company_count: companies?.[0]?.count ?? 0,
+    };
+  });
 }
 
-export async function ensureDefaultPortfolio() {
+export async function getPortfolio(id: string): Promise<Portfolio | null> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  const { data: existing } = await supabase
+  const { data, error } = await supabase
+    .from("portfolios")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return null; // not found
+    log.error("getPortfolio failed", { error: error.message, id });
+    throw new Error(error.message);
+  }
+
+  return data as Portfolio;
+}
+
+export async function getDefaultPortfolioId(): Promise<string> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  // 1. Try finding existing default
+  const { data: defaultPortfolio } = await supabase
     .from("portfolios")
     .select("id")
     .eq("is_default", true)
     .single();
 
-  if (existing) return existing.id;
+  if (defaultPortfolio) return defaultPortfolio.id;
 
-  const { data, error } = await supabase
+  // 2. Find any portfolio and make it default
+  const { data: anyPortfolio } = await supabase
+    .from("portfolios")
+    .select("id")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .single();
+
+  if (anyPortfolio) {
+    await supabase
+      .from("portfolios")
+      .update({ is_default: true })
+      .eq("id", anyPortfolio.id);
+    return anyPortfolio.id;
+  }
+
+  // 3. No portfolios at all — create one
+  const { data: newPortfolio, error } = await supabase
     .from("portfolios")
     .insert({
       user_id: user.id,
       name: "My Portfolio",
+      type: "holdings",
       is_default: true,
     })
     .select("id")
     .single();
 
   if (error) {
-    log.error("ensureDefaultPortfolio failed", { error: error.message });
+    log.error("getDefaultPortfolioId: create failed", {
+      error: error.message,
+    });
     throw new Error(error.message);
   }
+
   log.info("Default portfolio created");
-  return data!.id;
+  return newPortfolio!.id;
+}
+
+export async function getPortfolioDeletionSummary(
+  id: string
+): Promise<{ companies: number; transactions: number }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  // Count companies in portfolio
+  const { count: companyCount, error: companyError } = await supabase
+    .from("companies")
+    .select("*", { count: "exact", head: true })
+    .eq("portfolio_id", id);
+
+  if (companyError) {
+    log.error("getPortfolioDeletionSummary: companies count failed", {
+      error: companyError.message,
+      id,
+    });
+    throw new Error(companyError.message);
+  }
+
+  // Get company IDs for transaction count
+  const { data: companyIds } = await supabase
+    .from("companies")
+    .select("id")
+    .eq("portfolio_id", id);
+
+  let transactionCount = 0;
+  if (companyIds && companyIds.length > 0) {
+    const ids = companyIds.map((c) => c.id);
+    const { count, error: txError } = await supabase
+      .from("transactions")
+      .select("*", { count: "exact", head: true })
+      .in("company_id", ids);
+
+    if (txError) {
+      log.error("getPortfolioDeletionSummary: transactions count failed", {
+        error: txError.message,
+        id,
+      });
+      throw new Error(txError.message);
+    }
+    transactionCount = count ?? 0;
+  }
+
+  return {
+    companies: companyCount ?? 0,
+    transactions: transactionCount,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Write functions
+// ---------------------------------------------------------------------------
+
+export async function createPortfolio(input: {
+  name: string;
+  type: Portfolio["type"];
+  description?: string;
+  color?: string;
+  icon?: string;
+}): Promise<Portfolio> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  // Check plan limits
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("plan_limits")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.plan_limits) {
+    const limits = profile.plan_limits as { max_portfolios?: number };
+    if (limits.max_portfolios != null) {
+      const { count } = await supabase
+        .from("portfolios")
+        .select("*", { count: "exact", head: true });
+
+      if (count != null && count >= limits.max_portfolios) {
+        throw new Error(
+          `Portfolio limit reached (${limits.max_portfolios}). Upgrade your plan to create more.`
+        );
+      }
+    }
+  }
+
+  // Get next sort_order
+  const { data: lastPortfolio } = await supabase
+    .from("portfolios")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .single();
+
+  const nextSortOrder = (lastPortfolio?.sort_order ?? -1) + 1;
+
+  // Check if this is the first portfolio (should be default)
+  const { count: existingCount } = await supabase
+    .from("portfolios")
+    .select("*", { count: "exact", head: true });
+
+  const isFirst = (existingCount ?? 0) === 0;
+
+  const { data, error } = await supabase
+    .from("portfolios")
+    .insert({
+      user_id: user.id,
+      name: input.name,
+      type: input.type,
+      description: input.description ?? null,
+      color: input.color ?? null,
+      icon: input.icon ?? null,
+      sort_order: nextSortOrder,
+      is_default: isFirst,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    log.error("createPortfolio failed", { error: error.message, name: input.name });
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/");
+  log.info("Portfolio created", { name: input.name, id: data!.id });
+  return data as Portfolio;
+}
+
+export async function updatePortfolio(
+  id: string,
+  input: {
+    name?: string;
+    description?: string;
+    color?: string;
+    icon?: string;
+  }
+): Promise<Portfolio> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const { data, error } = await supabase
+    .from("portfolios")
+    .update(input)
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) {
+    log.error("updatePortfolio failed", { error: error.message, id });
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/");
+  log.info("Portfolio updated", { id });
+  return data as Portfolio;
+}
+
+export async function setDefaultPortfolio(id: string): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  // Unset all current defaults for this user
+  const { error: unsetError } = await supabase
+    .from("portfolios")
+    .update({ is_default: false })
+    .eq("is_default", true);
+
+  if (unsetError) {
+    log.error("setDefaultPortfolio: unset failed", {
+      error: unsetError.message,
+    });
+    throw new Error(unsetError.message);
+  }
+
+  // Set new default
+  const { error: setError } = await supabase
+    .from("portfolios")
+    .update({ is_default: true })
+    .eq("id", id);
+
+  if (setError) {
+    log.error("setDefaultPortfolio: set failed", { error: setError.message });
+    throw new Error(setError.message);
+  }
+
+  revalidatePath("/");
+  log.info("Default portfolio set", { id });
+}
+
+export async function deletePortfolio(id: string): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  // Fetch the portfolio to check guards
+  const { data: portfolio, error: fetchError } = await supabase
+    .from("portfolios")
+    .select("id, is_default")
+    .eq("id", id)
+    .single();
+
+  if (fetchError || !portfolio) {
+    throw new Error("Portfolio not found");
+  }
+
+  if (portfolio.is_default) {
+    throw new Error("Cannot delete the default portfolio. Set another portfolio as default first.");
+  }
+
+  // Check it's not the last portfolio
+  const { count } = await supabase
+    .from("portfolios")
+    .select("*", { count: "exact", head: true });
+
+  if ((count ?? 0) <= 1) {
+    throw new Error("Cannot delete your last portfolio.");
+  }
+
+  const { error } = await supabase
+    .from("portfolios")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    log.error("deletePortfolio failed", { error: error.message, id });
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/");
+  log.info("Portfolio deleted", { id });
+}
+
+export async function reorderPortfolios(orderedIds: string[]): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  // Batch update sort_order by index position
+  const updates = orderedIds.map((id, index) =>
+    supabase
+      .from("portfolios")
+      .update({ sort_order: index })
+      .eq("id", id)
+  );
+
+  const results = await Promise.all(updates);
+
+  const failed = results.find((r) => r.error);
+  if (failed?.error) {
+    log.error("reorderPortfolios failed", { error: failed.error.message });
+    throw new Error(failed.error.message);
+  }
+
+  revalidatePath("/");
+  log.info("Portfolios reordered", { count: orderedIds.length });
 }
