@@ -11,6 +11,7 @@ import { useLivePricesContext } from "@/components/auto-refresh";
 import { FileText, X, Loader2, ArrowRightLeft, Trash2 } from "lucide-react";
 import { getCompanyHighlights, deleteCompany } from "@/app/(authenticated)/actions/company-actions";
 import { MoveStockDialog } from "@/components/portfolio/move-stock-dialog";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -225,9 +226,9 @@ export function CompaniesTable({
 
       {/* Dense table */}
       <div className="border border-border/60 overflow-auto">
-        <table className="w-full text-sm border-collapse table-fixed">
+        <table className="w-full text-sm border-collapse table-fixed" role="table" aria-label="Companies portfolio table">
           <colgroup>
-            <col className="w-[20%]" />
+            <col className="w-[19%]" />
             <col className="w-[5%]" />
             <col className="w-[7%]" />
             {isHoldings ? (
@@ -239,7 +240,7 @@ export function CompaniesTable({
                 <col className="w-[7%]" />
                 <col className="w-[9%]" />
                 <col className="w-[9%]" />
-                <col className="w-[6%]" />
+                <col className="w-[7%]" />
               </>
             ) : (
               <>
@@ -249,26 +250,26 @@ export function CompaniesTable({
                 <col className="w-[10%]" />
                 <col className="w-[10%]" />
                 <col className="w-[7%]" />
-                <col className="w-[9%]" />
+                <col className="w-[10%]" />
               </>
             )}
           </colgroup>
           <thead>
             <tr className="border-b-2 border-border/40 bg-muted/30">
               <th
-                className="sticky top-0 z-10 bg-muted/30 text-left px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                scope="col" className="sticky top-0 z-10 bg-muted/30 text-left px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                 onClick={() => toggleSort("name")}
               >
                 Company<SortIcon field="name" />
               </th>
               <th
-                className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                scope="col" className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                 onClick={() => toggleSort("star_rating")}
               >
                 Star<SortIcon field="star_rating" />
               </th>
               <th
-                className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                scope="col" className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                 onClick={() => toggleSort("strategy")}
               >
                 Strategy<SortIcon field="strategy" />
@@ -276,43 +277,43 @@ export function CompaniesTable({
               {isHoldings ? (
                 <>
                   <th
-                    className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("quantity")}
                   >
                     Qty<SortIcon field="quantity" />
                   </th>
                   <th
-                    className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("avg_buy_price")}
                   >
                     Avg Buy<SortIcon field="avg_buy_price" />
                   </th>
                   <th
-                    className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("current_price")}
                   >
                     CMP<SortIcon field="current_price" />
                   </th>
                   <th
-                    className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("mos")}
                   >
                     MoS%<SortIcon field="mos" />
                   </th>
                   <th
-                    className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("pnl_pct")}
                   >
                     P&L%<SortIcon field="pnl_pct" />
                   </th>
                   <th
-                    className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("base_cagr")}
                   >
                     Base CAGR<SortIcon field="base_cagr" />
                   </th>
                   <th
-                    className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("bare_cagr")}
                   >
                     Bare CAGR<SortIcon field="bare_cagr" />
@@ -321,44 +322,44 @@ export function CompaniesTable({
               ) : (
                 <>
                   <th
-                    className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("buy_price")}
                   >
                     Buy Price<SortIcon field="buy_price" />
                   </th>
                   <th
-                    className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("current_price")}
                   >
                     CMP<SortIcon field="current_price" />
                   </th>
                   <th
-                    className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("mos")}
                   >
                     MoS%<SortIcon field="mos" />
                   </th>
                   <th
-                    className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("base_cagr")}
                   >
                     Base CAGR<SortIcon field="base_cagr" />
                   </th>
                   <th
-                    className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("bare_cagr")}
                   >
                     Bare CAGR<SortIcon field="bare_cagr" />
                   </th>
                   <th
-                    className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("signal")}
                   >
                     Signal<SortIcon field="signal" />
                   </th>
                 </>
               )}
-              <th className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2.5 text-sm font-medium text-muted-foreground">
+              <th scope="col" className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2.5 text-sm font-medium text-muted-foreground border-l border-border/40">
                 Actions
               </th>
             </tr>
@@ -480,57 +481,68 @@ export function CompaniesTable({
                       </td>
                     </>
                   )}
-                  <td className="px-2 py-2.5 text-center">
-                    <div className="flex items-center justify-center gap-2.5">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleHighlights(company.id);
-                        }}
-                        className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-                        title="View highlights"
-                      >
-                        {highlightsLoading === company.id ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : expandedHighlights === company.id ? (
-                          <X size={14} />
-                        ) : (
-                          <FileText size={14} />
-                        )}
-                      </button>
-                      {portfolios.length > 1 && (
-                        <>
-                          <span className="h-3.5 w-px bg-border" />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setMoveTarget({
-                                id: company.id,
-                                name: company.indian_stocks?.name ?? company.isin,
-                              });
-                            }}
-                            className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-                            title="Move to another portfolio"
-                          >
-                            <ArrowRightLeft size={14} />
-                          </button>
-                        </>
-                      )}
-                      <span className="h-3.5 w-px bg-border" />
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTarget({
-                            id: company.id,
-                            name: company.indian_stocks?.name ?? company.isin,
-                          });
-                        }}
-                        className="inline-flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors"
-                        title="Delete company"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
+                  <td className="px-2 py-2.5 text-center border-l border-border/40">
+                    <TooltipProvider>
+                      <nav aria-label={`Actions for ${company.indian_stocks?.name ?? company.isin}`}>
+                        <div className="flex items-center justify-center gap-1" role="toolbar">
+                          <Tooltip>
+                            <TooltipTrigger
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleHighlights(company.id);
+                              }}
+                              className="inline-flex items-center justify-center rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                              aria-label={expandedHighlights === company.id ? "Hide highlights" : "View highlights"}
+                            >
+                              {highlightsLoading === company.id ? (
+                                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                              ) : expandedHighlights === company.id ? (
+                                <X size={14} aria-hidden="true" />
+                              ) : (
+                                <FileText size={14} aria-hidden="true" />
+                              )}
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              {expandedHighlights === company.id ? "Hide highlights" : "View highlights"}
+                            </TooltipContent>
+                          </Tooltip>
+                          {portfolios.length > 1 && (
+                            <Tooltip>
+                              <TooltipTrigger
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMoveTarget({
+                                    id: company.id,
+                                    name: company.indian_stocks?.name ?? company.isin,
+                                  });
+                                }}
+                                className="inline-flex items-center justify-center rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                                aria-label={`Move ${company.indian_stocks?.name ?? company.isin} to another portfolio`}
+                              >
+                                <ArrowRightLeft size={14} aria-hidden="true" />
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom">Move to another portfolio</TooltipContent>
+                            </Tooltip>
+                          )}
+                          <Tooltip>
+                            <TooltipTrigger
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteTarget({
+                                  id: company.id,
+                                  name: company.indian_stocks?.name ?? company.isin,
+                                });
+                              }}
+                              className="inline-flex items-center justify-center rounded p-1 text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-colors"
+                              aria-label={`Delete ${company.indian_stocks?.name ?? company.isin}`}
+                            >
+                              <Trash2 size={14} aria-hidden="true" />
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">Delete company</TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </nav>
+                    </TooltipProvider>
                   </td>
                 </tr>
                 <tr className={idx % 2 === 0 ? "" : "bg-muted/15"}>
