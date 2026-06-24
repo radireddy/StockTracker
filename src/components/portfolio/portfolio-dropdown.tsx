@@ -83,6 +83,7 @@ export function PortfolioDropdown({
       <CreatePortfolioDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
+        onCreated={(id) => onSelect(id)}
       />
     </>
   );

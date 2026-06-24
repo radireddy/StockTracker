@@ -27,7 +27,7 @@ export function CreatePortfolioDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreated?: () => void;
+  onCreated?: (portfolioId: string) => void;
 }) {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -43,7 +43,7 @@ export function CreatePortfolioDialog({
     setError(null);
 
     try {
-      await createPortfolio({
+      const portfolio = await createPortfolio({
         name: name.trim(),
         type,
         color,
@@ -55,7 +55,7 @@ export function CreatePortfolioDialog({
       setType("holdings");
       setColor(COLORS[0]);
       router.refresh();
-      onCreated?.();
+      onCreated?.(portfolio.id);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to create portfolio";
       setError(message);

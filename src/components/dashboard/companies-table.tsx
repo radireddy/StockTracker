@@ -211,14 +211,16 @@ export function CompaniesTable({
             <SelectItem value="satellite">Satellite</SelectItem>
           </SelectContent>
         </Select>
-        <label className="flex items-center gap-1.5 text-xs">
-          <input
-            type="checkbox"
-            checked={buyOnlyFilter}
-            onChange={(e) => setBuyOnlyFilter(e.target.checked)}
-          />
-          Buy signals only
-        </label>
+        {!isHoldings && (
+          <label className="flex items-center gap-1.5 text-xs">
+            <input
+              type="checkbox"
+              checked={buyOnlyFilter}
+              onChange={(e) => setBuyOnlyFilter(e.target.checked)}
+            />
+            Buy signals only
+          </label>
+        )}
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} companies
         </span>
