@@ -10,11 +10,19 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { createCompany } from "@/app/(authenticated)/actions/company-actions";
+import { addTransaction } from "@/app/(authenticated)/actions/transaction-actions";
 import { StockSearch } from "@/components/company/stock-search";
 import { roundPrice } from "@/lib/utils/calculations";
 import type { IndianStock } from "@/types/database";
 
-export function CompanyForm({ portfolioId }: { portfolioId: string }) {
+export function CompanyForm({
+  portfolioId,
+  portfolioType = "holdings",
+}: {
+  portfolioId: string;
+  portfolioType?: "holdings" | "watchlist";
+}) {
+  const isHoldings = portfolioType === "holdings";
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [selectedStock, setSelectedStock] = useState<IndianStock | null>(null);
@@ -29,7 +37,21 @@ export function CompanyForm({ portfolioId }: { portfolioId: string }) {
     // Round financial values before saving
     const bp = formData.get("buy_price");
     if (bp) formData.set("buy_price", String(roundPrice(Number(bp))));
-    await createCompany(formData);
+    const companyId = await createCompany(formData);
+
+    // Optionally create first transaction for holdings
+    const txQty = formData.get("tx_quantity");
+    const txPrice = formData.get("tx_price");
+    const txDate = formData.get("tx_date");
+    if (isHoldings && txQty && txPrice && Number(txQty) > 0) {
+      await addTransaction(companyId, {
+        type: "BUY",
+        quantity: Number(txQty),
+        price: Number(txPrice),
+        date: (txDate as string) || new Date().toISOString().split("T")[0],
+      });
+    }
+
     setPending(false);
     router.push("/");
   };
@@ -97,6 +119,25 @@ export function CompanyForm({ portfolioId }: { portfolioId: string }) {
                 </p>
               </div>
             </div>
+            {isHoldings && (
+              <div className="border-t pt-4 space-y-3">
+                <h3 className="text-sm font-medium">First Transaction (optional)</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="tx_quantity">Quantity</Label>
+                    <Input id="tx_quantity" name="tx_quantity" type="number" min="0" step="any" />
+                  </div>
+                  <div>
+                    <Label htmlFor="tx_price">Price (₹)</Label>
+                    <Input id="tx_price" name="tx_price" type="number" min="0" step="0.01" />
+                  </div>
+                  <div>
+                    <Label htmlFor="tx_date">Date</Label>
+                    <Input id="tx_date" name="tx_date" type="date" defaultValue={new Date().toISOString().split("T")[0]} />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex gap-2">
             <Button type="submit" disabled={pending || !selectedStock}>

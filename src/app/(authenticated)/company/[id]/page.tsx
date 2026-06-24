@@ -26,6 +26,15 @@ export default async function CompanyPage({
 
   if (error || !company) notFound();
 
+  // Fetch portfolio type
+  const { data: portfolio } = await supabase
+    .from("portfolios")
+    .select("type")
+    .eq("id", company.portfolio_id)
+    .single();
+
+  const portfolioType = (portfolio?.type as "holdings" | "watchlist") ?? "holdings";
+
   const projectionModels = (company.projection_models ?? [])
     .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
     .map((pm: any) => ({
@@ -49,6 +58,7 @@ export default async function CompanyPage({
         projectionModels={projectionModels}
         timelineEntries={timelineEntries}
         initialBaseIrr={initialBaseIrr}
+        portfolioType={portfolioType}
       />
     </div>
   );

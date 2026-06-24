@@ -5,9 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
+import { usePortfolioContext } from "@/hooks/use-portfolio-context";
 
 export default function ImportPage() {
   const router = useRouter();
+  const { selectedId, selectedPortfolio } = usePortfolioContext();
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<string>("");
   const [importing, setImporting] = useState(false);
@@ -19,6 +21,7 @@ export default function ImportPage() {
 
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("portfolio_id", selectedId);
 
     const res = await fetch("/api/import", { method: "POST", body: formData });
     const result = await res.json();
@@ -44,6 +47,9 @@ export default function ImportPage() {
           <p className="text-sm text-muted-foreground">
             Upload your SOIC Flexicap Excel file to import all companies,
             financial models, valuations, and timeline entries.
+          </p>
+          <p className="text-sm">
+            Importing into: <strong>{selectedPortfolio?.name ?? "Default Portfolio"}</strong>
           </p>
           <Input
             type="file"

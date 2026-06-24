@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PortfolioManager } from "@/components/settings/portfolio-manager";
+import { getPortfolios } from "@/app/(authenticated)/actions/portfolio-actions";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -14,10 +16,7 @@ export default async function SettingsPage() {
     .eq("id", user.id)
     .single();
 
-  const { data: portfolios } = await supabase
-    .from("portfolios")
-    .select("*, companies(count)")
-    .order("created_at");
+  const portfolios = await getPortfolios();
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -40,20 +39,7 @@ export default async function SettingsPage() {
           <CardTitle>Portfolios</CardTitle>
         </CardHeader>
         <CardContent>
-          {portfolios && portfolios.length > 0 ? (
-            <ul className="space-y-2 text-sm">
-              {portfolios.map((p: Record<string, unknown>) => (
-                <li key={p.id as string} className="flex items-center justify-between">
-                  <span>{p.name as string}{p.is_default ? " (default)" : ""}</span>
-                  <Badge variant="secondary">
-                    {(p.companies as { count: number }[])?.[0]?.count ?? 0} companies
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground">No portfolios yet.</p>
-          )}
+          <PortfolioManager portfolios={portfolios} />
         </CardContent>
       </Card>
     </div>
