@@ -162,21 +162,33 @@ async function recomputeHoldings(companyId: string) {
     return;
   }
 
-  let totalQty = 0;
-  let totalCost = 0;
+  // FIFO method (Indian stock market rule):
+  // Sells consume the oldest buy lots first.
+  // Average price = total remaining cost / total remaining quantity.
+  const lots: { qty: number; price: number }[] = [];
 
   for (const txn of transactions) {
     if (txn.type === "BUY") {
-      totalCost += txn.quantity * txn.price;
-      totalQty += txn.quantity;
+      lots.push({ qty: txn.quantity, price: txn.price });
     } else if (txn.type === "SELL") {
-      totalQty -= txn.quantity;
+      let remaining = txn.quantity;
+      while (remaining > 0 && lots.length > 0) {
+        if (lots[0].qty <= remaining) {
+          remaining -= lots[0].qty;
+          lots.shift();
+        } else {
+          lots[0].qty -= remaining;
+          remaining = 0;
+        }
+      }
     }
   }
 
+  const totalQty = lots.reduce((s, l) => s + l.qty, 0);
+  const totalCost = lots.reduce((s, l) => s + l.qty * l.price, 0);
   const avgPrice = totalQty > 0 ? totalCost / totalQty : null;
 
-  // Get earliest BUY date
+  // Get earliest remaining buy lot's date
   const earliestBuy = transactions.find((t) => t.type === "BUY");
   const buyDate = earliestBuy ? earliestBuy.date : null;
 
@@ -193,4 +205,32 @@ async function recomputeHoldings(companyId: string) {
     log.error("recomputeHoldings: failed to update company", { error: updateError.message, companyId });
     throw new Error(updateError.message);
   }
+}
+
+export async function recomputeAllHoldings(): Promise<{ recomputed: number; errors: string[] }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const { data: companies, error } = await supabase
+    .from("companies")
+    .select("id, isin, indian_stocks(nse_symbol)")
+    .order("created_at");
+
+  if (error) throw new Error(error.message);
+
+  let recomputed = 0;
+  const errors: string[] = [];
+
+  for (const company of companies ?? []) {
+    try {
+      await recomputeHoldings(company.id);
+      recomputed++;
+    } catch (err) {
+      errors.push(`${company.id}: ${(err as Error).message}`);
+    }
+  }
+
+  revalidatePath("/");
+  return { recomputed, errors };
 }
