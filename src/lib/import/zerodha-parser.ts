@@ -115,6 +115,18 @@ export const zerodhaAdapter: BrokerAdapter = {
       };
     }
 
+    // First pass: build a symbol→ISIN lookup from rows that have both
+    const isinBySymbol = new Map<string, string>();
+    for (let i = headerIdx + 1; i < rawData.length; i++) {
+      const row = rawData[i] as unknown[];
+      if (!row || !row[0]) continue;
+      const sym = String(row[0]).trim();
+      const isinVal = String(row[1] ?? "").trim();
+      if (sym && isinVal && isinVal.match(/^INE[A-Z0-9]{9}$/) && !isinBySymbol.has(sym)) {
+        isinBySymbol.set(sym, isinVal);
+      }
+    }
+
     // Parse trades
     const trades: ParsedTrade[] = [];
     for (let i = headerIdx + 1; i < rawData.length; i++) {
@@ -122,7 +134,7 @@ export const zerodhaAdapter: BrokerAdapter = {
       if (!row || !row[0] || String(row[0]).trim() === "") continue;
 
       const symbol = String(row[0]).trim();
-      const isin = String(row[1] ?? "").trim();
+      let isin = String(row[1] ?? "").trim();
       const tradeDateRaw = row[2];
       const exchange = String(row[3] ?? "").trim();
       const segment = String(row[4] ?? "").trim();
@@ -134,6 +146,11 @@ export const zerodhaAdapter: BrokerAdapter = {
       const tradeId = String(row[10] ?? "").trim();
       const orderId = String(row[11] ?? "").trim();
       const executionTimeRaw = row[12];
+
+      // If ISIN is missing, try to fill from other rows with the same symbol
+      if (!isin && symbol) {
+        isin = isinBySymbol.get(symbol) ?? "";
+      }
 
       // Validate
       if (!symbol || !isin) {
