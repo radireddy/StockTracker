@@ -250,6 +250,23 @@ export type ImportJobSummary = {
   client_id?: string;
 };
 
+export type ImportAnomaly = {
+  type: "STOCK_SPLIT" | "BONUS" | "DEMERGER" | "MERGER" | "SYMBOL_RENAME";
+  symbol: string;
+  isin: string;
+  confidence: "high" | "medium" | "low";
+  description: string;
+  details: string;
+  suggested_ratio_from?: number;
+  suggested_ratio_to?: number;
+  new_symbol?: string;
+  new_isin?: string;
+  old_symbol?: string;
+  new_symbol_rename?: string;
+  estimated_date_from?: string;
+  estimated_date_to?: string;
+};
+
 export type ImportJobError = {
   symbol?: string;
   message: string;
