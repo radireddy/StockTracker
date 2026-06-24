@@ -8,9 +8,19 @@ import {
 import { useRouter } from "next/navigation";
 import { marginOfSafety, isBuySignal, effectiveBuyPrice, computeLiveIrr, fmtPriceShort, fmtPctShort, fmtIrr, fmtNum } from "@/lib/utils/calculations";
 import { useLivePricesContext } from "@/components/auto-refresh";
-import { FileText, X, Loader2, ArrowRightLeft } from "lucide-react";
-import { getCompanyHighlights } from "@/app/(authenticated)/actions/company-actions";
+import { FileText, X, Loader2, ArrowRightLeft, Trash2 } from "lucide-react";
+import { getCompanyHighlights, deleteCompany } from "@/app/(authenticated)/actions/company-actions";
 import { MoveStockDialog } from "@/components/portfolio/move-stock-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { usePortfolioContext } from "@/hooks/use-portfolio-context";
 import type { Company, ProjectionModel, ValuationScenario } from "@/types/database";
 
@@ -48,6 +58,8 @@ export function CompaniesTable({
   const livePrices = useLivePricesContext();
   const { portfolios, selectedId } = usePortfolioContext();
   const [moveTarget, setMoveTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState("");
   const [starFilter, setStarFilter] = useState<string>("all");
   const [strategyFilter, setStrategyFilter] = useState<string>("all");
@@ -504,6 +516,20 @@ export function CompaniesTable({
                           </button>
                         </>
                       )}
+                      <span className="h-3.5 w-px bg-border" />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget({
+                            id: company.id,
+                            name: company.indian_stocks?.name ?? company.isin,
+                          });
+                        }}
+                        className="inline-flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors"
+                        title="Delete company"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -565,6 +591,43 @@ export function CompaniesTable({
           }}
         />
       )}
+
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete &ldquo;{deleteTarget?.name}&rdquo;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this company and all its financial
+              data, valuations, and timeline entries. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (!deleteTarget) return;
+                setDeleting(true);
+                try {
+                  await deleteCompany(deleteTarget.id);
+                  setDeleteTarget(null);
+                  onRefresh?.();
+                } finally {
+                  setDeleting(false);
+                }
+              }}
+            >
+              {deleting ? "Deleting..." : "Delete permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
