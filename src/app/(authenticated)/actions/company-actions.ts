@@ -18,13 +18,33 @@ function sanitizeHtml(html: string | null): string | null {
   return DOMPurify.sanitize(html);
 }
 
-export async function getCompanies(portfolioId: string) {
+export async function getCompanies(
+  portfolioId: string,
+  options?: { includeExited?: boolean }
+) {
   const supabase = await createClient();
-  const { data, error } = await supabase
+
+  // Check portfolio type to apply correct filter
+  const { data: portfolio } = await supabase
+    .from("portfolios")
+    .select("type")
+    .eq("id", portfolioId)
+    .single();
+
+  let query = supabase
     .from("companies")
     .select("*, indian_stocks(*), projection_models(*, valuation_scenarios(*))")
-    .eq("portfolio_id", portfolioId)
-    .order("created_at");
+    .eq("portfolio_id", portfolioId);
+
+  // For holdings portfolios, filter out fully sold stocks (quantity = 0)
+  // quantity null = manually added (no trades yet) → show
+  // quantity > 0  = active holding → show
+  // quantity = 0  = fully exited → hide by default
+  if (portfolio?.type === "holdings" && !options?.includeExited) {
+    query = query.or("quantity.is.null,quantity.gt.0");
+  }
+
+  const { data, error } = await query.order("created_at");
 
   if (error) {
     log.error("getCompanies failed", { error: error.message, portfolioId });

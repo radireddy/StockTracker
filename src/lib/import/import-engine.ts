@@ -519,7 +519,9 @@ async function recomputeHoldings(
   await supabase
     .from("companies")
     .update({
-      quantity: totalQty > 0 ? totalQty : null,
+      // 0 = fully sold (has transactions but no remaining shares)
+      // null = no transactions yet (manually added)
+      quantity: totalQty > 0 ? totalQty : 0,
       avg_buy_price: avgPrice,
       buy_date: earliestBuy?.date ?? null,
     })
