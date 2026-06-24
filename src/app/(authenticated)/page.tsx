@@ -33,13 +33,9 @@ export default function DashboardPage() {
     };
   }, [selectedId]);
 
-  const fetchCompanies = useCallback(() => {
-    setLoading(true);
-    getCompanies(selectedId)
-      .then(setCompanies)
-      .catch(() => setCompanies([]))
-      .finally(() => setLoading(false));
-  }, [selectedId]);
+  const removeCompany = useCallback((companyId: string) => {
+    setCompanies((prev) => prev.filter((c) => c.id !== companyId));
+  }, []);
 
   const portfolioType = selectedPortfolio?.type ?? "holdings";
   const isHoldings = portfolioType === "holdings";
@@ -65,7 +61,7 @@ export default function DashboardPage() {
           Loading companies...
         </div>
       ) : (
-        <CompaniesTable companies={companies} portfolioType={portfolioType} onRefresh={fetchCompanies} />
+        <CompaniesTable companies={companies} portfolioType={portfolioType} onRemoveCompany={removeCompany} />
       )}
     </div>
   );

@@ -47,11 +47,11 @@ function getScenarioReturn(
 export function CompaniesTable({
   companies,
   portfolioType = "holdings",
-  onRefresh,
+  onRemoveCompany,
 }: {
   companies: CompanyWithProjections[];
   portfolioType?: "holdings" | "watchlist";
-  onRefresh?: () => void;
+  onRemoveCompany?: (id: string) => void;
 }) {
   const isHoldings = portfolioType === "holdings";
   const router = useRouter();
@@ -586,8 +586,8 @@ export function CompaniesTable({
           currentPortfolioId={selectedId}
           portfolios={portfolios}
           onMoved={() => {
+            onRemoveCompany?.(moveTarget.id);
             setMoveTarget(null);
-            onRefresh?.();
           }}
         />
       )}
@@ -616,8 +616,8 @@ export function CompaniesTable({
                 setDeleting(true);
                 try {
                   await deleteCompany(deleteTarget.id);
+                  onRemoveCompany?.(deleteTarget.id);
                   setDeleteTarget(null);
-                  onRefresh?.();
                 } finally {
                   setDeleting(false);
                 }
