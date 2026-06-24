@@ -7,17 +7,26 @@ import type { Transaction } from "@/types/database";
 
 const log = createLogger({ service: "transaction-actions" });
 
-export async function getTransactions(companyId: string): Promise<Transaction[]> {
+export async function getTransactions(
+  companyId: string,
+  ownerId?: string
+): Promise<Transaction[]> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("transactions")
-    .select("*")
+    .select("*, portfolio_owners(id, name)")
     .eq("company_id", companyId)
     .order("date")
     .order("created_at");
+
+  if (ownerId) {
+    query = query.eq("owner_id", ownerId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     log.error("getTransactions failed", { error: error.message, companyId });
@@ -36,15 +45,19 @@ export async function addTransaction(
     fees?: number;
     date: string;
     notes?: string;
+    owner_id: string;
   }
 ) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
+  if (!input.owner_id) throw new Error("Owner is required");
+
   const { error } = await supabase.from("transactions").insert({
     company_id: companyId,
     user_id: user.id,
+    owner_id: input.owner_id,
     type: input.type,
     quantity: input.quantity,
     price: input.price,
@@ -71,13 +84,13 @@ export async function updateTransaction(
     fees?: number;
     date?: string;
     notes?: string;
+    owner_id?: string;
   }
 ) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  // Get company_id from the transaction first
   const { data: txn, error: fetchError } = await supabase
     .from("transactions")
     .select("company_id")
@@ -108,7 +121,6 @@ export async function deleteTransaction(id: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  // Get company_id from the transaction first
   const { data: txn, error: fetchError } = await supabase
     .from("transactions")
     .select("company_id")
@@ -134,6 +146,11 @@ export async function deleteTransaction(id: string) {
   revalidatePath("/");
 }
 
+/**
+ * Recompute holdings for a company:
+ * 1. Per-owner FIFO → update owner_holdings
+ * 2. Aggregate across owners → update companies.quantity/avg_buy_price
+ */
 async function recomputeHoldings(companyId: string) {
   const supabase = await createClient();
 
@@ -150,56 +167,112 @@ async function recomputeHoldings(companyId: string) {
   }
 
   if (!transactions || transactions.length === 0) {
-    const { error: updateError } = await supabase
+    // Clear company-level holdings
+    await supabase
       .from("companies")
       .update({ quantity: null, avg_buy_price: null, buy_date: null })
       .eq("id", companyId);
-
-    if (updateError) {
-      log.error("recomputeHoldings: failed to clear holdings", { error: updateError.message, companyId });
-      throw new Error(updateError.message);
-    }
+    // Delete all owner_holdings for this company
+    await supabase
+      .from("owner_holdings")
+      .delete()
+      .eq("company_id", companyId);
     return;
   }
 
-  // FIFO method (Indian stock market rule):
-  // Sells consume the oldest buy lots first.
-  // Average price = total remaining cost / total remaining quantity.
-  const lots: { qty: number; price: number }[] = [];
-
+  // Group transactions by owner
+  const byOwner = new Map<string, typeof transactions>();
   for (const txn of transactions) {
-    if (txn.type === "BUY") {
-      lots.push({ qty: txn.quantity, price: txn.price });
-    } else if (txn.type === "SELL") {
-      let remaining = txn.quantity;
-      while (remaining > 0 && lots.length > 0) {
-        if (lots[0].qty <= remaining) {
-          remaining -= lots[0].qty;
-          lots.shift();
-        } else {
-          lots[0].qty -= remaining;
-          remaining = 0;
+    const existing = byOwner.get(txn.owner_id);
+    if (existing) {
+      existing.push(txn);
+    } else {
+      byOwner.set(txn.owner_id, [txn]);
+    }
+  }
+
+  let totalQtyAll = 0;
+  let totalCostAll = 0;
+  let earliestBuyDateAll: string | null = null;
+
+  // Process each owner separately with FIFO
+  for (const [ownerId, ownerTxns] of byOwner) {
+    const lots: { qty: number; price: number }[] = [];
+
+    for (const txn of ownerTxns) {
+      if (txn.type === "BUY") {
+        lots.push({ qty: txn.quantity, price: txn.price });
+      } else if (txn.type === "SELL") {
+        let remaining = txn.quantity;
+        while (remaining > 0 && lots.length > 0) {
+          if (lots[0].qty <= remaining) {
+            remaining -= lots[0].qty;
+            lots.shift();
+          } else {
+            lots[0].qty -= remaining;
+            remaining = 0;
+          }
         }
+      }
+    }
+
+    const ownerQty = lots.reduce((s, l) => s + l.qty, 0);
+    const ownerCost = lots.reduce((s, l) => s + l.qty * l.price, 0);
+    const ownerAvgPrice = ownerQty > 0 ? Math.round((ownerCost / ownerQty) * 100) / 100 : null;
+    const earliestBuy = ownerTxns.find((t) => t.type === "BUY");
+    const buyDate = earliestBuy ? earliestBuy.date : null;
+
+    // Upsert owner_holdings
+    const { error: upsertErr } = await supabase
+      .from("owner_holdings")
+      .upsert(
+        {
+          company_id: companyId,
+          owner_id: ownerId,
+          user_id: ownerTxns[0].user_id,
+          quantity: ownerQty > 0 ? ownerQty : 0,
+          avg_buy_price: ownerAvgPrice,
+          buy_date: buyDate,
+        },
+        { onConflict: "company_id,owner_id" }
+      );
+
+    if (upsertErr) {
+      log.error("recomputeHoldings: failed to upsert owner_holdings", {
+        error: upsertErr.message,
+        companyId,
+        ownerId,
+      });
+    }
+
+    // Aggregate
+    if (ownerQty > 0) {
+      totalQtyAll += ownerQty;
+      totalCostAll += ownerCost;
+      if (!earliestBuyDateAll || (buyDate && buyDate < earliestBuyDateAll)) {
+        earliestBuyDateAll = buyDate;
       }
     }
   }
 
-  const totalQty = lots.reduce((s, l) => s + l.qty, 0);
-  const totalCost = lots.reduce((s, l) => s + l.qty * l.price, 0);
-  const avgPrice = totalQty > 0 ? totalCost / totalQty : null;
+  // Delete owner_holdings for owners who no longer have transactions
+  const ownerIdsWithTxns = [...byOwner.keys()];
+  if (ownerIdsWithTxns.length > 0) {
+    await supabase
+      .from("owner_holdings")
+      .delete()
+      .eq("company_id", companyId)
+      .not("owner_id", "in", `(${ownerIdsWithTxns.join(",")})`);
+  }
 
-  // Get earliest remaining buy lot's date
-  const earliestBuy = transactions.find((t) => t.type === "BUY");
-  const buyDate = earliestBuy ? earliestBuy.date : null;
-
+  // Update company-level aggregate
+  const aggAvgPrice = totalQtyAll > 0 ? Math.round((totalCostAll / totalQtyAll) * 100) / 100 : null;
   const { error: updateError } = await supabase
     .from("companies")
     .update({
-      // 0 = fully sold (has transactions but no remaining shares)
-      // null = no transactions yet (manually added)
-      quantity: totalQty > 0 ? totalQty : 0,
-      avg_buy_price: avgPrice,
-      buy_date: buyDate,
+      quantity: totalQtyAll > 0 ? totalQtyAll : 0,
+      avg_buy_price: aggAvgPrice,
+      buy_date: earliestBuyDateAll,
     })
     .eq("id", companyId);
 

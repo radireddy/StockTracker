@@ -78,6 +78,55 @@ export async function getCompany(id: string) {
   return data;
 }
 
+export async function getOwnerHoldingsForPortfolio(
+  portfolioId: string,
+  ownerId: string
+): Promise<
+  {
+    company_id: string;
+    quantity: number;
+    avg_buy_price: number | null;
+    buy_date: string | null;
+  }[]
+> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  // Get company IDs in this portfolio
+  const { data: companies } = await supabase
+    .from("companies")
+    .select("id")
+    .eq("portfolio_id", portfolioId);
+
+  const companyIds = (companies ?? []).map((c) => c.id);
+  if (companyIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("owner_holdings")
+    .select("company_id, quantity, avg_buy_price, buy_date")
+    .eq("owner_id", ownerId)
+    .in("company_id", companyIds);
+
+  if (error) {
+    log.error("getOwnerHoldingsForPortfolio failed", {
+      error: error.message,
+      portfolioId,
+      ownerId,
+    });
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((h) => ({
+    company_id: h.company_id,
+    quantity: h.quantity ?? 0,
+    avg_buy_price: h.avg_buy_price,
+    buy_date: h.buy_date,
+  }));
+}
+
 export async function createCompany(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

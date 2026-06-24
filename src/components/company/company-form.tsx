@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { createCompany } from "@/app/(authenticated)/actions/company-actions";
 import { addTransaction } from "@/app/(authenticated)/actions/transaction-actions";
+import { getDefaultOwnerId } from "@/app/(authenticated)/actions/owner-actions";
 import { StockSearch } from "@/components/company/stock-search";
 import { roundPrice } from "@/lib/utils/calculations";
 import type { IndianStock } from "@/types/database";
@@ -45,11 +46,13 @@ export function CompanyForm({
     const txPrice = formData.get("tx_price");
     const txDate = formData.get("tx_date");
     if (isHoldings && txQty && txPrice && Number(txQty) > 0) {
+      const defaultOwnerId = await getDefaultOwnerId();
       await addTransaction(companyId, {
         type: "BUY",
         quantity: Number(txQty),
         price: Number(txPrice),
         date: (txDate as string) || new Date().toISOString().split("T")[0],
+        owner_id: defaultOwnerId,
       });
     }
 

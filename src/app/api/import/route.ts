@@ -10,7 +10,7 @@ const log = createLogger({ service: "import-api" });
 /**
  * POST /api/import
  * Upload a broker tradebook for async processing.
- * Returns a job_id immediately for polling.
+ * Requires portfolio_id and owner_id.
  */
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -26,6 +26,10 @@ export async function POST(request: Request) {
   const portfolioId = formData.get("portfolio_id") as string;
   if (!portfolioId)
     return NextResponse.json({ error: "No portfolio selected" }, { status: 400 });
+
+  const ownerId = formData.get("owner_id") as string;
+  if (!ownerId)
+    return NextResponse.json({ error: "No owner selected. Please select who this tradebook belongs to." }, { status: 400 });
 
   const brokerHint = formData.get("broker") as BrokerType | null;
 
@@ -47,10 +51,20 @@ export async function POST(request: Request) {
     );
   }
 
+  // Validate owner
+  const { data: owner, error: oErr } = await supabase
+    .from("portfolio_owners")
+    .select("id, name")
+    .eq("id", ownerId)
+    .single();
+
+  if (oErr || !owner) {
+    return NextResponse.json({ error: "Owner not found" }, { status: 404 });
+  }
+
   // Parse the file
   const buffer = await file.arrayBuffer();
 
-  // Resolve broker adapter
   const adapter = brokerHint
     ? getBrokerAdapter(brokerHint)
     : detectBroker(buffer);
@@ -78,7 +92,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // Check for fatal parse errors (no trades at all)
   const fatalErrors = parseResult.errors.filter((e) => e.severity === "error");
   if (parseResult.trades.length === 0) {
     return NextResponse.json(
@@ -98,6 +111,7 @@ export async function POST(request: Request) {
     .insert({
       user_id: user.id,
       portfolio_id: portfolioId,
+      owner_id: ownerId,
       source: adapter.broker,
       status: "processing",
       file_name: file.name,
@@ -117,13 +131,12 @@ export async function POST(request: Request) {
   const jobId = job.id;
 
   // Fire-and-forget async processing
-  executeImport(user.id, portfolioId, jobId, parseResult, supabase).catch(
+  executeImport(user.id, portfolioId, ownerId, jobId, parseResult, supabase).catch(
     (err) => {
       log.error("Import processing crashed", {
         jobId,
         error: (err as Error).message,
       });
-      // Try to mark job as failed
       supabase
         .from("import_jobs")
         .update({
@@ -142,6 +155,7 @@ export async function POST(request: Request) {
     total_trades: parseResult.trades.length,
     client_id: parseResult.metadata.client_id,
     date_range: parseResult.metadata.date_range,
+    owner_name: owner.name,
     parse_warnings: parseResult.errors.filter((e) => e.severity === "warning")
       .length,
     parse_errors: fatalErrors.length,
@@ -149,8 +163,8 @@ export async function POST(request: Request) {
 }
 
 /**
- * GET /api/import?job_id=<id>          — full detail for a single job (for polling & expand)
- * GET /api/import                       — lightweight list of recent jobs (no summary/errors)
+ * GET /api/import?job_id=<id>          — full detail for a single job
+ * GET /api/import                       — lightweight list of recent jobs
  */
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -163,10 +177,9 @@ export async function GET(request: Request) {
   const jobId = url.searchParams.get("job_id");
 
   if (jobId) {
-    // Full detail — includes summary & errors JSONB
     const { data: job, error } = await supabase
       .from("import_jobs")
-      .select("*")
+      .select("*, portfolio_owners(name)")
       .eq("id", jobId)
       .single();
 
@@ -176,10 +189,9 @@ export async function GET(request: Request) {
     return NextResponse.json(job);
   }
 
-  // Lightweight list — skip heavy JSONB columns for fast page load
   const { data: jobs, error } = await supabase
     .from("import_jobs")
-    .select("id, user_id, portfolio_id, source, status, file_name, total_rows, processed_rows, imported_count, skipped_count, failed_count, created_at, updated_at")
+    .select("id, user_id, portfolio_id, owner_id, source, status, file_name, total_rows, processed_rows, imported_count, skipped_count, failed_count, created_at, updated_at, portfolio_owners(name)")
     .order("created_at", { ascending: false })
     .limit(20);
 

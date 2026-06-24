@@ -174,10 +174,36 @@ export interface MarketPerception {
   updated_at: string;
 }
 
+export interface PortfolioOwner {
+  id: string;
+  user_id: string;
+  name: string;
+  pan_number: string | null;
+  mobile: string | null;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OwnerHolding {
+  id: string;
+  company_id: string;
+  owner_id: string;
+  user_id: string;
+  quantity: number;
+  avg_buy_price: number | null;
+  buy_date: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined
+  portfolio_owners?: PortfolioOwner;
+}
+
 export type Transaction = {
   id: string;
   company_id: string;
   user_id: string;
+  owner_id: string;
   type: 'BUY' | 'SELL';
   quantity: number;
   price: number;
@@ -191,12 +217,15 @@ export type Transaction = {
   exchange: string | null;
   created_at: string;
   updated_at: string;
+  // Joined
+  portfolio_owners?: PortfolioOwner;
 };
 
 export type ImportJob = {
   id: string;
   user_id: string;
   portfolio_id: string;
+  owner_id: string | null;
   source: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   file_name: string | null;

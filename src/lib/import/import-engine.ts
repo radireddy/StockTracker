@@ -67,14 +67,16 @@ export function groupTrades(trades: ParsedTrade[]): GroupedTrade[] {
  * Import Engine — processes grouped trades into the database.
  *
  * Key properties:
- * - Idempotent: Uses trade_id unique constraint; re-importing skips existing trades
+ * - Idempotent: Uses (owner_id, trade_id) unique constraint; re-importing skips existing trades
  * - Incremental: Can import partial tradebooks in any order
  * - Auto-creates companies: Stocks not yet in the portfolio get created automatically
- * - Holdings recomputation: After import, recalculates quantity/avg_price/buy_date
+ * - Holdings recomputation: After import, recalculates per-owner and aggregate holdings
+ * - Owner-scoped: All trades are tagged to a specific portfolio owner; dedup is per-owner
  */
 export async function executeImport(
   userId: string,
   portfolioId: string,
+  ownerId: string,
   jobId: string,
   parseResult: BrokerParseResult,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -114,7 +116,7 @@ export async function executeImport(
     (stocks ?? []).map((s: StockInfo) => [s.isin, s] as [string, StockInfo])
   );
 
-  // Auto-create missing stocks from tradebook data (one at a time to isolate failures)
+  // Auto-create missing stocks from tradebook data
   const missingIsins = uniqueIsins.filter((isin) => !stockMap.has(isin));
   if (missingIsins.length > 0) {
     const created: string[] = [];
@@ -130,13 +132,11 @@ export async function executeImport(
         exchange: trade.exchange === "BSE" ? ("BSE" as const) : ("NSE" as const),
       };
 
-      // Try insert first; on conflict (e.g. nse_symbol already taken), try without nse_symbol
       let { error: insertErr } = await adminClient
         .from("indian_stocks")
         .upsert(stockRow, { onConflict: "isin", ignoreDuplicates: true });
 
       if (insertErr) {
-        // Retry without nse_symbol/bse_code in case of unique constraint conflict
         log.warn("Stock insert failed, retrying without symbol columns", {
           isin,
           symbol: trade.symbol,
@@ -196,23 +196,20 @@ export async function executeImport(
     ] as [string, string])
   );
 
-  // Batch: get all existing trade_ids for idempotency check
-  // Check both the trade_id column and the trade_ids JSONB array
+  // Batch: get all existing trade_ids for this owner (idempotency check scoped to owner)
   const allTradeIds = grouped.flatMap((g) => g.trade_ids);
   const existingTradeIdSet = new Set<string>();
 
-  // Query in batches of 500 to avoid query size limits
   for (let i = 0; i < allTradeIds.length; i += 500) {
     const batch = allTradeIds.slice(i, i + 500);
-    // Check trade_id column (primary key of grouped transaction)
     const { data: byTradeId } = await userSupabase
       .from("transactions")
       .select("trade_id, trade_ids")
+      .eq("owner_id", ownerId)
       .in("trade_id", batch);
 
     for (const t of byTradeId ?? []) {
       existingTradeIdSet.add(t.trade_id);
-      // Also add all trade_ids from the JSONB array
       if (Array.isArray(t.trade_ids)) {
         for (const id of t.trade_ids) existingTradeIdSet.add(id);
       }
@@ -224,6 +221,7 @@ export async function executeImport(
       const result = await processGroup(
         userId,
         portfolioId,
+        ownerId,
         group,
         broker,
         stockMap,
@@ -251,7 +249,6 @@ export async function executeImport(
 
     processedRows += group.trade_ids.length;
 
-    // Update progress periodically
     if (processedRows % 100 === 0 || processedRows === parseResult.trades.length) {
       await userSupabase
         .from("import_jobs")
@@ -265,8 +262,7 @@ export async function executeImport(
     }
   }
 
-  // Recompute holdings for all affected companies
-  // Build isin→symbol map for reporting
+  // Recompute holdings for all affected companies (per-owner + aggregate)
   const isinToSymbol = new Map<string, string>();
   const affectedIsins = new Set<string>();
   for (const group of grouped) {
@@ -338,6 +334,7 @@ export async function executeImport(
 
   log.info("Import completed", {
     jobId,
+    ownerId,
     imported: importedCount,
     skipped: skippedCount,
     failed: failedCount,
@@ -351,6 +348,7 @@ export async function executeImport(
 async function processGroup(
   userId: string,
   portfolioId: string,
+  ownerId: string,
   group: GroupedTrade,
   broker: string,
   stockMap: Map<string, { isin: string; name: string; nse_symbol: string | null }>,
@@ -360,13 +358,12 @@ async function processGroup(
   userSupabase: any,
   newCompaniesCreated: string[]
 ): Promise<"imported" | "skipped"> {
-  // Idempotency: check if all trade_ids already exist
+  // Idempotency: check if all trade_ids already exist for this owner
   const newTradeIds = group.trade_ids.filter(
     (id) => !existingTradeIdSet.has(id)
   );
   if (newTradeIds.length === 0) return "skipped";
 
-  // Verify stock exists (should always pass since we auto-create missing stocks above)
   if (!stockMap.has(group.isin)) {
     throw new Error(
       `Stock not found for ISIN ${group.isin} (${group.symbol}). Auto-creation may have failed.`
@@ -387,7 +384,6 @@ async function processGroup(
       .single();
 
     if (createErr) {
-      // Could be a race condition — try fetching again
       if (createErr.code === "23505") {
         const { data: existing } = await userSupabase
           .from("companies")
@@ -411,7 +407,6 @@ async function processGroup(
     }
   }
 
-  // Calculate new quantity (proportional to new trade IDs only)
   const newQuantity =
     newTradeIds.length === group.trade_ids.length
       ? group.total_quantity
@@ -419,10 +414,10 @@ async function processGroup(
           (group.total_quantity * newTradeIds.length) / group.trade_ids.length
         );
 
-  // Insert the grouped transaction with all trade_ids stored in JSONB
   const { error: txnErr } = await userSupabase.from("transactions").insert({
     company_id: companyId,
     user_id: userId,
+    owner_id: ownerId,
     type: group.trade_type,
     quantity: newQuantity,
     price: group.avg_price,
@@ -446,7 +441,6 @@ async function processGroup(
     throw new Error(`Failed to insert transaction: ${txnErr.message}`);
   }
 
-  // Track all trade_ids for idempotency within this run
   for (const id of newTradeIds) {
     existingTradeIdSet.add(id);
   }
@@ -454,7 +448,10 @@ async function processGroup(
   return "imported";
 }
 
-/** Returns true if the company has incomplete history (more sells than buys). */
+/**
+ * Recompute holdings per-owner (FIFO) and aggregate to company level.
+ * Returns true if the company has incomplete history (more sells than buys).
+ */
 async function recomputeHoldings(
   companyId: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -462,7 +459,7 @@ async function recomputeHoldings(
 ): Promise<boolean> {
   const { data: transactions, error } = await supabase
     .from("transactions")
-    .select("type, quantity, price, date")
+    .select("type, quantity, price, date, owner_id, user_id")
     .eq("company_id", companyId)
     .order("date")
     .order("created_at");
@@ -474,56 +471,92 @@ async function recomputeHoldings(
       .from("companies")
       .update({ quantity: null, avg_buy_price: null, buy_date: null })
       .eq("id", companyId);
+    await supabase
+      .from("owner_holdings")
+      .delete()
+      .eq("company_id", companyId);
     return false;
   }
 
-  let hasBuys = false;
-  let hasSells = false;
-
-  // FIFO method (Indian stock market rule):
-  // Sells consume the oldest buy lots first.
-  // Average price = total remaining cost / total remaining quantity.
-  const lots: { qty: number; price: number }[] = [];
-
+  // Group by owner
+  const byOwner = new Map<string, typeof transactions>();
   for (const txn of transactions) {
-    if (txn.type === "BUY") {
-      lots.push({ qty: txn.quantity, price: txn.price });
-      hasBuys = true;
-    } else if (txn.type === "SELL") {
-      let remaining = txn.quantity;
-      while (remaining > 0 && lots.length > 0) {
-        if (lots[0].qty <= remaining) {
-          remaining -= lots[0].qty;
-          lots.shift();
-        } else {
-          lots[0].qty -= remaining;
-          remaining = 0;
-        }
-      }
-      hasSells = true;
+    const existing = byOwner.get(txn.owner_id);
+    if (existing) {
+      existing.push(txn);
+    } else {
+      byOwner.set(txn.owner_id, [txn]);
     }
   }
 
-  const totalQty = lots.reduce((s, l) => s + l.qty, 0);
-  const totalCost = lots.reduce((s, l) => s + l.qty * l.price, 0);
-  const incompleteHistory = totalQty < 0 || (hasSells && !hasBuys);
+  let totalQtyAll = 0;
+  let totalCostAll = 0;
+  let earliestBuyDateAll: string | null = null;
+  let incompleteHistory = false;
 
-  const avgPrice =
-    totalQty > 0
-      ? Math.round((totalCost / totalQty) * 100) / 100
-      : null;
-  const earliestBuy = lots.length > 0 ? transactions.find(
-    (t: { type: string }) => t.type === "BUY"
-  ) : null;
+  for (const [ownerId, ownerTxns] of byOwner) {
+    let hasBuys = false;
+    let hasSells = false;
+    const lots: { qty: number; price: number }[] = [];
+
+    for (const txn of ownerTxns) {
+      if (txn.type === "BUY") {
+        lots.push({ qty: txn.quantity, price: txn.price });
+        hasBuys = true;
+      } else if (txn.type === "SELL") {
+        let remaining = txn.quantity;
+        while (remaining > 0 && lots.length > 0) {
+          if (lots[0].qty <= remaining) {
+            remaining -= lots[0].qty;
+            lots.shift();
+          } else {
+            lots[0].qty -= remaining;
+            remaining = 0;
+          }
+        }
+        hasSells = true;
+      }
+    }
+
+    const ownerQty = lots.reduce((s, l) => s + l.qty, 0);
+    const ownerCost = lots.reduce((s, l) => s + l.qty * l.price, 0);
+    const ownerIncomplete = ownerQty < 0 || (hasSells && !hasBuys);
+    if (ownerIncomplete) incompleteHistory = true;
+
+    const avgPrice = ownerQty > 0 ? Math.round((ownerCost / ownerQty) * 100) / 100 : null;
+    const earliestBuy = ownerTxns.find((t: { type: string }) => t.type === "BUY");
+
+    await supabase
+      .from("owner_holdings")
+      .upsert(
+        {
+          company_id: companyId,
+          owner_id: ownerId,
+          user_id: ownerTxns[0].user_id,
+          quantity: ownerQty > 0 ? ownerQty : 0,
+          avg_buy_price: avgPrice,
+          buy_date: earliestBuy?.date ?? null,
+        },
+        { onConflict: "company_id,owner_id" }
+      );
+
+    if (ownerQty > 0) {
+      totalQtyAll += ownerQty;
+      totalCostAll += ownerCost;
+      if (!earliestBuyDateAll || (earliestBuy?.date && earliestBuy.date < earliestBuyDateAll)) {
+        earliestBuyDateAll = earliestBuy?.date ?? null;
+      }
+    }
+  }
+
+  const aggAvgPrice = totalQtyAll > 0 ? Math.round((totalCostAll / totalQtyAll) * 100) / 100 : null;
 
   await supabase
     .from("companies")
     .update({
-      // 0 = fully sold (has transactions but no remaining shares)
-      // null = no transactions yet (manually added)
-      quantity: totalQty > 0 ? totalQty : 0,
-      avg_buy_price: avgPrice,
-      buy_date: earliestBuy?.date ?? null,
+      quantity: totalQtyAll > 0 ? totalQtyAll : 0,
+      avg_buy_price: aggAvgPrice,
+      buy_date: earliestBuyDateAll,
     })
     .eq("id", companyId);
 

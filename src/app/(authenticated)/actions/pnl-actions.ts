@@ -19,11 +19,71 @@ export type CompanyPnL = {
   pnl_pct: number;
 };
 
+/**
+ * Get portfolio P&L.
+ * If ownerId is provided, returns P&L for that owner only (from owner_holdings).
+ * Otherwise, returns aggregate P&L across all owners (from companies table).
+ */
 export async function getPortfolioPnL(
-  portfolioId: string
+  portfolioId: string,
+  ownerId?: string
 ): Promise<PortfolioPnL> {
   const supabase = await createClient();
 
+  if (ownerId) {
+    // Per-owner P&L from owner_holdings
+    const { data: companies, error: cErr } = await supabase
+      .from("companies")
+      .select("id, isin, indian_stocks(price)")
+      .eq("portfolio_id", portfolioId);
+
+    if (cErr) {
+      log.error("Failed to fetch companies for owner P&L", { portfolioId, error: cErr.message });
+      throw new Error(cErr.message);
+    }
+
+    const companyIds = (companies ?? []).map((c) => c.id);
+    if (companyIds.length === 0) {
+      return { total_invested: 0, total_current: 0, total_pnl: 0, total_pnl_pct: 0 };
+    }
+
+    const { data: holdings, error: hErr } = await supabase
+      .from("owner_holdings")
+      .select("company_id, quantity, avg_buy_price")
+      .eq("owner_id", ownerId)
+      .in("company_id", companyIds)
+      .not("quantity", "is", null)
+      .not("avg_buy_price", "is", null);
+
+    if (hErr) {
+      log.error("Failed to fetch owner holdings for P&L", { ownerId, error: hErr.message });
+      throw new Error(hErr.message);
+    }
+
+    // Build price map from companies
+    const priceMap = new Map<string, number>();
+    for (const c of companies ?? []) {
+      const stock = c.indian_stocks as unknown as { price: number | null } | null;
+      if (stock?.price != null) priceMap.set(c.id, stock.price);
+    }
+
+    let total_invested = 0;
+    let total_current = 0;
+
+    for (const h of holdings ?? []) {
+      const qty = h.quantity ?? 0;
+      const avgBuy = h.avg_buy_price ?? 0;
+      const currentPrice = priceMap.get(h.company_id) ?? 0;
+      total_invested += avgBuy * qty;
+      total_current += currentPrice * qty;
+    }
+
+    const total_pnl = total_current - total_invested;
+    const total_pnl_pct = total_invested > 0 ? (total_pnl / total_invested) * 100 : 0;
+    return { total_invested, total_current, total_pnl, total_pnl_pct };
+  }
+
+  // Aggregate P&L from companies table (all owners merged)
   const { data: companies, error } = await supabase
     .from("companies")
     .select("quantity, avg_buy_price, isin, indian_stocks(price)")

@@ -27,6 +27,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
+import { OwnerPicker } from "@/components/owner/owner-picker";
 import type { ImportJob } from "@/types/database";
 
 type ImportPhase = "select" | "uploading" | "processing" | "done";
@@ -46,6 +47,7 @@ export default function ImportPage() {
       ? selectedId
       : holdingsPortfolios[0]?.id ?? ""
   );
+  const [ownerId, setOwnerId] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [phase, setPhase] = useState<ImportPhase>("select");
   const [job, setJob] = useState<ImportJob | null>(null);
@@ -141,13 +143,14 @@ export default function ImportPage() {
   };
 
   const handleImport = async () => {
-    if (!file || !portfolioId) return;
+    if (!file || !portfolioId || !ownerId) return;
     setPhase("uploading");
     setUploadError(null);
 
     const formData = new FormData();
     formData.append("file", file);
     formData.append("portfolio_id", portfolioId);
+    formData.append("owner_id", ownerId);
     formData.append("broker", "zerodha");
 
     try {
@@ -186,6 +189,7 @@ export default function ImportPage() {
     setPhase("select");
     setJob(null);
     setUploadError(null);
+    // Keep ownerId for convenience (likely re-importing for same person)
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -230,6 +234,13 @@ export default function ImportPage() {
               </select>
             )}
           </div>
+
+          {/* Owner picker */}
+          <OwnerPicker
+            value={ownerId}
+            onChange={setOwnerId}
+            disabled={phase !== "select"}
+          />
 
           {/* File upload */}
           <div className="space-y-2">
@@ -287,7 +298,7 @@ export default function ImportPage() {
           {phase === "select" && (
             <Button
               onClick={handleImport}
-              disabled={!file || !portfolioId}
+              disabled={!file || !portfolioId || !ownerId}
               className="w-full"
             >
               Import into {selectedPortfolioName}
