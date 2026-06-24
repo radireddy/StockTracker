@@ -32,6 +32,13 @@ import type { ImportJob } from "@/types/database";
 
 type ImportPhase = "select" | "uploading" | "processing" | "done";
 
+/** Tracks per-file result when processing multiple files */
+type FileResult = {
+  file: File;
+  job: ImportJob | null;
+  error: string | null;
+};
+
 /** Lightweight job from the list endpoint (no summary/errors) */
 type ImportJobSummaryRow = Omit<ImportJob, "summary" | "errors"> & {
   summary?: ImportJob["summary"];
@@ -48,13 +55,17 @@ export default function ImportPage() {
       : holdingsPortfolios[0]?.id ?? ""
   );
   const [ownerId, setOwnerId] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [phase, setPhase] = useState<ImportPhase>("select");
   const [job, setJob] = useState<ImportJob | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [recentJobs, setRecentJobs] = useState<ImportJobSummaryRow[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Multi-file tracking
+  const [fileResults, setFileResults] = useState<FileResult[]>([]);
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
+  const abortRef = useRef(false);
 
   useEffect(() => {
     fetchRecentJobs();
@@ -69,66 +80,31 @@ export default function ImportPage() {
     }
   };
 
-  const startPolling = useCallback((jobId: string) => {
-    if (pollRef.current) clearInterval(pollRef.current);
+  /** Poll a single job until it completes/fails, then resolve with final job */
+  const waitForJob = useCallback((jobId: string): Promise<ImportJob> => {
+    return new Promise((resolve) => {
+      if (pollRef.current) clearInterval(pollRef.current);
 
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/import?job_id=${jobId}`);
-        if (!res.ok) return;
-        const updatedJob: ImportJob = await res.json();
-        setJob(updatedJob);
+      pollRef.current = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/import?job_id=${jobId}`);
+          if (!res.ok) return;
+          const updatedJob: ImportJob = await res.json();
+          setJob(updatedJob);
 
-        if (
-          updatedJob.status === "completed" ||
-          updatedJob.status === "failed"
-        ) {
-          if (pollRef.current) clearInterval(pollRef.current);
-          pollRef.current = null;
-          setPhase("done");
-          fetchRecentJobs();
-
-          if (updatedJob.status === "completed") {
-            const hasFailures = updatedJob.failed_count > 0;
-            const hasIncomplete =
-              (updatedJob.summary?.symbols_incomplete_history?.length ?? 0) > 0;
-
-            if (hasFailures) {
-              toast.warning("Import completed with issues", {
-                description: `${updatedJob.imported_count} imported, ${updatedJob.skipped_count} skipped, ${updatedJob.failed_count} failed.`,
-                duration: 8000,
-              });
-            } else if (
-              updatedJob.imported_count === 0 &&
-              updatedJob.skipped_count > 0
-            ) {
-              toast.info("All trades already imported", {
-                description: `${updatedJob.skipped_count} trades were already in the system.`,
-                duration: 6000,
-              });
-            } else if (hasIncomplete) {
-              toast.warning("Import completed — some stocks need older history", {
-                description: `${updatedJob.imported_count} trades imported. ${updatedJob.summary!.symbols_incomplete_history!.length} stock(s) have more sells than buys — import older tradebooks.`,
-                duration: 10000,
-              });
-            } else {
-              toast.success("Import completed successfully", {
-                description: `${updatedJob.imported_count} trades imported${updatedJob.summary?.new_companies_created?.length ? `, ${updatedJob.summary.new_companies_created.length} new stocks added` : ""}.`,
-                duration: 6000,
-              });
-            }
-          } else {
-            toast.error("Import failed", {
-              description:
-                "Check the error details below for more information.",
-              duration: 8000,
-            });
+          if (
+            updatedJob.status === "completed" ||
+            updatedJob.status === "failed"
+          ) {
+            if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
+            resolve(updatedJob);
           }
+        } catch {
+          /* continue polling */
         }
-      } catch {
-        /* continue polling */
-      }
-    }, 1500);
+      }, 1500);
+    });
   }, []);
 
   useEffect(() => {
@@ -138,15 +114,23 @@ export default function ImportPage() {
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFile(e.target.files?.[0] ?? null);
+    const selected = e.target.files;
+    if (!selected || selected.length === 0) {
+      setFiles([]);
+    } else {
+      setFiles(Array.from(selected));
+    }
     setUploadError(null);
   };
 
-  const handleImport = async () => {
-    if (!file || !portfolioId || !ownerId) return;
-    setPhase("uploading");
-    setUploadError(null);
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+    // Reset the input so the same files can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
+  /** Upload and process a single file, return the result */
+  const processOneFile = async (file: File): Promise<FileResult> => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("portfolio_id", portfolioId);
@@ -158,14 +142,11 @@ export default function ImportPage() {
       const result = await res.json();
 
       if (!res.ok) {
-        setUploadError(result.error);
-        setPhase("select");
-        toast.error("Upload failed", { description: result.error });
-        return;
+        return { file, job: null, error: result.error };
       }
 
       setPhase("processing");
-      setJob({
+      const initialJob = {
         id: result.job_id,
         status: "processing",
         total_rows: result.total_trades,
@@ -175,26 +156,78 @@ export default function ImportPage() {
         failed_count: 0,
         file_name: file.name,
         source: result.broker,
-      } as ImportJob);
-      startPolling(result.job_id);
+      } as ImportJob;
+      setJob(initialJob);
+
+      const finalJob = await waitForJob(result.job_id);
+      return { file, job: finalJob, error: null };
     } catch {
-      setUploadError("Network error. Please try again.");
-      setPhase("select");
-      toast.error("Upload failed", { description: "Network error" });
+      return { file, job: null, error: "Network error. Please try again." };
     }
   };
 
+  const handleImport = async () => {
+    if (files.length === 0 || !portfolioId || !ownerId) return;
+    setPhase("uploading");
+    setUploadError(null);
+    setFileResults([]);
+    setCurrentFileIndex(0);
+    abortRef.current = false;
+
+    const results: FileResult[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      if (abortRef.current) break;
+      setCurrentFileIndex(i);
+      setPhase("uploading");
+
+      const result = await processOneFile(files[i]);
+      results.push(result);
+      setFileResults([...results]);
+
+      // Show per-file toast
+      if (result.error) {
+        toast.error(`Failed: ${files[i].name}`, { description: result.error });
+      } else if (result.job?.status === "completed") {
+        const j = result.job;
+        if (j.failed_count > 0) {
+          toast.warning(`${files[i].name}: partial`, {
+            description: `${j.imported_count} imported, ${j.failed_count} failed`,
+          });
+        } else if (j.imported_count === 0 && j.skipped_count > 0) {
+          toast.info(`${files[i].name}: all skipped`, {
+            description: `${j.skipped_count} already imported`,
+          });
+        } else {
+          toast.success(`${files[i].name}: done`, {
+            description: `${j.imported_count} imported`,
+          });
+        }
+      } else if (result.job?.status === "failed") {
+        toast.error(`Failed: ${files[i].name}`);
+      }
+    }
+
+    setPhase("done");
+    fetchRecentJobs();
+  };
+
   const handleReset = () => {
-    setFile(null);
+    setFiles([]);
     setPhase("select");
     setJob(null);
     setUploadError(null);
+    setFileResults([]);
+    setCurrentFileIndex(0);
+    abortRef.current = false;
     // Keep ownerId for convenience (likely re-importing for same person)
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const selectedPortfolioName =
     holdingsPortfolios.find((p) => p.id === portfolioId)?.name ?? "—";
+
+  const isMultiFile = files.length > 1;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -247,11 +280,11 @@ export default function ImportPage() {
             <label className="text-sm font-medium">Zerodha Tradebook</label>
             <p className="text-xs text-muted-foreground">
               Download from Zerodha Console &rarr; Reports &rarr; Tradebook
-              &rarr; Download as Excel
+              &rarr; Download as Excel. You can select multiple files at once.
             </p>
             <div
               className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                file
+                files.length > 0
                   ? "border-primary/50 bg-primary/5"
                   : "border-muted-foreground/25 hover:border-muted-foreground/50"
               } ${phase !== "select" ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}
@@ -263,25 +296,55 @@ export default function ImportPage() {
                 ref={fileInputRef}
                 type="file"
                 accept=".xlsx,.xls"
+                multiple
                 onChange={handleFileChange}
                 disabled={phase !== "select"}
                 className="hidden"
               />
-              {file ? (
-                <div className="flex items-center justify-center gap-3">
-                  <FileSpreadsheet className="h-8 w-8 text-primary" />
-                  <div className="text-left">
-                    <p className="text-sm font-medium">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {(file.size / 1024).toFixed(1)} KB
+              {files.length > 0 ? (
+                <div className="space-y-2">
+                  {files.map((f, i) => (
+                    <div
+                      key={`${f.name}-${i}`}
+                      className="flex items-center justify-between gap-3 text-left"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FileSpreadsheet className="h-5 w-5 text-primary shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {f.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {(f.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                      </div>
+                      {phase === "select" && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeFile(i);
+                          }}
+                          className="text-muted-foreground hover:text-destructive shrink-0 p-1"
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {phase === "select" && (
+                    <p className="text-xs text-muted-foreground pt-1">
+                      {files.length} file{files.length > 1 ? "s" : ""} selected
+                      — click to change
                     </p>
-                  </div>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2">
                   <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">
-                    Click to select your tradebook file (.xlsx)
+                    Click to select tradebook files (.xlsx) — multiple allowed
                   </p>
                 </div>
               )}
@@ -298,19 +361,69 @@ export default function ImportPage() {
           {phase === "select" && (
             <Button
               onClick={handleImport}
-              disabled={!file || !portfolioId || !ownerId}
+              disabled={files.length === 0 || !portfolioId || !ownerId}
               className="w-full"
             >
-              Import into {selectedPortfolioName}
+              Import {files.length > 1 ? `${files.length} files` : ""} into{" "}
+              {selectedPortfolioName}
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           )}
 
-          {(phase === "uploading" || phase === "processing") && job && (
-            <ProcessingStatus job={job} />
+          {(phase === "uploading" || phase === "processing") && (
+            <div className="space-y-3">
+              {/* Multi-file overall progress */}
+              {isMultiFile && (
+                <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
+                  <span>
+                    File {currentFileIndex + 1} of {files.length}:{" "}
+                    <span className="text-foreground font-medium">
+                      {files[currentFileIndex]?.name}
+                    </span>
+                  </span>
+                  <span className="tabular-nums">
+                    {fileResults.length}/{files.length} done
+                  </span>
+                </div>
+              )}
+              {job && <ProcessingStatus job={job} />}
+              {/* Already-completed files in this batch */}
+              {fileResults.length > 0 && (
+                <div className="space-y-1">
+                  {fileResults.map((r, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2 text-xs px-1"
+                    >
+                      {r.error ? (
+                        <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                      ) : r.job?.status === "completed" ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                      ) : (
+                        <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                      )}
+                      <span className="truncate">{r.file.name}</span>
+                      {r.job && (
+                        <span className="text-muted-foreground ml-auto shrink-0">
+                          +{r.job.imported_count} / {r.job.skipped_count} skip
+                        </span>
+                      )}
+                      {r.error && (
+                        <span className="text-destructive ml-auto shrink-0 truncate max-w-[200px]">
+                          {r.error}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
-          {phase === "done" && job && (
+          {phase === "done" && fileResults.length > 0 && (
+            <MultiFileResultCard results={fileResults} onReset={handleReset} />
+          )}
+          {phase === "done" && fileResults.length === 0 && job && (
             <ImportResultCard job={job} onReset={handleReset} />
           )}
 
@@ -327,6 +440,10 @@ export default function ImportPage() {
               <li>
                 Re-importing the same file is safe — duplicate trades are
                 automatically skipped
+              </li>
+              <li>
+                You can select multiple files at once — they are processed
+                sequentially in order
               </li>
               <li>
                 Import files in any order — chronological sorting is handled
@@ -713,6 +830,149 @@ function ImportHistoryRow({ job }: { job: ImportJobSummaryRow }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Multi-file result card ─────────────────────────────────────────── */
+
+function MultiFileResultCard({
+  results,
+  onReset,
+}: {
+  results: FileResult[];
+  onReset: () => void;
+}) {
+  const totals = results.reduce(
+    (acc, r) => {
+      if (r.job) {
+        acc.imported += r.job.imported_count;
+        acc.skipped += r.job.skipped_count;
+        acc.failed += r.job.failed_count;
+        if (r.job.status === "completed") acc.succeeded++;
+        else acc.jobFailed++;
+      } else {
+        acc.uploadFailed++;
+      }
+      return acc;
+    },
+    { imported: 0, skipped: 0, failed: 0, succeeded: 0, jobFailed: 0, uploadFailed: 0 }
+  );
+
+  const allGood = totals.jobFailed === 0 && totals.uploadFailed === 0 && totals.failed === 0;
+
+  return (
+    <div className="space-y-4">
+      {/* Overall banner */}
+      <div
+        className={`flex items-center gap-3 p-4 rounded-lg ${
+          allGood ? "bg-green-500/10" : "bg-yellow-500/10"
+        }`}
+      >
+        {allGood ? (
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
+        ) : (
+          <AlertTriangle className="h-5 w-5 text-yellow-600" />
+        )}
+        <div className="flex-1">
+          <p className="text-sm font-medium">
+            {results.length} file{results.length > 1 ? "s" : ""} processed
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {totals.imported} trades imported, {totals.skipped} skipped
+            {totals.failed > 0 ? `, ${totals.failed} failed` : ""}
+          </p>
+        </div>
+      </div>
+
+      {/* Aggregate stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard
+          label="Imported"
+          value={totals.imported}
+          icon={<Plus className="h-3.5 w-3.5" />}
+          color="text-green-600"
+        />
+        <StatCard
+          label="Skipped"
+          value={totals.skipped}
+          icon={<SkipForward className="h-3.5 w-3.5" />}
+          color="text-muted-foreground"
+        />
+        <StatCard
+          label="Failed"
+          value={totals.failed}
+          icon={<XCircle className="h-3.5 w-3.5" />}
+          color="text-destructive"
+        />
+      </div>
+
+      {/* Per-file breakdown */}
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium">Per-file results:</p>
+        <div className="rounded-md bg-muted/50 divide-y divide-border">
+          {results.map((r, i) => (
+            <div key={i} className="flex items-center gap-2 px-3 py-2 text-sm">
+              {r.error ? (
+                <XCircle className="h-4 w-4 text-destructive shrink-0" />
+              ) : r.job?.status === "completed" && r.job.failed_count === 0 ? (
+                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+              ) : r.job?.status === "completed" ? (
+                <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0" />
+              ) : (
+                <XCircle className="h-4 w-4 text-destructive shrink-0" />
+              )}
+              <span className="truncate min-w-0 flex-1">{r.file.name}</span>
+              {r.job && (
+                <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
+                  +{r.job.imported_count} / {r.job.skipped_count} skip
+                  {r.job.failed_count > 0
+                    ? ` / ${r.job.failed_count} fail`
+                    : ""}
+                </span>
+              )}
+              {r.error && (
+                <span className="text-xs text-destructive shrink-0 truncate max-w-[200px]">
+                  {r.error}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Show details from the last successful job (incomplete history etc) */}
+      {results
+        .filter((r) => r.job?.status === "completed")
+        .map((r, i) => {
+          const j = r.job!;
+          const hasDetails =
+            (j.summary?.symbols_incomplete_history?.length ?? 0) > 0 ||
+            (j.errors && j.errors.length > 0);
+          if (!hasDetails) return null;
+          return (
+            <div key={i} className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                Details for {r.file.name}:
+              </p>
+              <JobDetails job={j} />
+            </div>
+          );
+        })}
+
+      <div className="flex gap-2">
+        <Button onClick={onReset} variant="outline" className="flex-1">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Import More Files
+        </Button>
+        <Button
+          onClick={() => (window.location.href = "/")}
+          className="flex-1"
+        >
+          Go to Dashboard
+          <ArrowRight className="h-4 w-4 ml-2" />
+        </Button>
+      </div>
     </div>
   );
 }
