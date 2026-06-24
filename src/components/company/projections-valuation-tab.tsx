@@ -180,7 +180,7 @@ export function ProjectionsValuationTab({
     if (!defaultMs) return null;
 
     const strategy = getStrategy(defaultMs.model.projection_type);
-    const computedYears = strategy.computeFields(defaultMs.financialYears, defaultMs.overrides, null);
+    const computedYears = strategy.computeFields(defaultMs.financialYears, defaultMs.overrides, marketCapInCrores(company.indian_stocks?.market_cap));
     const terminalYear = computedYears[computedYears.length - 1] ?? null;
     const companyForCalc = {
       market_cap: marketCapInCrores(company.indian_stocks?.market_cap),
@@ -380,7 +380,7 @@ export function ProjectionsValuationTab({
     try {
       const models = modelStates.map((ms) => {
         const strategy = getStrategy(ms.model.projection_type);
-        const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, null);
+        const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, marketCapInCrores(company.indian_stocks?.market_cap));
         const terminalYear = computedYears[computedYears.length - 1] ?? null;
         const companyForCalc = {
           market_cap: marketCapInCrores(company.indian_stocks?.market_cap),
@@ -472,7 +472,7 @@ export function ProjectionsValuationTab({
           const isExpanded = expandedIds.has(ms.model.id);
 
           // Compute data for the grid (reactive to state changes)
-          const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, null);
+          const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, marketCapInCrores(company.indian_stocks?.market_cap));
 
           return (
             <div key={ms.model.id} className="rounded-lg border border-border/60 overflow-hidden">

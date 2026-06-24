@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isIndianTradingHours } from "@/lib/services/price-refresh";
+import { isIndianTradingHours, ensureMissingStocks } from "@/lib/services/price-refresh";
 import { YahooFinanceProvider } from "@/lib/providers/stock-price/yahoo-finance-provider";
 import { revalidatePath } from "next/cache";
 import { createLogger } from "@/lib/logger";
@@ -19,13 +19,44 @@ export async function fetchStockPrice(isin: string) {
     .eq("isin", isin)
     .single();
 
-  if (!stock) return;
+  if (!stock) {
+    log.warn("fetchStockPrice: no indian_stocks entry for ISIN — attempting auto-create", { isin });
+    // Try to auto-create from transaction data
+    const { created } = await ensureMissingStocks(adminClient);
+    if (created === 0) {
+      log.error("fetchStockPrice: could not auto-create indian_stocks entry", { isin });
+      return;
+    }
+    // Re-fetch after auto-create
+    const { data: retryStock } = await adminClient
+      .from("indian_stocks")
+      .select("isin, nse_symbol, bse_code, price")
+      .eq("isin", isin)
+      .single();
+    if (!retryStock) {
+      log.error("fetchStockPrice: still no indian_stocks entry after auto-create", { isin });
+      return;
+    }
+    return fetchStockPriceForEntry(adminClient, retryStock);
+  }
 
+  return fetchStockPriceForEntry(adminClient, stock);
+}
+
+async function fetchStockPriceForEntry(
+  adminClient: ReturnType<typeof createAdminClient>,
+  stock: { isin: string; nse_symbol: string | null; bse_code: string | null; price: number | null }
+) {
   // Already has a price — skip
   if (stock.price != null) return;
 
   const symbol = stock.nse_symbol || stock.bse_code;
-  if (!symbol) return;
+  if (!symbol) {
+    log.warn("fetchStockPrice: stock has no nse_symbol or bse_code — cannot fetch price", {
+      isin: stock.isin,
+    });
+    return;
+  }
 
   try {
     const quote = await provider.fetchQuote(symbol);
@@ -39,13 +70,14 @@ export async function fetchStockPrice(isin: string) {
         market_cap: quote.marketCap ?? null,
         last_updated: new Date().toISOString(),
       })
-      .eq("isin", isin);
+      .eq("isin", stock.isin);
 
-    log.info("Fetched initial price for stock", { isin, symbol, price: quote.price });
+    log.info("Fetched initial price for stock", { isin: stock.isin, symbol, price: quote.price });
   } catch (err) {
-    log.error("Failed to fetch initial price", {
-      isin,
+    log.error("Failed to fetch initial price from Yahoo Finance", {
+      isin: stock.isin,
       symbol,
+      yahooSymbol: `${symbol}.NS`,
       error: err instanceof Error ? err.message : String(err),
     });
   }
@@ -57,8 +89,12 @@ export async function manualRefreshPrices() {
   if (!user) throw new Error("Unauthorized");
 
   const start = Date.now();
+  const adminClient = createAdminClient();
 
-  // Get symbols from user's companies joined with indian_stocks (RLS scoped)
+  // Step 1: Auto-create missing indian_stocks entries
+  const { created: autoCreated, unresolved } = await ensureMissingStocks(adminClient);
+
+  // Step 2: Get symbols from user's companies joined with indian_stocks (RLS scoped)
   const { data: companies, error } = await supabase
     .from("companies")
     .select("isin, indian_stocks(isin, nse_symbol, bse_code)");
@@ -67,26 +103,46 @@ export async function manualRefreshPrices() {
 
   // Build symbol map: yahoo symbol -> isin (prefer NSE symbol)
   const symbolMap = new Map<string, string>();
+  const skippedNoEntry: string[] = [];
+  const skippedNoSymbol: string[] = [];
+
   for (const row of companies ?? []) {
     const stock = row.indian_stocks as unknown as { isin: string; nse_symbol: string | null; bse_code: string | null } | null;
-    if (!stock) continue;
+    if (!stock) {
+      skippedNoEntry.push(row.isin as string);
+      continue;
+    }
     if (stock.nse_symbol) {
       symbolMap.set(stock.nse_symbol, stock.isin);
     } else if (stock.bse_code) {
       symbolMap.set(stock.bse_code, stock.isin);
+    } else {
+      skippedNoSymbol.push(stock.isin);
     }
+  }
+
+  if (skippedNoEntry.length > 0) {
+    log.error("Manual refresh: companies with no indian_stocks entry (skipped)", {
+      count: skippedNoEntry.length,
+      isins: skippedNoEntry,
+    });
+  }
+  if (skippedNoSymbol.length > 0) {
+    log.warn("Manual refresh: stocks missing nse_symbol and bse_code (skipped)", {
+      count: skippedNoSymbol.length,
+      isins: skippedNoSymbol,
+    });
   }
 
   const symbols = Array.from(symbolMap.keys());
 
   if (symbols.length === 0) {
+    log.warn("Manual refresh: no symbols to fetch prices for");
     return { updated: 0, failed: [], totalSymbols: 0, outsideTradingHours: !isIndianTradingHours() };
   }
 
   const quotes = await provider.fetchBulkQuotes(symbols);
 
-  // Use admin client to write to indian_stocks (user may not have write access)
-  const adminClient = createAdminClient();
   let updated = 0;
   const failed: string[] = [];
 
@@ -94,6 +150,7 @@ export async function manualRefreshPrices() {
     const quote = quotes.get(symbol);
     const isin = symbolMap.get(symbol)!;
     if (!quote) {
+      log.warn("Manual refresh: Yahoo Finance returned no quote", { symbol, isin });
       failed.push(symbol);
       continue;
     }
@@ -110,7 +167,7 @@ export async function manualRefreshPrices() {
       .eq("isin", isin);
 
     if (updateError) {
-      log.error("Failed to update stock price", { symbol, isin, error: updateError.message });
+      log.error("Manual refresh: failed to update stock price in DB", { symbol, isin, error: updateError.message });
       failed.push(symbol);
     } else {
       updated++;
@@ -119,7 +176,16 @@ export async function manualRefreshPrices() {
 
   revalidatePath("/");
 
-  log.info("Manual price refresh completed", { updated, failed, totalSymbols: symbols.length, duration_ms: Date.now() - start });
+  log.info("Manual price refresh completed", {
+    updated,
+    failed,
+    totalSymbols: symbols.length,
+    autoCreated,
+    unresolvedIsins: unresolved,
+    skippedNoEntry: skippedNoEntry.length,
+    skippedNoSymbol: skippedNoSymbol.length,
+    duration_ms: Date.now() - start,
+  });
 
   return {
     updated,
