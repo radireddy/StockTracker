@@ -1,10 +1,12 @@
 "use client";
 
 import { useLivePricesContext } from "@/components/auto-refresh";
-import type { Company } from "@/types/database";
 
-type CompanyWithStock = Company & {
-  indian_stocks?: { price: number | null; market_cap: number | null } | null;
+type CompanyWithStock = {
+  isin: string;
+  quantity: number | null;
+  avg_buy_price: number | null;
+  indian_stocks: { price: number | null } | null;
 };
 
 export function PortfolioPnlBar({

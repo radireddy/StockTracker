@@ -7,12 +7,11 @@ import { OwnerFilter } from "@/components/owner/owner-filter";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { usePortfolioContext } from "@/hooks/use-portfolio-context";
-import { getCompanies } from "./actions/company-actions";
-import { getOwners } from "./actions/owner-actions";
-import { getOwnerHoldingsForPortfolio } from "./actions/company-actions";
+import { getDashboardData } from "./actions/company-actions";
 import type { PortfolioOwner } from "@/types/database";
 
-type CompanyRow = Awaited<ReturnType<typeof getCompanies>>[number];
+type DashboardResult = Awaited<ReturnType<typeof getDashboardData>>;
+type CompanyRow = DashboardResult["companies"][number];
 
 export default function DashboardPage() {
   const { selectedId, selectedPortfolio } = usePortfolioContext();
@@ -21,29 +20,23 @@ export default function DashboardPage() {
   const [owners, setOwners] = useState<PortfolioOwner[]>([]);
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
 
-  useEffect(() => {
-    getOwners().then(setOwners).catch(() => setOwners([]));
-  }, []);
+  const portfolioType = selectedPortfolio?.type ?? "holdings";
+  const isHoldings = portfolioType === "holdings";
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
-    const fetchData = async () => {
-      try {
-        const data = await getCompanies(selectedId);
+    getDashboardData(selectedId, portfolioType, ownerFilter)
+      .then(({ companies: data, owners: ownerList, ownerHoldings }) => {
+        if (cancelled) return;
 
-        if (ownerFilter !== "all") {
-          // Get owner-specific holdings and overlay onto companies
-          const ownerHoldings = await getOwnerHoldingsForPortfolio(
-            selectedId,
-            ownerFilter
-          );
+        setOwners(ownerList as PortfolioOwner[]);
+
+        if (ownerHoldings) {
           const holdingMap = new Map(
             ownerHoldings.map((h) => [h.company_id, h])
           );
-
-          // Filter to only companies this owner holds, and override qty/avg_buy_price
           const filtered = data
             .map((c) => {
               const oh = holdingMap.get(c.id);
@@ -57,30 +50,29 @@ export default function DashboardPage() {
               };
             })
             .filter(Boolean) as CompanyRow[];
-
-          if (!cancelled) setCompanies(filtered);
+          setCompanies(filtered);
         } else {
-          if (!cancelled) setCompanies(data);
+          setCompanies(data);
         }
-      } catch {
-        if (!cancelled) setCompanies([]);
-      } finally {
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCompanies([]);
+          setOwners([]);
+        }
+      })
+      .finally(() => {
         if (!cancelled) setLoading(false);
-      }
-    };
+      });
 
-    fetchData();
     return () => {
       cancelled = true;
     };
-  }, [selectedId, ownerFilter]);
+  }, [selectedId, portfolioType, ownerFilter]);
 
   const removeCompany = useCallback((companyId: string) => {
     setCompanies((prev) => prev.filter((c) => c.id !== companyId));
   }, []);
-
-  const portfolioType = selectedPortfolio?.type ?? "holdings";
-  const isHoldings = portfolioType === "holdings";
 
   return (
     <div className="max-w-6xl mx-auto space-y-3">
@@ -100,7 +92,7 @@ export default function DashboardPage() {
             />
           )}
         </div>
-        <Link href={`/company/new?portfolio=${selectedId}`}>
+        <Link href="/company/new">
           <Button size="sm" className="h-8 text-sm">+ Add Company</Button>
         </Link>
       </div>

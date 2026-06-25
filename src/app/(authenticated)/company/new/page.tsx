@@ -1,19 +1,15 @@
-import { CompanyForm } from "@/components/company/company-form";
-import { getDefaultPortfolioId, getPortfolio } from "../../actions/portfolio-actions";
+"use client";
 
-export default async function NewCompanyPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ portfolio?: string }>;
-}) {
-  const params = await searchParams;
-  const portfolioId = params.portfolio || (await getDefaultPortfolioId());
-  const portfolio = await getPortfolio(portfolioId);
-  const portfolioType = portfolio?.type ?? "holdings";
+import { CompanyForm } from "@/components/company/company-form";
+import { usePortfolioContext } from "@/hooks/use-portfolio-context";
+
+export default function NewCompanyPage() {
+  const { selectedId, selectedPortfolio } = usePortfolioContext();
+  const portfolioType = selectedPortfolio?.type ?? "holdings";
 
   return (
     <div>
-      <CompanyForm portfolioId={portfolioId} portfolioType={portfolioType} />
+      <CompanyForm portfolioId={selectedId} portfolioType={portfolioType} />
     </div>
   );
 }

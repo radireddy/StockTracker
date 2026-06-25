@@ -23,19 +23,36 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { usePortfolioContext } from "@/hooks/use-portfolio-context";
-import type { Company, ProjectionModel, ValuationScenario } from "@/types/database";
-
-type CompanyWithProjections = Company & {
-  projection_models: (ProjectionModel & { valuation_scenarios: ValuationScenario[] })[];
+type DashboardValuationScenario = {
+  scenario_type: string;
+  target_market_cap: number | null;
+  irr: number | null;
+  buy_price: number | null;
 };
 
-function getDefaultScenarios(company: CompanyWithProjections): ValuationScenario[] {
+type DashboardCompany = {
+  id: string;
+  isin: string;
+  star_rating: number | null;
+  strategy: string | null;
+  quantity: number | null;
+  avg_buy_price: number | null;
+  buy_price: number | null;
+  buy_date?: string | null;
+  investment_horizon_years: number | null;
+  indian_stocks: { name: string | null; nse_symbol: string | null; price: number | null; market_cap: number | null } | null;
+  projection_models: { is_default: boolean; valuation_scenarios: DashboardValuationScenario[] }[];
+};
+
+type CompanyWithProjections = DashboardCompany;
+
+function getDefaultScenarios(company: CompanyWithProjections): DashboardValuationScenario[] {
   const defaultModel = company.projection_models?.find((pm) => pm.is_default);
   return defaultModel?.valuation_scenarios ?? [];
 }
 
 function getScenarioReturn(
-  scenarios: ValuationScenario[],
+  scenarios: DashboardValuationScenario[],
   type: "base" | "bare",
   currentMarketCapRaw: number | null,
   horizon: number | null
@@ -147,7 +164,7 @@ export function CompaniesTable({
           return ((price - avgBuy) / avgBuy) * 100;
         }
         default:
-          return c[sortField as keyof Company] as string | number | null;
+          return c[sortField as keyof DashboardCompany] as string | number | null;
       }
     };
 

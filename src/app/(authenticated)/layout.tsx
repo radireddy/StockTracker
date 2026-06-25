@@ -1,10 +1,7 @@
 import { getAuthUser } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { AuthenticatedShell } from "@/components/layout/authenticated-shell";
-import {
-  getPortfolios,
-  getDefaultPortfolioId,
-} from "@/app/(authenticated)/actions/portfolio-actions";
+import { getPortfolios } from "@/app/(authenticated)/actions/portfolio-actions";
 
 export default async function AuthenticatedLayout({
   children,
@@ -41,10 +38,9 @@ export default async function AuthenticatedLayout({
 
   if (!profile) redirect("/login");
 
-  const [portfolios, defaultPortfolioId] = await Promise.all([
-    getPortfolios(),
-    getDefaultPortfolioId(),
-  ]);
+  const portfolios = await getPortfolios();
+  const defaultPortfolioId =
+    portfolios.find((p) => p.is_default)?.id ?? portfolios[0]?.id ?? "";
 
   return (
     <AuthenticatedShell

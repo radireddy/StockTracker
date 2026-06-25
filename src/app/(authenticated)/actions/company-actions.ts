@@ -18,40 +18,88 @@ function sanitizeHtml(html: string | null): string | null {
   return DOMPurify.sanitize(html);
 }
 
-export async function getCompanies(
+// Dashboard-specific lean select — only fields the table/PnL bar actually use
+const DASHBOARD_COMPANY_SELECT = `
+  id, isin, star_rating, strategy, quantity, avg_buy_price, buy_price, investment_horizon_years,
+  indian_stocks(name, nse_symbol, price, market_cap),
+  projection_models(is_default, valuation_scenarios(scenario_type, target_market_cap, irr, buy_price))
+`;
+
+export async function getDashboardData(
   portfolioId: string,
-  options?: { includeExited?: boolean }
+  portfolioType: "holdings" | "watchlist",
+  ownerFilter?: string
 ) {
-  const supabase = await createClient();
+  const { supabase, user } = await getAuthUser();
 
-  // Check portfolio type to apply correct filter
-  const { data: portfolio } = await supabase
-    .from("portfolios")
-    .select("type")
-    .eq("id", portfolioId)
-    .single();
-
-  let query = supabase
+  // Fetch companies (lean) and owners in parallel
+  let companyQuery = supabase
     .from("companies")
-    .select("*, indian_stocks(*), projection_models(*, valuation_scenarios(*))")
+    .select(DASHBOARD_COMPANY_SELECT)
     .eq("portfolio_id", portfolioId);
 
-  // For holdings portfolios, filter out fully sold stocks (quantity = 0)
-  // quantity null = manually added (no trades yet) → show
-  // quantity > 0  = active holding → show
-  // quantity = 0  = fully exited → hide by default
-  if (portfolio?.type === "holdings" && !options?.includeExited) {
-    query = query.or("quantity.is.null,quantity.gt.0");
+  // For holdings portfolios, filter out fully exited stocks
+  if (portfolioType === "holdings") {
+    companyQuery = companyQuery.or("quantity.is.null,quantity.gt.0");
   }
 
-  const { data, error } = await query.order("created_at");
+  const [companiesResult, ownersResult] = await Promise.all([
+    companyQuery.order("created_at"),
+    supabase
+      .from("portfolio_owners")
+      .select("id, name, is_default")
+      .order("is_default", { ascending: false })
+      .order("created_at", { ascending: true }),
+  ]);
 
-  if (error) {
-    log.error("getCompanies failed", { error: error.message, portfolioId });
-    throw new Error(error.message);
+  if (companiesResult.error) {
+    log.error("getDashboardData companies failed", { error: companiesResult.error.message, portfolioId });
+    throw new Error(companiesResult.error.message);
   }
-  return data ?? [];
+  if (ownersResult.error) {
+    log.error("getDashboardData owners failed", { error: ownersResult.error.message });
+    throw new Error(ownersResult.error.message);
+  }
+
+  let companies = companiesResult.data ?? [];
+  const owners = ownersResult.data ?? [];
+
+  // If filtering by owner, overlay owner-specific holdings
+  let ownerHoldings: { company_id: string; quantity: number; avg_buy_price: number | null; buy_date: string | null }[] | null = null;
+  if (ownerFilter && ownerFilter !== "all") {
+    const companyIds = companies.map((c) => c.id);
+    if (companyIds.length > 0) {
+      const { data: holdings, error: hErr } = await supabase
+        .from("owner_holdings")
+        .select("company_id, quantity, avg_buy_price, buy_date")
+        .eq("owner_id", ownerFilter)
+        .in("company_id", companyIds);
+
+      if (hErr) {
+        log.error("getDashboardData owner holdings failed", { error: hErr.message });
+        throw new Error(hErr.message);
+      }
+      ownerHoldings = (holdings ?? []).map((h) => ({
+        company_id: h.company_id,
+        quantity: h.quantity ?? 0,
+        avg_buy_price: h.avg_buy_price,
+        buy_date: h.buy_date,
+      }));
+    }
+  }
+
+  // Normalize Supabase FK joins (typed as arrays but returned as objects at runtime)
+  const normalized = companies.map((c) => ({
+    ...c,
+    indian_stocks: (c.indian_stocks as unknown as DashboardStock | null) ?? null,
+    projection_models: ((c.projection_models ?? []) as unknown as DashboardProjectionModel[]),
+  }));
+
+  return { companies: normalized, owners, ownerHoldings };
 }
+
+type DashboardStock = { name: string | null; nse_symbol: string | null; price: number | null; market_cap: number | null };
+type DashboardProjectionModel = { is_default: boolean; valuation_scenarios: { scenario_type: string; target_market_cap: number | null; irr: number | null; buy_price: number | null }[] };
 
 export async function getCompany(id: string) {
   const { supabase, user } = await getAuthUser();
@@ -74,51 +122,6 @@ export async function getCompany(id: string) {
     throw new Error(error.message);
   }
   return data;
-}
-
-export async function getOwnerHoldingsForPortfolio(
-  portfolioId: string,
-  ownerId: string
-): Promise<
-  {
-    company_id: string;
-    quantity: number;
-    avg_buy_price: number | null;
-    buy_date: string | null;
-  }[]
-> {
-  const { supabase, user } = await getAuthUser();
-
-  // Get company IDs in this portfolio
-  const { data: companies } = await supabase
-    .from("companies")
-    .select("id")
-    .eq("portfolio_id", portfolioId);
-
-  const companyIds = (companies ?? []).map((c) => c.id);
-  if (companyIds.length === 0) return [];
-
-  const { data, error } = await supabase
-    .from("owner_holdings")
-    .select("company_id, quantity, avg_buy_price, buy_date")
-    .eq("owner_id", ownerId)
-    .in("company_id", companyIds);
-
-  if (error) {
-    log.error("getOwnerHoldingsForPortfolio failed", {
-      error: error.message,
-      portfolioId,
-      ownerId,
-    });
-    throw new Error(error.message);
-  }
-
-  return (data ?? []).map((h) => ({
-    company_id: h.company_id,
-    quantity: h.quantity ?? 0,
-    avg_buy_price: h.avg_buy_price,
-    buy_date: h.buy_date,
-  }));
 }
 
 export async function createCompany(formData: FormData) {

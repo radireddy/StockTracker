@@ -27,7 +27,7 @@ export async function getPortfolios(): Promise<
     throw new Error(error.message);
   }
 
-  return (data ?? []).map((p) => {
+  const portfolios = (data ?? []).map((p) => {
     const { companies, ...portfolio } = p as Portfolio & {
       companies: { count: number }[];
     };
@@ -36,6 +36,41 @@ export async function getPortfolios(): Promise<
       company_count: companies?.[0]?.count ?? 0,
     };
   });
+
+  // Bootstrap: first login — create a default portfolio
+  if (portfolios.length === 0) {
+    const { data: newPortfolio, error: createError } = await supabase
+      .from("portfolios")
+      .insert({
+        user_id: user.id,
+        name: "My Portfolio",
+        type: "holdings",
+        is_default: true,
+        sort_order: 0,
+      })
+      .select("*, companies(count)")
+      .single();
+
+    if (createError) {
+      log.error("getPortfolios: bootstrap create failed", { error: createError.message });
+      throw new Error(createError.message);
+    }
+
+    const { companies: c, ...p } = newPortfolio as Portfolio & { companies: { count: number }[] };
+    log.info("Default portfolio created on first login");
+    return [{ ...p, company_count: 0 }];
+  }
+
+  // Ensure exactly one portfolio is marked default
+  if (!portfolios.some((p) => p.is_default)) {
+    await supabase
+      .from("portfolios")
+      .update({ is_default: true })
+      .eq("id", portfolios[0].id);
+    portfolios[0].is_default = true;
+  }
+
+  return portfolios;
 }
 
 export async function getPortfolio(id: string): Promise<Portfolio | null> {
@@ -54,57 +89,6 @@ export async function getPortfolio(id: string): Promise<Portfolio | null> {
   }
 
   return data as Portfolio;
-}
-
-export async function getDefaultPortfolioId(): Promise<string> {
-  const { supabase, user } = await getAuthUser();
-
-  // 1. Try finding existing default
-  const { data: defaultPortfolio } = await supabase
-    .from("portfolios")
-    .select("id")
-    .eq("is_default", true)
-    .single();
-
-  if (defaultPortfolio) return defaultPortfolio.id;
-
-  // 2. Find any portfolio and make it default
-  const { data: anyPortfolio } = await supabase
-    .from("portfolios")
-    .select("id")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .single();
-
-  if (anyPortfolio) {
-    await supabase
-      .from("portfolios")
-      .update({ is_default: true })
-      .eq("id", anyPortfolio.id);
-    return anyPortfolio.id;
-  }
-
-  // 3. No portfolios at all — create one
-  const { data: newPortfolio, error } = await supabase
-    .from("portfolios")
-    .insert({
-      user_id: user.id,
-      name: "My Portfolio",
-      type: "holdings",
-      is_default: true,
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    log.error("getDefaultPortfolioId: create failed", {
-      error: error.message,
-    });
-    throw new Error(error.message);
-  }
-
-  log.info("Default portfolio created");
-  return newPortfolio!.id;
 }
 
 export async function getPortfolioDeletionSummary(
