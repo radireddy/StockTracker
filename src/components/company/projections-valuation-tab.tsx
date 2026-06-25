@@ -120,11 +120,13 @@ function initModelState(model: ProjectionModel, company: Company): ModelState {
     financialYears = generateDefaultYears(company.id, model.id, company.investment_horizon_years ?? 3);
   }
 
-  // Build overrides set from existing auto fields that have values
+  // Build overrides set from existing auto fields that have values,
+  // but exclude locked fields (they can never be user-overridden and must always recompute)
+  const lockedKeys = new Set(strategy.rowConfigs.filter((r) => r.locked).map((r) => r.key));
   const overrides = new Set<string>();
   (model.financial_years ?? []).forEach((fy, idx) => {
     autoKeys.forEach((key) => {
-      if (fy[key as keyof FinancialYear] != null) overrides.add(oKey(key, idx));
+      if (!lockedKeys.has(key) && fy[key as keyof FinancialYear] != null) overrides.add(oKey(key, idx));
     });
   });
 
@@ -397,13 +399,22 @@ export function ProjectionsValuationTab({
           // Also include the input fields
           ...ms.scenarioData[type],
         }));
+        // Null out auto-computed fields that weren't explicitly overridden by user,
+        // so on reload only true user overrides are restored (not stale computed values)
+        const autoKeys = new Set(strategy.rowConfigs.filter((r) => r.type === "auto").map((r) => r.key));
+
         return {
           projection_model_id: ms.model.id,
           financial_years: computedYears.map(
-            ({ id, user_id, created_at, updated_at, ...fy }, idx) => ({
-              ...fy,
-              sort_order: idx,
-            })
+            ({ id, user_id, created_at, updated_at, ...fy }, idx) => {
+              const row: Record<string, unknown> = { ...fy, sort_order: idx };
+              autoKeys.forEach((key) => {
+                if (!ms.overrides.has(oKey(key, idx))) {
+                  row[key] = null;
+                }
+              });
+              return row;
+            }
           ),
           valuation_scenarios: scenarios,
         };
