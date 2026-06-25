@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUserOrNull } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { detectAnomalies } from "@/lib/import/corporate-action-detector";
 import { createLogger } from "@/lib/logger";
@@ -20,10 +20,7 @@ const log = createLogger({ service: "corporate-action-detect" });
  * 5. Return the anomalies
  */
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthUserOrNull();
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

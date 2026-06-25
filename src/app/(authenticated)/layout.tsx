@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { AuthenticatedShell } from "@/components/layout/authenticated-shell";
 import {
@@ -11,10 +11,12 @@ export default async function AuthenticatedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  let supabase, user;
+  try {
+    ({ supabase, user } = await getAuthUser());
+  } catch {
+    redirect("/login");
+  }
 
   // Try to get profile; if it doesn't exist yet (trigger delay), create it
   let { data: profile } = await supabase

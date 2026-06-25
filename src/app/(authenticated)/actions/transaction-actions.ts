@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { createLogger } from "@/lib/logger";
 import { recomputeHoldings } from "@/lib/holdings";
@@ -12,9 +12,7 @@ export async function getTransactions(
   companyId: string,
   ownerId?: string
 ): Promise<Transaction[]> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   let query = supabase
     .from("transactions")
@@ -49,9 +47,7 @@ export async function addTransaction(
     owner_id: string;
   }
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   if (!input.owner_id) throw new Error("Owner is required");
 
@@ -88,9 +84,7 @@ export async function updateTransaction(
     owner_id?: string;
   }
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { data: txn, error: fetchError } = await supabase
     .from("transactions")
@@ -118,9 +112,7 @@ export async function updateTransaction(
 }
 
 export async function deleteTransaction(id: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { data: txn, error: fetchError } = await supabase
     .from("transactions")
@@ -148,9 +140,7 @@ export async function deleteTransaction(id: string) {
 }
 
 export async function recomputeAllHoldings(): Promise<{ recomputed: number; errors: string[] }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { data: companies, error } = await supabase
     .from("companies")

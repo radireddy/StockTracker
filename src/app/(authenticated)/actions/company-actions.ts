@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { refreshPrices, isIndianTradingHours } from "@/lib/services/price-refresh";
 import { fetchStockPrice } from "@/app/(authenticated)/actions/price-actions";
@@ -54,9 +54,7 @@ export async function getCompanies(
 }
 
 export async function getCompany(id: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { data, error } = await supabase
     .from("companies")
@@ -89,11 +87,7 @@ export async function getOwnerHoldingsForPortfolio(
     buy_date: string | null;
   }[]
 > {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   // Get company IDs in this portfolio
   const { data: companies } = await supabase
@@ -128,9 +122,7 @@ export async function getOwnerHoldingsForPortfolio(
 }
 
 export async function createCompany(formData: FormData) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { data: newCompany, error } = await supabase.from("companies").insert({
     user_id: user.id,
@@ -158,9 +150,7 @@ export async function createCompany(formData: FormData) {
 }
 
 export async function updateCompany(id: string, data: Record<string, unknown>) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   if (data.thesis) data.thesis = sanitizeHtml(data.thesis as string);
   if (data.highlights) data.highlights = sanitizeHtml(data.highlights as string);
@@ -180,9 +170,7 @@ export async function updateCompany(id: string, data: Record<string, unknown>) {
 }
 
 export async function deleteCompany(id: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { error } = await supabase.from("companies").delete().eq("id", id);
   if (error) {
@@ -250,9 +238,7 @@ export async function getLivePrices(): Promise<
 }
 
 export async function getCompanyHighlights(id: string): Promise<string | null> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { data, error } = await supabase
     .from("companies")
@@ -268,9 +254,7 @@ export async function getCompanyHighlights(id: string): Promise<string | null> {
 }
 
 export async function deleteAllCompanies() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { error } = await supabase
     .from("companies")
@@ -294,11 +278,7 @@ export async function moveCompany(
     notes?: string;
   }
 ) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
+  const { supabase, user } = await getAuthUser();
 
   // 1. Fetch source company
   const { data: source, error: fetchError } = await supabase

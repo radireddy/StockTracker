@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { createLogger } from "@/lib/logger";
 import type { PortfolioOwner } from "@/types/database";
@@ -8,11 +8,7 @@ import type { PortfolioOwner } from "@/types/database";
 const log = createLogger({ service: "owner-actions" });
 
 export async function getOwners(): Promise<PortfolioOwner[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { data, error } = await supabase
     .from("portfolio_owners")
@@ -29,11 +25,7 @@ export async function getOwners(): Promise<PortfolioOwner[]> {
 }
 
 export async function getDefaultOwnerId(): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { data } = await supabase
     .from("portfolio_owners")
@@ -81,11 +73,7 @@ export async function createOwner(input: {
   pan_number?: string;
   mobile?: string;
 }): Promise<PortfolioOwner> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   if (!input.name.trim()) throw new Error("Name is required");
 
@@ -125,11 +113,7 @@ export async function updateOwner(
   id: string,
   input: { name?: string; pan_number?: string; mobile?: string }
 ): Promise<PortfolioOwner> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const updateData: Record<string, string | null> = {};
   if (input.name !== undefined) updateData.name = input.name.trim();
@@ -158,11 +142,7 @@ export async function updateOwner(
 }
 
 export async function deleteOwner(id: string): Promise<void> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   // Prevent deleting default owner
   const { data: owner } = await supabase

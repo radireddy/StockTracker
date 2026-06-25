@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { createLogger } from "@/lib/logger";
 import type { Portfolio } from "@/types/database";
@@ -14,11 +14,7 @@ const log = createLogger({ service: "portfolio-actions" });
 export async function getPortfolios(): Promise<
   (Portfolio & { company_count: number })[]
 > {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { data, error } = await supabase
     .from("portfolios")
@@ -43,11 +39,7 @@ export async function getPortfolios(): Promise<
 }
 
 export async function getPortfolio(id: string): Promise<Portfolio | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { data, error } = await supabase
     .from("portfolios")
@@ -65,11 +57,7 @@ export async function getPortfolio(id: string): Promise<Portfolio | null> {
 }
 
 export async function getDefaultPortfolioId(): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   // 1. Try finding existing default
   const { data: defaultPortfolio } = await supabase
@@ -122,11 +110,7 @@ export async function getDefaultPortfolioId(): Promise<string> {
 export async function getPortfolioDeletionSummary(
   id: string
 ): Promise<{ companies: number; transactions: number }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   // Count companies in portfolio
   const { count: companyCount, error: companyError } = await supabase
@@ -183,11 +167,7 @@ export async function createPortfolio(input: {
   color?: string;
   icon?: string;
 }): Promise<Portfolio> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   // Check plan limits
   const { data: profile } = await supabase
@@ -262,11 +242,7 @@ export async function updatePortfolio(
     icon?: string;
   }
 ): Promise<Portfolio> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { data, error } = await supabase
     .from("portfolios")
@@ -286,11 +262,7 @@ export async function updatePortfolio(
 }
 
 export async function setDefaultPortfolio(id: string): Promise<void> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   // Unset all current defaults for this user
   const { error: unsetError } = await supabase
@@ -321,11 +293,7 @@ export async function setDefaultPortfolio(id: string): Promise<void> {
 }
 
 export async function deletePortfolio(id: string): Promise<void> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   // Fetch the portfolio to check guards
   const { data: portfolio, error: fetchError } = await supabase
@@ -366,11 +334,7 @@ export async function deletePortfolio(id: string): Promise<void> {
 }
 
 export async function reorderPortfolios(orderedIds: string[]): Promise<void> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   // Batch update sort_order by index position
   const updates = orderedIds.map((id, index) =>

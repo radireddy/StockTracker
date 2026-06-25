@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUserOrNull } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 /**
@@ -6,10 +6,7 @@ import { NextResponse } from "next/server";
  * List corporate actions for the current user.
  */
 export async function GET(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthUserOrNull();
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -39,10 +36,7 @@ export async function GET(request: Request) {
  * Body: { id, status?, ratio_from?, ratio_to?, ex_date?, new_symbol?, new_isin?, ... }
  */
 export async function PATCH(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthUserOrNull();
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -94,10 +88,7 @@ export async function PATCH(request: Request) {
  * Delete a corporate action record.
  */
 export async function DELETE(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthUserOrNull();
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

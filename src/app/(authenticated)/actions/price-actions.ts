@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isIndianTradingHours, ensureMissingStocks } from "@/lib/services/price-refresh";
 import { YahooFinanceProvider } from "@/lib/providers/stock-price/yahoo-finance-provider";
@@ -84,9 +84,7 @@ async function fetchStockPriceForEntry(
 }
 
 export async function manualRefreshPrices() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase } = await getAuthUser();
 
   const start = Date.now();
   const adminClient = createAdminClient();

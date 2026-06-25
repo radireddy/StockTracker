@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUserOrNull } from "@/lib/supabase/server";
 import { detectBroker, getBrokerAdapter } from "@/lib/import/broker-registry";
 import { executeImport } from "@/lib/import/import-engine";
 import { NextResponse } from "next/server";
@@ -13,10 +13,7 @@ const log = createLogger({ service: "import-api" });
  * Requires portfolio_id and owner_id.
  */
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthUserOrNull();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const formData = await request.formData();
@@ -167,10 +164,7 @@ export async function POST(request: Request) {
  * GET /api/import                       — lightweight list of recent jobs
  */
 export async function GET(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthUserOrNull();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const url = new URL(request.url);

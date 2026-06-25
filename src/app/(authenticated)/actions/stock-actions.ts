@@ -1,14 +1,12 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import type { IndianStock } from "@/types/database";
 import { createLogger } from "@/lib/logger";
 const log = createLogger({ service: "stock-actions" });
 
 export async function searchStocks(query: string): Promise<IndianStock[]> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   if (!query || query.length < 2) return [];
 
@@ -29,9 +27,7 @@ export async function searchStocks(query: string): Promise<IndianStock[]> {
 }
 
 export async function getStockByIsin(isin: string): Promise<IndianStock | null> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { data, error } = await supabase
     .from("indian_stocks")
