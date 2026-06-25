@@ -182,11 +182,13 @@ export function ProjectionsValuationTab({
     const strategy = getStrategy(defaultMs.model.projection_type);
     const computedYears = strategy.computeFields(defaultMs.financialYears, defaultMs.overrides, marketCapInCrores(company.indian_stocks?.market_cap));
     const terminalYear = computedYears[computedYears.length - 1] ?? null;
+    // Derive horizon from estimate years count so IRR updates immediately
+    const estimateYears = defaultMs.financialYears.filter((fy) => fy.is_estimate).length;
     const companyForCalc = {
       market_cap: marketCapInCrores(company.indian_stocks?.market_cap),
       current_price: company.indian_stocks?.price ?? null,
       expected_returns: defaultMs.expReturns,
-      investment_horizon_years: company.investment_horizon_years,
+      investment_horizon_years: estimateYears || company.investment_horizon_years,
     };
     const derived = strategy.computeValuationDerived(
       defaultMs.scenarioData.base,
@@ -382,11 +384,12 @@ export function ProjectionsValuationTab({
         const strategy = getStrategy(ms.model.projection_type);
         const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, marketCapInCrores(company.indian_stocks?.market_cap));
         const terminalYear = computedYears[computedYears.length - 1] ?? null;
+        const estimateYears = ms.financialYears.filter((fy) => fy.is_estimate).length;
         const companyForCalc = {
           market_cap: marketCapInCrores(company.indian_stocks?.market_cap),
           current_price: company.indian_stocks?.price ?? null,
           expected_returns: ms.expReturns,
-          investment_horizon_years: company.investment_horizon_years,
+          investment_horizon_years: estimateYears || company.investment_horizon_years,
         };
         const scenarios = (["bull", "base", "bare"] as const).map((type) => ({
           scenario_type: type,
@@ -473,6 +476,8 @@ export function ProjectionsValuationTab({
 
           // Compute data for the grid (reactive to state changes)
           const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, marketCapInCrores(company.indian_stocks?.market_cap));
+          // Derive horizon from local estimate years so IRR computes immediately
+          const estimateYears = ms.financialYears.filter((fy) => fy.is_estimate).length;
 
           return (
             <div key={ms.model.id} className="rounded-lg border border-border/60 overflow-hidden">
@@ -544,7 +549,7 @@ export function ProjectionsValuationTab({
                         market_cap: marketCapInCrores(company.indian_stocks?.market_cap),
                         current_price: company.indian_stocks?.price ?? null,
                         expected_returns: company.expected_returns,
-                        investment_horizon_years: company.investment_horizon_years,
+                        investment_horizon_years: estimateYears || company.investment_horizon_years,
                       }}
                       expReturns={ms.expReturns}
                       onExpReturnsChange={(val) =>
