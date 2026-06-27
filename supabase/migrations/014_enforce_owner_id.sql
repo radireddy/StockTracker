@@ -1,0 +1,1 @@
+ALTER TABLE import_jobs ALTER COLUMN owner_id SET NOT NULL;

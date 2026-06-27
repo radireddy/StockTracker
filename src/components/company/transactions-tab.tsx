@@ -24,6 +24,12 @@ export function TransactionsTab({ companyId }: { companyId: string }) {
     fetchTransactions();
   }, [companyId]);
 
+  // Check if there are multiple owners
+  const ownerNames = new Set(
+    transactions.map((t) => t.portfolio_owners?.name ?? "Unknown")
+  );
+  const hasMultipleOwners = ownerNames.size > 1;
+
   // Compute summary
   let totalQty = 0;
   let totalInvested = 0;
@@ -84,6 +90,9 @@ export function TransactionsTab({ companyId }: { companyId: string }) {
               <thead>
                 <tr className="border-b bg-muted/30">
                   <th className="text-left px-3 py-2 font-medium">Date</th>
+                  {hasMultipleOwners && (
+                    <th className="text-left px-3 py-2 font-medium">Owner</th>
+                  )}
                   <th className="text-center px-3 py-2 font-medium">Type</th>
                   <th className="text-right px-3 py-2 font-medium">Qty</th>
                   <th className="text-right px-3 py-2 font-medium">Price</th>
@@ -95,6 +104,11 @@ export function TransactionsTab({ companyId }: { companyId: string }) {
                 {transactions.map((t) => (
                   <tr key={t.id} className="border-b border-border/20">
                     <td className="px-3 py-2">{t.date}</td>
+                    {hasMultipleOwners && (
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {t.portfolio_owners?.name ?? "—"}
+                      </td>
+                    )}
                     <td className="px-3 py-2 text-center">
                       <Badge
                         variant={t.type === "BUY" ? "default" : "destructive"}

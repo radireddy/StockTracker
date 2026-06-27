@@ -174,16 +174,84 @@ export interface MarketPerception {
   updated_at: string;
 }
 
+export interface PortfolioOwner {
+  id: string;
+  user_id: string;
+  name: string;
+  pan_number: string | null;
+  mobile: string | null;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OwnerHolding {
+  id: string;
+  company_id: string;
+  owner_id: string;
+  user_id: string;
+  quantity: number;
+  avg_buy_price: number | null;
+  buy_date: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined
+  portfolio_owners?: PortfolioOwner;
+}
+
 export type Transaction = {
   id: string;
   company_id: string;
   user_id: string;
+  owner_id: string;
   type: 'BUY' | 'SELL';
   quantity: number;
   price: number;
   fees: number;
   date: string;
   notes: string | null;
+  source: string;
+  trade_id: string | null;
+  trade_ids: string[];
+  order_id: string | null;
+  exchange: string | null;
   created_at: string;
   updated_at: string;
+  // Joined
+  portfolio_owners?: PortfolioOwner;
+};
+
+export type ImportJob = {
+  id: string;
+  user_id: string;
+  portfolio_id: string;
+  owner_id: string | null;
+  source: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  file_name: string | null;
+  total_rows: number;
+  processed_rows: number;
+  imported_count: number;
+  skipped_count: number;
+  failed_count: number;
+  summary: ImportJobSummary;
+  errors: ImportJobError[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type ImportJobSummary = {
+  symbols_imported?: string[];
+  symbols_skipped?: string[];
+  symbols_failed?: string[];
+  symbols_incomplete_history?: string[];
+  new_companies_created?: string[];
+  date_range?: string;
+  client_id?: string;
+};
+
+export type ImportJobError = {
+  symbol?: string;
+  message: string;
+  row?: number;
 };

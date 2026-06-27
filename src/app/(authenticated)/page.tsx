@@ -1,62 +1,86 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useMemo, useCallback } from "react";
 import { CompaniesTable } from "@/components/dashboard/companies-table";
 import { PortfolioPnlBar } from "@/components/dashboard/portfolio-pnl-bar";
+import { OwnerFilter } from "@/components/owner/owner-filter";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { usePortfolioContext } from "@/hooks/use-portfolio-context";
-import { getCompanies } from "./actions/company-actions";
-
-type CompanyRow = Awaited<ReturnType<typeof getCompanies>>[number];
+import { useDashboardData, useInvalidateDashboard } from "@/hooks/use-dashboard-data";
+import type { PortfolioOwner } from "@/types/database";
+import { useState } from "react";
 
 export default function DashboardPage() {
   const { selectedId, selectedPortfolio } = usePortfolioContext();
-  const [companies, setCompanies] = useState<CompanyRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    getCompanies(selectedId)
-      .then((data) => {
-        if (!cancelled) setCompanies(data);
-      })
-      .catch(() => {
-        if (!cancelled) setCompanies([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedId]);
-
-  const removeCompany = useCallback((companyId: string) => {
-    setCompanies((prev) => prev.filter((c) => c.id !== companyId));
-  }, []);
+  const [ownerFilter, setOwnerFilter] = useState<string>("all");
 
   const portfolioType = selectedPortfolio?.type ?? "holdings";
   const isHoldings = portfolioType === "holdings";
 
+  const { data, isLoading } = useDashboardData(selectedId, portfolioType, ownerFilter);
+  const invalidate = useInvalidateDashboard();
+
+  const owners = (data?.owners ?? []) as PortfolioOwner[];
+
+  const companies = useMemo(() => {
+    if (!data) return [];
+    const { companies: rawCompanies, allHoldings } = data;
+
+    if (ownerFilter !== "all") {
+      const filtered = allHoldings.filter((h) => h.owner_id === ownerFilter);
+      const holdingMap = new Map(filtered.map((h) => [h.company_id, h]));
+      return rawCompanies
+        .map((c) => {
+          const oh = holdingMap.get(c.id);
+          if (!oh) return null;
+          if (oh.quantity === 0) return null;
+          return {
+            ...c,
+            quantity: oh.quantity,
+            avg_buy_price: oh.avg_buy_price,
+            buy_date: oh.buy_date,
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => x != null);
+    }
+
+    return rawCompanies;
+  }, [data, ownerFilter]);
+
+  const removeCompany = useCallback(
+    (companyId: string) => {
+      invalidate();
+    },
+    [invalidate]
+  );
+
   return (
     <div className="max-w-6xl mx-auto space-y-3">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">
-          {selectedPortfolio?.name ?? "Portfolio"}
-          <span className="ml-2 text-base font-normal text-muted-foreground">
-            ({companies.length})
-          </span>
-        </h1>
-        <Link href={`/company/new?portfolio=${selectedId}`}>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold">
+            {selectedPortfolio?.name ?? "Portfolio"}
+            <span className="ml-2 text-base font-normal text-muted-foreground">
+              ({companies.length})
+            </span>
+          </h1>
+          {isHoldings && (
+            <OwnerFilter
+              owners={owners}
+              value={ownerFilter}
+              onChange={setOwnerFilter}
+            />
+          )}
+        </div>
+        <Link href="/company/new">
           <Button size="sm" className="h-8 text-sm">+ Add Company</Button>
         </Link>
       </div>
-      {isHoldings && !loading && (
+      {isHoldings && !isLoading && (
         <PortfolioPnlBar companies={companies} />
       )}
-      {loading ? (
+      {isLoading ? (
         <div className="text-center py-12 text-sm text-muted-foreground">
           Loading companies...
         </div>

@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { ProjectionType } from "@/types/database";
 import { createLogger } from "@/lib/logger";
@@ -12,9 +12,7 @@ export async function createProjectionModel(
   name: string,
   isDefault: boolean
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   // If this will be the default, unset any existing default first
   if (isDefault) {
@@ -50,9 +48,7 @@ export async function deleteProjectionModel(
   projectionModelId: string,
   companyId: string
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   // Check if model is the default — cannot delete default
   const { data: model, error: fetchError } = await supabase
@@ -87,9 +83,7 @@ export async function setDefaultProjectionModel(
   companyId: string,
   projectionModelId: string
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   // Unset current default
   await supabase
@@ -121,9 +115,7 @@ export async function saveAllProjections(
     valuation_scenarios: Record<string, unknown>[];
   }>
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   for (const model of models) {
     // Delete existing financial years then insert current ones

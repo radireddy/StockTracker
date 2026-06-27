@@ -1,23 +1,31 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { createLogger } from "@/lib/logger";
+import { recomputeHoldings } from "@/lib/holdings";
 import type { Transaction } from "@/types/database";
 
 const log = createLogger({ service: "transaction-actions" });
 
-export async function getTransactions(companyId: string): Promise<Transaction[]> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+export async function getTransactions(
+  companyId: string,
+  ownerId?: string
+): Promise<Transaction[]> {
+  const { supabase, user } = await getAuthUser();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("transactions")
-    .select("*")
+    .select("*, portfolio_owners(id, name)")
     .eq("company_id", companyId)
     .order("date")
     .order("created_at");
+
+  if (ownerId) {
+    query = query.eq("owner_id", ownerId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     log.error("getTransactions failed", { error: error.message, companyId });
@@ -36,15 +44,17 @@ export async function addTransaction(
     fees?: number;
     date: string;
     notes?: string;
+    owner_id: string;
   }
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
+
+  if (!input.owner_id) throw new Error("Owner is required");
 
   const { error } = await supabase.from("transactions").insert({
     company_id: companyId,
     user_id: user.id,
+    owner_id: input.owner_id,
     type: input.type,
     quantity: input.quantity,
     price: input.price,
@@ -58,7 +68,7 @@ export async function addTransaction(
     throw new Error(error.message);
   }
 
-  await recomputeHoldings(companyId);
+  await recomputeHoldings(companyId, supabase);
   revalidatePath("/");
 }
 
@@ -71,13 +81,11 @@ export async function updateTransaction(
     fees?: number;
     date?: string;
     notes?: string;
+    owner_id?: string;
   }
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
-  // Get company_id from the transaction first
   const { data: txn, error: fetchError } = await supabase
     .from("transactions")
     .select("company_id")
@@ -99,16 +107,13 @@ export async function updateTransaction(
     throw new Error(error.message);
   }
 
-  await recomputeHoldings(txn.company_id);
+  await recomputeHoldings(txn.company_id, supabase);
   revalidatePath("/");
 }
 
 export async function deleteTransaction(id: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
-  // Get company_id from the transaction first
   const { data: txn, error: fetchError } = await supabase
     .from("transactions")
     .select("company_id")
@@ -130,67 +135,32 @@ export async function deleteTransaction(id: string) {
     throw new Error(error.message);
   }
 
-  await recomputeHoldings(txn.company_id);
+  await recomputeHoldings(txn.company_id, supabase);
   revalidatePath("/");
 }
 
-async function recomputeHoldings(companyId: string) {
-  const supabase = await createClient();
+export async function recomputeAllHoldings(): Promise<{ recomputed: number; errors: string[] }> {
+  const { supabase, user } = await getAuthUser();
 
-  const { data: transactions, error } = await supabase
-    .from("transactions")
-    .select("*")
-    .eq("company_id", companyId)
-    .order("date")
+  const { data: companies, error } = await supabase
+    .from("companies")
+    .select("id, isin, indian_stocks(nse_symbol)")
     .order("created_at");
 
-  if (error) {
-    log.error("recomputeHoldings: failed to fetch transactions", { error: error.message, companyId });
-    throw new Error(error.message);
-  }
+  if (error) throw new Error(error.message);
 
-  if (!transactions || transactions.length === 0) {
-    const { error: updateError } = await supabase
-      .from("companies")
-      .update({ quantity: null, avg_buy_price: null, buy_date: null })
-      .eq("id", companyId);
+  let recomputed = 0;
+  const errors: string[] = [];
 
-    if (updateError) {
-      log.error("recomputeHoldings: failed to clear holdings", { error: updateError.message, companyId });
-      throw new Error(updateError.message);
-    }
-    return;
-  }
-
-  let totalQty = 0;
-  let totalCost = 0;
-
-  for (const txn of transactions) {
-    if (txn.type === "BUY") {
-      totalCost += txn.quantity * txn.price;
-      totalQty += txn.quantity;
-    } else if (txn.type === "SELL") {
-      totalQty -= txn.quantity;
+  for (const company of companies ?? []) {
+    try {
+      await recomputeHoldings(company.id, supabase);
+      recomputed++;
+    } catch (err) {
+      errors.push(`${company.id}: ${(err as Error).message}`);
     }
   }
 
-  const avgPrice = totalQty > 0 ? totalCost / totalQty : null;
-
-  // Get earliest BUY date
-  const earliestBuy = transactions.find((t) => t.type === "BUY");
-  const buyDate = earliestBuy ? earliestBuy.date : null;
-
-  const { error: updateError } = await supabase
-    .from("companies")
-    .update({
-      quantity: totalQty > 0 ? totalQty : null,
-      avg_buy_price: avgPrice,
-      buy_date: buyDate,
-    })
-    .eq("id", companyId);
-
-  if (updateError) {
-    log.error("recomputeHoldings: failed to update company", { error: updateError.message, companyId });
-    throw new Error(updateError.message);
-  }
+  revalidatePath("/");
+  return { recomputed, errors };
 }

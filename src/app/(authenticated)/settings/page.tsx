@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,9 +6,12 @@ import { PortfolioManager } from "@/components/settings/portfolio-manager";
 import { getPortfolios } from "@/app/(authenticated)/actions/portfolio-actions";
 
 export default async function SettingsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  let supabase, user;
+  try {
+    ({ supabase, user } = await getAuthUser());
+  } catch {
+    redirect("/login");
+  }
 
   const { data: profile } = await supabase
     .from("profiles")

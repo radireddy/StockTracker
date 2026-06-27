@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUserOrNull } from "@/lib/supabase/server";
 import { storageRegistry } from "@/lib/providers/storage/registry";
 import { isAllowedType, getMaxSize } from "@/lib/providers/storage/types";
 import { createLogger } from "@/lib/logger";
@@ -8,10 +8,8 @@ const log = createLogger({ service: "upload" });
 
 export async function POST(request: NextRequest) {
   // 1. Authenticate
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-  if (authError || !user) {
+  const { user } = await getAuthUserOrNull();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

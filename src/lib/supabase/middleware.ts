@@ -26,6 +26,13 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
+  // ┌─────────────────────────────────────────────────────────────────┐
+  // │ SECURITY: This is the ONLY place that calls getUser() (HTTP    │
+  // │ validation). All other auth checks use getSession() (local     │
+  // │ JWT decode) via getAuthUser()/getAuthUserOrNull() in           │
+  // │ src/lib/supabase/server.ts — they rely on THIS middleware      │
+  // │ having already validated the token. DO NOT REMOVE.             │
+  // └─────────────────────────────────────────────────────────────────┘
   const {
     data: { user },
   } = await supabase.auth.getUser();

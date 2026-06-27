@@ -120,11 +120,13 @@ function initModelState(model: ProjectionModel, company: Company): ModelState {
     financialYears = generateDefaultYears(company.id, model.id, company.investment_horizon_years ?? 3);
   }
 
-  // Build overrides set from existing auto fields that have values
+  // Build overrides set from existing auto fields that have values,
+  // but exclude locked fields (they can never be user-overridden and must always recompute)
+  const lockedKeys = new Set(strategy.rowConfigs.filter((r) => r.locked).map((r) => r.key));
   const overrides = new Set<string>();
   (model.financial_years ?? []).forEach((fy, idx) => {
     autoKeys.forEach((key) => {
-      if (fy[key as keyof FinancialYear] != null) overrides.add(oKey(key, idx));
+      if (!lockedKeys.has(key) && fy[key as keyof FinancialYear] != null) overrides.add(oKey(key, idx));
     });
   });
 
@@ -180,13 +182,15 @@ export function ProjectionsValuationTab({
     if (!defaultMs) return null;
 
     const strategy = getStrategy(defaultMs.model.projection_type);
-    const computedYears = strategy.computeFields(defaultMs.financialYears, defaultMs.overrides, null);
+    const computedYears = strategy.computeFields(defaultMs.financialYears, defaultMs.overrides, marketCapInCrores(company.indian_stocks?.market_cap));
     const terminalYear = computedYears[computedYears.length - 1] ?? null;
+    // Derive horizon from estimate years count so IRR updates immediately
+    const estimateYears = defaultMs.financialYears.filter((fy) => fy.is_estimate).length;
     const companyForCalc = {
       market_cap: marketCapInCrores(company.indian_stocks?.market_cap),
       current_price: company.indian_stocks?.price ?? null,
       expected_returns: defaultMs.expReturns,
-      investment_horizon_years: company.investment_horizon_years,
+      investment_horizon_years: estimateYears || company.investment_horizon_years,
     };
     const derived = strategy.computeValuationDerived(
       defaultMs.scenarioData.base,
@@ -380,13 +384,14 @@ export function ProjectionsValuationTab({
     try {
       const models = modelStates.map((ms) => {
         const strategy = getStrategy(ms.model.projection_type);
-        const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, null);
+        const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, marketCapInCrores(company.indian_stocks?.market_cap));
         const terminalYear = computedYears[computedYears.length - 1] ?? null;
+        const estimateYears = ms.financialYears.filter((fy) => fy.is_estimate).length;
         const companyForCalc = {
           market_cap: marketCapInCrores(company.indian_stocks?.market_cap),
           current_price: company.indian_stocks?.price ?? null,
           expected_returns: ms.expReturns,
-          investment_horizon_years: company.investment_horizon_years,
+          investment_horizon_years: estimateYears || company.investment_horizon_years,
         };
         const scenarios = (["bull", "base", "bare"] as const).map((type) => ({
           scenario_type: type,
@@ -394,13 +399,22 @@ export function ProjectionsValuationTab({
           // Also include the input fields
           ...ms.scenarioData[type],
         }));
+        // Null out auto-computed fields that weren't explicitly overridden by user,
+        // so on reload only true user overrides are restored (not stale computed values)
+        const autoKeys = new Set(strategy.rowConfigs.filter((r) => r.type === "auto").map((r) => r.key));
+
         return {
           projection_model_id: ms.model.id,
           financial_years: computedYears.map(
-            ({ id, user_id, created_at, updated_at, ...fy }, idx) => ({
-              ...fy,
-              sort_order: idx,
-            })
+            ({ id, user_id, created_at, updated_at, ...fy }, idx) => {
+              const row: Record<string, unknown> = { ...fy, sort_order: idx };
+              autoKeys.forEach((key) => {
+                if (!ms.overrides.has(oKey(key, idx))) {
+                  row[key] = null;
+                }
+              });
+              return row;
+            }
           ),
           valuation_scenarios: scenarios,
         };
@@ -472,7 +486,9 @@ export function ProjectionsValuationTab({
           const isExpanded = expandedIds.has(ms.model.id);
 
           // Compute data for the grid (reactive to state changes)
-          const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, null);
+          const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, marketCapInCrores(company.indian_stocks?.market_cap));
+          // Derive horizon from local estimate years so IRR computes immediately
+          const estimateYears = ms.financialYears.filter((fy) => fy.is_estimate).length;
 
           return (
             <div key={ms.model.id} className="rounded-lg border border-border/60 overflow-hidden">
@@ -544,7 +560,7 @@ export function ProjectionsValuationTab({
                         market_cap: marketCapInCrores(company.indian_stocks?.market_cap),
                         current_price: company.indian_stocks?.price ?? null,
                         expected_returns: company.expected_returns,
-                        investment_horizon_years: company.investment_horizon_years,
+                        investment_horizon_years: estimateYears || company.investment_horizon_years,
                       }}
                       expReturns={ms.expReturns}
                       onExpReturnsChange={(val) =>

@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { createLogger } from "@/lib/logger";
 
@@ -32,9 +32,7 @@ export async function upsertFinancialYear(
     sort_order: number;
   }
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { error } = await supabase.from("financial_years").upsert(
     {
@@ -62,9 +60,7 @@ export async function bulkUpsertFinancialYears(
     [key: string]: unknown;
   }>
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const rows = years.map((y) => ({
     company_id: companyId,

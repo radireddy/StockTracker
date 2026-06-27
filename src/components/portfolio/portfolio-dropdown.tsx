@@ -29,14 +29,13 @@ export function PortfolioDropdown({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 h-8 text-sm font-medium shadow-xs hover:bg-accent hover:text-accent-foreground cursor-pointer">
-            {selected?.color && (
-              <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: selected.color }}
-              />
-            )}
-            <span className="max-w-[180px] truncate">
+        <DropdownMenuTrigger className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 h-8 text-sm font-medium shadow-xs hover:bg-accent hover:text-accent-foreground cursor-pointer" suppressHydrationWarning>
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: selected?.color ?? "transparent" }}
+              suppressHydrationWarning
+            />
+            <span className="max-w-[180px] truncate" suppressHydrationWarning>
               {selected?.name ?? "Select Portfolio"}
             </span>
             <ChevronDown className="h-4 w-4 opacity-50" />

@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import DOMPurify from "isomorphic-dompurify";
 import { createLogger } from "@/lib/logger";
@@ -11,9 +11,7 @@ export async function createTimelineEntry(
   companyId: string,
   data: { quarter?: string; entry_date?: string; content: string; sort_order?: number }
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { error } = await supabase.from("timeline_entries").insert({
     company_id: companyId,
@@ -37,9 +35,7 @@ export async function updateTimelineEntry(
   companyId: string,
   data: { quarter?: string; entry_date?: string; content?: string }
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const updateData: Record<string, unknown> = { ...data };
   if (data.content) updateData.content = DOMPurify.sanitize(data.content);
@@ -58,9 +54,7 @@ export async function updateTimelineEntry(
 }
 
 export async function deleteTimelineEntry(id: string, companyId: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { error } = await supabase.from("timeline_entries").delete().eq("id", id);
   if (error) {

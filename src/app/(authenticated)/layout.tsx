@@ -1,27 +1,27 @@
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { AuthenticatedShell } from "@/components/layout/authenticated-shell";
-import {
-  getPortfolios,
-  getDefaultPortfolioId,
-} from "@/app/(authenticated)/actions/portfolio-actions";
+import { getPortfolios } from "@/app/(authenticated)/actions/portfolio-actions";
 
 export default async function AuthenticatedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  let supabase, user;
+  try {
+    ({ supabase, user } = await getAuthUser());
+  } catch {
+    redirect("/login");
+  }
 
-  if (!user) redirect("/login");
+  // Fetch profile and portfolios in parallel
+  const [profileResult, portfolios] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", user.id).single(),
+    getPortfolios(),
+  ]);
 
-  // Try to get profile; if it doesn't exist yet (trigger delay), create it
-  let { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
+  let profile = profileResult.data;
 
   if (!profile) {
     const { data: newProfile } = await supabase
@@ -38,11 +38,8 @@ export default async function AuthenticatedLayout({
   }
 
   if (!profile) redirect("/login");
-
-  const [portfolios, defaultPortfolioId] = await Promise.all([
-    getPortfolios(),
-    getDefaultPortfolioId(),
-  ]);
+  const defaultPortfolioId =
+    portfolios.find((p) => p.is_default)?.id ?? portfolios[0]?.id ?? "";
 
   return (
     <AuthenticatedShell

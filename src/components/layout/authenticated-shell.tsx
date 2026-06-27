@@ -2,7 +2,8 @@
 
 import { useMemo } from "react";
 import { AppHeader } from "./app-header";
-import { LivePricesProvider } from "@/components/auto-refresh";
+import { Toaster } from "@/components/ui/sonner";
+import { QueryProvider } from "@/components/providers/query-provider";
 import { useSelectedPortfolio } from "@/hooks/use-selected-portfolio";
 import {
   PortfolioContext,
@@ -45,9 +46,10 @@ export function AuthenticatedShell({
     <PortfolioContext value={contextValue}>
       <div className="min-h-screen bg-background">
         <AppHeader profile={profile} />
-        <LivePricesProvider>
+        <QueryProvider>
           <main className="px-4 md:px-8 py-4">{children}</main>
-        </LivePricesProvider>
+        </QueryProvider>
+        <Toaster position="top-right" richColors closeButton />
       </div>
     </PortfolioContext>
   );

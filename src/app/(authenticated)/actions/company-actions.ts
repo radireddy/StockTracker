@@ -1,8 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { refreshPrices, isIndianTradingHours } from "@/lib/services/price-refresh";
+import { getAuthUser } from "@/lib/supabase/server";
 import { fetchStockPrice } from "@/app/(authenticated)/actions/price-actions";
 import { revalidatePath } from "next/cache";
 import DOMPurify from "isomorphic-dompurify";
@@ -10,33 +8,13 @@ import { createLogger } from "@/lib/logger";
 
 const log = createLogger({ service: "company-actions" });
 
-const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
-let refreshInProgress = false;
-
 function sanitizeHtml(html: string | null): string | null {
   if (!html) return null;
   return DOMPurify.sanitize(html);
 }
 
-export async function getCompanies(portfolioId: string) {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("companies")
-    .select("*, indian_stocks(*), projection_models(*, valuation_scenarios(*))")
-    .eq("portfolio_id", portfolioId)
-    .order("created_at");
-
-  if (error) {
-    log.error("getCompanies failed", { error: error.message, portfolioId });
-    throw new Error(error.message);
-  }
-  return data ?? [];
-}
-
 export async function getCompany(id: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { data, error } = await supabase
     .from("companies")
@@ -59,9 +37,7 @@ export async function getCompany(id: string) {
 }
 
 export async function createCompany(formData: FormData) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { data: newCompany, error } = await supabase.from("companies").insert({
     user_id: user.id,
@@ -89,9 +65,7 @@ export async function createCompany(formData: FormData) {
 }
 
 export async function updateCompany(id: string, data: Record<string, unknown>) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   if (data.thesis) data.thesis = sanitizeHtml(data.thesis as string);
   if (data.highlights) data.highlights = sanitizeHtml(data.highlights as string);
@@ -111,9 +85,7 @@ export async function updateCompany(id: string, data: Record<string, unknown>) {
 }
 
 export async function deleteCompany(id: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { error } = await supabase.from("companies").delete().eq("id", id);
   if (error) {
@@ -124,66 +96,9 @@ export async function deleteCompany(id: string) {
   log.info("Company deleted", { companyId: id });
 }
 
-export async function getLivePrices(): Promise<
-  Record<string, { price: number | null; market_cap: number | null }>
-> {
-  const supabase = await createClient();
-
-  // Check if prices are stale and trigger background refresh
-  if (isIndianTradingHours() && !refreshInProgress) {
-    const { data: staleness } = await supabase
-      .from("indian_stocks")
-      .select("last_updated")
-      .order("last_updated", { ascending: true })
-      .limit(1)
-      .single();
-
-    const lastUpdated = staleness?.last_updated
-      ? new Date(staleness.last_updated).getTime()
-      : 0;
-    const isStale = Date.now() - lastUpdated > STALE_THRESHOLD_MS;
-
-    if (isStale) {
-      refreshInProgress = true;
-      const adminClient = createAdminClient();
-      refreshPrices(adminClient)
-        .then((result) => {
-          log.info("Auto-refresh completed", result);
-        })
-        .catch((err) => {
-          log.error("Auto-refresh failed", {
-            error: err instanceof Error ? err.message : String(err),
-          });
-        })
-        .finally(() => {
-          refreshInProgress = false;
-        });
-    }
-  }
-
-  const { data, error } = await supabase
-    .from("companies")
-    .select("isin, indian_stocks(isin, price, market_cap)");
-
-  if (error) {
-    log.error("getLivePrices failed", { error: error.message });
-    throw new Error(error.message);
-  }
-
-  const map: Record<string, { price: number | null; market_cap: number | null }> = {};
-  for (const row of data ?? []) {
-    const stock = row.indian_stocks as unknown as { isin: string; price: number | null; market_cap: number | null } | null;
-    if (stock) {
-      map[stock.isin] = { price: stock.price, market_cap: stock.market_cap };
-    }
-  }
-  return map;
-}
 
 export async function getCompanyHighlights(id: string): Promise<string | null> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { data, error } = await supabase
     .from("companies")
@@ -199,9 +114,7 @@ export async function getCompanyHighlights(id: string): Promise<string | null> {
 }
 
 export async function deleteAllCompanies() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { error } = await supabase
     .from("companies")
@@ -225,11 +138,7 @@ export async function moveCompany(
     notes?: string;
   }
 ) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
+  const { supabase, user } = await getAuthUser();
 
   // 1. Fetch source company
   const { data: source, error: fetchError } = await supabase

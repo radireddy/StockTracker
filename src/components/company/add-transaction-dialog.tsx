@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { addTransaction } from "@/app/(authenticated)/actions/transaction-actions";
+import { getOwners } from "@/app/(authenticated)/actions/owner-actions";
+import type { PortfolioOwner } from "@/types/database";
 
 export function AddTransactionDialog({
   open,
@@ -30,11 +32,25 @@ export function AddTransactionDialog({
   const [fees, setFees] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
+  const [ownerId, setOwnerId] = useState("");
+  const [owners, setOwners] = useState<PortfolioOwner[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (open) {
+      getOwners().then((data) => {
+        setOwners(data);
+        if (!ownerId && data.length > 0) {
+          const def = data.find((o) => o.is_default);
+          setOwnerId(def?.id ?? data[0].id);
+        }
+      });
+    }
+  }, [open]);
+
   async function handleSubmit() {
-    if (!quantity || !price || !date) return;
+    if (!quantity || !price || !date || !ownerId) return;
     setPending(true);
     setError(null);
 
@@ -46,6 +62,7 @@ export function AddTransactionDialog({
         fees: fees ? Number(fees) : undefined,
         date,
         notes: notes.trim() || undefined,
+        owner_id: ownerId,
       });
       onOpenChange(false);
       setQuantity("");
@@ -90,6 +107,24 @@ export function AddTransactionDialog({
               </Button>
             ))}
           </div>
+
+          {/* Owner selector */}
+          {owners.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>Owner *</Label>
+              <select
+                value={ownerId}
+                onChange={(e) => setOwnerId(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {owners.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}{o.is_default ? " (default)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -155,7 +190,7 @@ export function AddTransactionDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={pending || !quantity || !price || !date}
+            disabled={pending || !quantity || !price || !date || !ownerId}
           >
             {pending ? "Adding..." : "Add Transaction"}
           </Button>

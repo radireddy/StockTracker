@@ -1,175 +1,231 @@
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { parseExcel } from "@/lib/import/excel-parser";
+import { getAuthUserOrNull } from "@/lib/supabase/server";
+import { detectBroker, getBrokerAdapter } from "@/lib/import/broker-registry";
+import { executeImport } from "@/lib/import/import-engine";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
+import type { BrokerType } from "@/lib/import/types";
 
-const log = createLogger({ service: "import" });
+const log = createLogger({ service: "import-api" });
 
+/**
+ * POST /api/import
+ * Upload a broker tradebook for async processing.
+ * Requires portfolio_id and owner_id.
+ */
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthUserOrNull();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const start = Date.now();
   const formData = await request.formData();
   const file = formData.get("file") as File;
-  if (!file) return NextResponse.json({ error: "No file" }, { status: 400 });
+  if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
+  const portfolioId = formData.get("portfolio_id") as string;
+  if (!portfolioId)
+    return NextResponse.json({ error: "No portfolio selected" }, { status: 400 });
+
+  const ownerId = formData.get("owner_id") as string;
+  if (!ownerId)
+    return NextResponse.json({ error: "No owner selected. Please select who this tradebook belongs to." }, { status: 400 });
+
+  const brokerHint = formData.get("broker") as BrokerType | null;
+
+  // Validate portfolio
+  const { data: portfolio, error: pErr } = await supabase
+    .from("portfolios")
+    .select("id, type, name")
+    .eq("id", portfolioId)
+    .single();
+
+  if (pErr || !portfolio) {
+    return NextResponse.json({ error: "Portfolio not found" }, { status: 404 });
+  }
+
+  if (portfolio.type !== "holdings") {
+    return NextResponse.json(
+      { error: "Trades can only be imported into holdings-type portfolios" },
+      { status: 400 }
+    );
+  }
+
+  // Validate owner
+  const { data: owner, error: oErr } = await supabase
+    .from("portfolio_owners")
+    .select("id, name")
+    .eq("id", ownerId)
+    .single();
+
+  if (oErr || !owner) {
+    return NextResponse.json({ error: "Owner not found" }, { status: 404 });
+  }
+
+  // Parse the file
   const buffer = await file.arrayBuffer();
-  const companies = parseExcel(buffer);
-  log.info("Excel parsed", { fileName: file.name, fileSize: file.size, companiesFound: companies.length });
 
-  // Use provided portfolio_id or fall back to default
-  const portfolioId = formData.get("portfolio_id") as string | null;
-  let portfolio: { id: string } | null = null;
+  const adapter = brokerHint
+    ? getBrokerAdapter(brokerHint)
+    : detectBroker(buffer);
 
-  if (portfolioId) {
-    const { data } = await supabase
-      .from("portfolios")
-      .select("id")
-      .eq("id", portfolioId)
-      .single();
-    portfolio = data;
+  if (!adapter) {
+    return NextResponse.json(
+      {
+        error:
+          "Could not identify the broker format. Please select the correct broker or ensure the file is a valid tradebook.",
+      },
+      { status: 400 }
+    );
   }
 
-  if (!portfolio) {
-    const { data } = await supabase
-      .from("portfolios")
-      .select("id")
-      .eq("is_default", true)
-      .single();
-    portfolio = data;
+  let parseResult;
+  try {
+    parseResult = adapter.parse(buffer);
+  } catch (err) {
+    log.error("Parse failed", { broker: adapter.broker, error: (err as Error).message });
+    return NextResponse.json(
+      {
+        error: `Failed to parse ${adapter.displayName} tradebook. Ensure the file is a valid tradebook download.`,
+      },
+      { status: 400 }
+    );
   }
 
-  if (!portfolio) {
-    const { data } = await supabase
-      .from("portfolios")
-      .insert({ user_id: user.id, name: "Imported Portfolio", is_default: true })
-      .select("id")
-      .single();
-    portfolio = data;
+  const fatalErrors = parseResult.errors.filter((e) => e.severity === "error");
+  if (parseResult.trades.length === 0) {
+    return NextResponse.json(
+      {
+        error:
+          fatalErrors.length > 0
+            ? fatalErrors[0].message
+            : "No valid trades found in the file",
+      },
+      { status: 400 }
+    );
   }
 
-  // Use admin client to query indian_stocks (no RLS needed for lookup)
-  const adminClient = createAdminClient();
+  // Create import job
+  const { data: job, error: jobErr } = await supabase
+    .from("import_jobs")
+    .insert({
+      user_id: user.id,
+      portfolio_id: portfolioId,
+      owner_id: ownerId,
+      source: adapter.broker,
+      status: "processing",
+      file_name: file.name,
+      total_rows: parseResult.trades.length,
+    })
+    .select("id")
+    .single();
 
-  let imported = 0;
-  const errors: string[] = [];
+  if (jobErr || !job) {
+    log.error("Failed to create import job", { error: jobErr?.message });
+    return NextResponse.json(
+      { error: "Failed to create import job" },
+      { status: 500 }
+    );
+  }
 
-  for (const c of companies) {
-    try {
-      // Resolve ISIN from indian_stocks
-      const cleanSymbol = c.symbol?.replace(/^NSE:/i, "").trim() ?? null;
+  const jobId = job.id;
 
-      let isin: string | null = null;
-
-      // Try matching by NSE symbol first
-      if (cleanSymbol) {
-        const { data: bySymbol } = await adminClient
-          .from("indian_stocks")
-          .select("isin")
-          .ilike("nse_symbol", cleanSymbol)
-          .limit(1)
-          .single();
-        if (bySymbol) isin = bySymbol.isin;
-      }
-
-      // Fall back to name ilike match
-      if (!isin && c.name) {
-        const { data: byName } = await adminClient
-          .from("indian_stocks")
-          .select("isin")
-          .ilike("name", `%${c.name}%`)
-          .limit(1)
-          .single();
-        if (byName) isin = byName.isin;
-      }
-
-      if (!isin) {
-        errors.push(`${c.name}: Could not match to any stock in indian_stocks (symbol: ${cleanSymbol})`);
-        continue;
-      }
-
-      const { data: company, error: compErr } = await supabase
-        .from("companies")
-        .insert({
-          user_id: user.id,
-          portfolio_id: portfolio!.id,
-          isin,
-          buy_price: c.buy_price != null ? Math.round(c.buy_price * 100) / 100 : null,
-          star_rating: c.star_rating,
-          strategy: c.strategy,
-          investment_horizon_years: Math.max(0, c.financial_years.filter((fy) => fy.is_estimate).length),
-          expected_returns: c.expected_returns,
-          thesis: c.thesis,
-          highlights: c.highlights,
+  // Fire-and-forget async processing
+  executeImport(user.id, portfolioId, ownerId, jobId, parseResult, supabase).catch(
+    (err) => {
+      log.error("Import processing crashed", {
+        jobId,
+        error: (err as Error).message,
+      });
+      supabase
+        .from("import_jobs")
+        .update({
+          status: "failed",
+          errors: [{ message: `Unexpected error: ${(err as Error).message}` }],
         })
-        .select("id")
-        .single();
-
-      if (compErr) throw compErr;
-
-      // Create a default PE/Earnings projection model for imported data
-      let projectionModelId: string | null = null;
-      if (c.financial_years.length || c.valuation_scenarios.length) {
-        const { data: pm, error: pmErr } = await supabase
-          .from("projection_models")
-          .insert({
-            company_id: company!.id,
-            user_id: user.id,
-            projection_type: "pe_earnings",
-            name: "PE / Earnings",
-            is_default: true,
-            sort_order: 0,
-          })
-          .select("id")
-          .single();
-        if (pmErr) throw pmErr;
-        projectionModelId = pm!.id;
-      }
-
-      if (c.financial_years.length && projectionModelId) {
-        await supabase.from("financial_years").insert(
-          c.financial_years.map((fy) => ({
-            company_id: company!.id,
-            user_id: user.id,
-            projection_model_id: projectionModelId,
-            ...fy,
-          }))
-        );
-      }
-
-      if (c.valuation_scenarios.length && projectionModelId) {
-        await supabase.from("valuation_scenarios").insert(
-          c.valuation_scenarios.map((vs) => ({
-            company_id: company!.id,
-            user_id: user.id,
-            projection_model_id: projectionModelId,
-            ...vs,
-          }))
-        );
-      }
-
-      if (c.timeline_entries.length) {
-        await supabase.from("timeline_entries").insert(
-          c.timeline_entries.map((te) => ({
-            company_id: company!.id,
-            user_id: user.id,
-            entry_date: new Date().toISOString().split("T")[0],
-            ...te,
-          }))
-        );
-      }
-
-      imported++;
-      log.info("Company imported", { name: c.name, isin });
-    } catch (err) {
-      log.error("Company import failed", { name: c.name, symbol: c.symbol, error: (err as Error).message });
-      errors.push(`${c.name}: ${(err as Error).message}`);
+        .eq("id", jobId)
+        .then(() => {});
     }
+  );
+
+  return NextResponse.json({
+    job_id: jobId,
+    broker: adapter.broker,
+    broker_name: adapter.displayName,
+    total_trades: parseResult.trades.length,
+    client_id: parseResult.metadata.client_id,
+    date_range: parseResult.metadata.date_range,
+    owner_name: owner.name,
+    parse_warnings: parseResult.errors.filter((e) => e.severity === "warning")
+      .length,
+    parse_errors: fatalErrors.length,
+  });
+}
+
+/**
+ * GET /api/import?job_id=<id>          — full detail for a single job
+ * GET /api/import                       — lightweight list of recent jobs
+ */
+export async function GET(request: Request) {
+  const { supabase, user } = await getAuthUserOrNull();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const url = new URL(request.url);
+  const jobId = url.searchParams.get("job_id");
+
+  if (jobId) {
+    const { data: job, error } = await supabase
+      .from("import_jobs")
+      .select("*, portfolio_owners(name)")
+      .eq("id", jobId)
+      .single();
+
+    if (error || !job) {
+      return NextResponse.json({ error: "Job not found" }, { status: 404 });
+    }
+    return NextResponse.json(job);
   }
 
-  log.info("Import completed", { imported, total: companies.length, failed: errors.length, duration_ms: Date.now() - start });
-  return NextResponse.json({ imported, total: companies.length, errors });
+  const { data: jobs, error } = await supabase
+    .from("import_jobs")
+    .select("id, user_id, portfolio_id, owner_id, source, status, file_name, total_rows, processed_rows, imported_count, skipped_count, failed_count, created_at, updated_at, portfolio_owners(name)")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  return NextResponse.json(jobs);
+}
+
+/**
+ * DELETE /api/import?job_id=<id>  — delete a single import job
+ * DELETE /api/import              — delete all import jobs for the user
+ */
+export async function DELETE(request: Request) {
+  const { supabase, user } = await getAuthUserOrNull();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const url = new URL(request.url);
+  const jobId = url.searchParams.get("job_id");
+
+  if (jobId) {
+    const { error } = await supabase
+      .from("import_jobs")
+      .delete()
+      .eq("id", jobId);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  // Delete all jobs for this user
+  const { error } = await supabase
+    .from("import_jobs")
+    .delete()
+    .eq("user_id", user.id);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true });
 }
