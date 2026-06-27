@@ -69,6 +69,10 @@ function getScenarioReturn(
   return computeLiveIrr(s.target_market_cap, currentMarketCapRaw, horizon) ?? s.irr ?? null;
 }
 
+// Responsive column visibility:
+// Hidden on mobile (< lg): Star, Type, Cost, P&L ₹, Bare Case
+const HIDE_MOBILE = "hidden lg:table-cell";
+
 export function CompaniesTable({
   companies,
   portfolioType = "holdings",
@@ -223,6 +227,11 @@ export function CompaniesTable({
     return <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>;
   };
 
+  // Common th class for holdings headers
+  const thBase = "sticky top-0 z-10 bg-muted/30 px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground";
+  const thRight = `${thBase} text-right`;
+  const thCenter = `${thBase} text-center`;
+
   return (
     <div className="space-y-3">
       {/* Filters */}
@@ -272,31 +281,9 @@ export function CompaniesTable({
       </div>
 
       {/* Dense table */}
-      <div className="border border-border/60 overflow-x-clip">
-        <table className="text-sm border-collapse w-full table-fixed" role="table" aria-label="Companies portfolio table">
-          {isHoldings ? (
-            <colgroup>
-              {/* Identity */}
-              <col style={{width:"16%"}} />  {/* Company */}
-              <col style={{width:"5%"}} />   {/* Star */}
-              <col style={{width:"5%"}} />   {/* Type */}
-              {/* Holdings (actual) */}
-              <col style={{width:"5%"}} />   {/* Qty */}
-              <col style={{width:"6%"}} />   {/* Avg Buy */}
-              <col style={{width:"6%"}} />   {/* CMP */}
-              <col style={{width:"8%"}} />   {/* Cost */}
-              <col style={{width:"8%"}} />   {/* Current Value */}
-              <col style={{width:"6%"}} />   {/* P&L % */}
-              <col style={{width:"7%"}} />   {/* P&L ₹ */}
-              {/* Research (valuation) */}
-              <col style={{width:"6%"}} />   {/* Target Buy */}
-              <col style={{width:"5%"}} />   {/* MoS% */}
-              <col style={{width:"6%"}} />   {/* Base Case */}
-              <col style={{width:"6%"}} />   {/* Bare Case */}
-              {/* Actions */}
-              <col style={{width:"5%"}} />   {/* Actions */}
-            </colgroup>
-          ) : (
+      <div className="border border-border/60 overflow-x-auto">
+        <table className="text-sm border-collapse w-full lg:table-fixed" role="table" aria-label="Companies portfolio table">
+          {!isHoldings && (
             <colgroup>
               <col className="w-[19%]" />
               <col className="w-[5%]" />
@@ -313,88 +300,107 @@ export function CompaniesTable({
           <thead>
             <tr className="border-b-2 border-border/40 bg-muted/30">
               <th
-                scope="col" className="sticky top-0 z-10 bg-muted/30 text-left px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                scope="col" className={`${thBase} text-left`}
+                style={{width:"16%"}}
                 onClick={() => toggleSort("name")}
               >
                 Company<SortIcon field="name" />
               </th>
-              <th
-                scope="col" className="sticky top-0 z-10 bg-muted/30 text-center px-1 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
-                onClick={() => toggleSort("star_rating")}
-              >
-                Star<SortIcon field="star_rating" />
-              </th>
-              <th
-                scope="col" className="sticky top-0 z-10 bg-muted/30 text-center px-1 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
-                onClick={() => toggleSort("strategy")}
-              >
-                Type<SortIcon field="strategy" />
-              </th>
               {isHoldings ? (
                 <>
+                  {/* Star - hidden on mobile */}
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={`${thCenter} ${HIDE_MOBILE}`}
+                    style={{width:"5%"}}
+                    onClick={() => toggleSort("star_rating")}
+                  >
+                    Star<SortIcon field="star_rating" />
+                  </th>
+                  {/* Type - hidden on mobile */}
+                  <th
+                    scope="col" className={`${thCenter} ${HIDE_MOBILE}`}
+                    style={{width:"5%"}}
+                    onClick={() => toggleSort("strategy")}
+                  >
+                    Type<SortIcon field="strategy" />
+                  </th>
+                  <th
+                    scope="col" className={thRight}
+                    style={{width:"5%"}}
                     onClick={() => toggleSort("quantity")}
                   >
                     Qty<SortIcon field="quantity" />
                   </th>
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={thRight}
+                    style={{width:"6%"}}
                     onClick={() => toggleSort("avg_buy_price")}
                   >
                     Avg Buy<SortIcon field="avg_buy_price" />
                   </th>
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={thRight}
+                    style={{width:"6%"}}
                     onClick={() => toggleSort("current_price")}
                   >
                     CMP<SortIcon field="current_price" />
                   </th>
+                  {/* Cost - hidden on mobile */}
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={`${thRight} ${HIDE_MOBILE}`}
+                    style={{width:"8%"}}
                     onClick={() => toggleSort("total_cost")}
                   >
                     Cost<SortIcon field="total_cost" />
                   </th>
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={thRight}
+                    style={{width:"8%"}}
                     onClick={() => toggleSort("market_value")}
                   >
                     Cur. Value<SortIcon field="market_value" />
                   </th>
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={thRight}
+                    style={{width:"6%"}}
                     onClick={() => toggleSort("pnl_pct")}
                   >
                     P&L %<SortIcon field="pnl_pct" />
                   </th>
+                  {/* P&L ₹ - hidden on mobile */}
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={`${thRight} ${HIDE_MOBILE}`}
+                    style={{width:"7%"}}
                     onClick={() => toggleSort("pnl_amt")}
                   >
                     P&L ₹<SortIcon field="pnl_amt" />
                   </th>
                   {/* Research / Valuation columns */}
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground border-l border-border/40"
+                    scope="col" className={`${thRight} border-l border-border/40`}
+                    style={{width:"6%"}}
                     onClick={() => toggleSort("buy_price")}
                   >
                     Target Buy<SortIcon field="buy_price" />
                   </th>
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={thRight}
+                    style={{width:"5%"}}
                     onClick={() => toggleSort("mos")}
                   >
                     MoS%<SortIcon field="mos" />
                   </th>
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={thRight}
+                    style={{width:"6%"}}
                     onClick={() => toggleSort("base_cagr")}
                   >
                     Base Case<SortIcon field="base_cagr" />
                   </th>
+                  {/* Bare Case - hidden on mobile */}
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={`${thRight} ${HIDE_MOBILE}`}
+                    style={{width:"6%"}}
                     onClick={() => toggleSort("bare_cagr")}
                   >
                     Bare Case<SortIcon field="bare_cagr" />
@@ -402,6 +408,18 @@ export function CompaniesTable({
                 </>
               ) : (
                 <>
+                  <th
+                    scope="col" className={`${thCenter} ${HIDE_MOBILE}`}
+                    onClick={() => toggleSort("star_rating")}
+                  >
+                    Star<SortIcon field="star_rating" />
+                  </th>
+                  <th
+                    scope="col" className={`${thCenter} ${HIDE_MOBILE}`}
+                    onClick={() => toggleSort("strategy")}
+                  >
+                    Type<SortIcon field="strategy" />
+                  </th>
                   <th
                     scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("buy_price")}
@@ -427,7 +445,7 @@ export function CompaniesTable({
                     Base CAGR<SortIcon field="base_cagr" />
                   </th>
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={`sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground ${HIDE_MOBILE}`}
                     onClick={() => toggleSort("bare_cagr")}
                   >
                     Bare CAGR<SortIcon field="bare_cagr" />
@@ -440,7 +458,7 @@ export function CompaniesTable({
                   </th>
                 </>
               )}
-              <th scope="col" className="sticky top-0 z-10 bg-muted/30 text-center px-1 py-2 text-xs font-medium text-muted-foreground border-l border-border/40">
+              <th scope="col" className={`${thCenter} border-l border-border/40`} style={{width:"5%"}}>
                 Actions
               </th>
             </tr>
@@ -466,7 +484,7 @@ export function CompaniesTable({
                   }`}
                   onClick={() => router.push(`/company/${company.id}`)}
                 >
-                  <td className="px-2 py-2 font-medium truncate">
+                  <td className="px-2 py-2 font-medium truncate max-w-0">
                     {company.indian_stocks?.name ?? ""}
                     {company.indian_stocks?.nse_symbol && (
                       <span className="ml-1 text-xs text-muted-foreground">
@@ -474,34 +492,37 @@ export function CompaniesTable({
                       </span>
                     )}
                   </td>
-                  <td className="px-1 py-2 text-center text-sm">
-                    {"★".repeat(company.star_rating ?? 0)}
-                  </td>
-                  <td className="px-1 py-2 text-center text-xs capitalize text-muted-foreground">
-                    {company.strategy ?? "-"}
-                  </td>
                   {isHoldings ? (
                     <>
-                      <td className="px-2 py-2 text-right tabular-nums">
+                      {/* Star - hidden on mobile */}
+                      <td className={`px-1 py-2 text-center text-sm ${HIDE_MOBILE}`}>
+                        {"★".repeat(company.star_rating ?? 0)}
+                      </td>
+                      {/* Type - hidden on mobile */}
+                      <td className={`px-1 py-2 text-center text-xs capitalize text-muted-foreground ${HIDE_MOBILE}`}>
+                        {company.strategy ?? "-"}
+                      </td>
+                      <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
                         {company.quantity != null ? fmtNum(company.quantity, 0) : "-"}
                       </td>
-                      <td className="px-2 py-2 text-right tabular-nums">
+                      <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
                         {fmtPriceShort(company.avg_buy_price ?? null)}
                       </td>
-                      <td className="px-2 py-2 text-right tabular-nums">
+                      <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
                         {fmtPriceShort(currentPrice)}
                       </td>
-                      <td className="px-2 py-2 text-right tabular-nums">
+                      {/* Cost - hidden on mobile */}
+                      <td className={`px-2 py-2 text-right tabular-nums whitespace-nowrap ${HIDE_MOBILE}`}>
                         {company.quantity && company.avg_buy_price
                           ? fmtPriceShort(company.avg_buy_price * company.quantity)
                           : "-"}
                       </td>
-                      <td className="px-2 py-2 text-right tabular-nums">
+                      <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
                         {company.quantity && currentPrice
                           ? fmtPriceShort(currentPrice * company.quantity)
                           : "-"}
                       </td>
-                      <td className={`px-2 py-2 text-right tabular-nums font-medium ${
+                      <td className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${
                         (() => {
                           const avgBuy = company.avg_buy_price;
                           if (!avgBuy || !currentPrice) return "";
@@ -516,7 +537,8 @@ export function CompaniesTable({
                           return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
                         })()}
                       </td>
-                      <td className={`px-2 py-2 text-right tabular-nums font-medium ${
+                      {/* P&L ₹ - hidden on mobile */}
+                      <td className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${HIDE_MOBILE} ${
                         (() => {
                           const qty = company.quantity;
                           const avgBuy = company.avg_buy_price;
@@ -533,11 +555,11 @@ export function CompaniesTable({
                         })()}
                       </td>
                       {/* Research / Valuation columns */}
-                      <td className={`px-2 py-2 text-right tabular-nums border-l border-border/40 ${isDefaulted ? "text-muted-foreground italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
+                      <td className={`px-2 py-2 text-right tabular-nums whitespace-nowrap border-l border-border/40 ${isDefaulted ? "text-muted-foreground italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
                         {fmtPriceShort(buyPrice)}
                       </td>
                       <td
-                        className={`px-2 py-2 text-right tabular-nums font-medium ${
+                        className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${
                           mos != null
                             ? mos > 0
                               ? "text-green-600"
@@ -549,15 +571,22 @@ export function CompaniesTable({
                       >
                         {fmtPctShort(mos)}
                       </td>
-                      <td className="px-2 py-2 text-right tabular-nums">
+                      <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
                         {fmtIrr(baseReturn)}
                       </td>
-                      <td className="px-2 py-2 text-right tabular-nums">
+                      {/* Bare Case - hidden on mobile */}
+                      <td className={`px-2 py-2 text-right tabular-nums whitespace-nowrap ${HIDE_MOBILE}`}>
                         {fmtIrr(bareReturn)}
                       </td>
                     </>
                   ) : (
                     <>
+                      <td className={`px-1 py-2 text-center text-sm ${HIDE_MOBILE}`}>
+                        {"★".repeat(company.star_rating ?? 0)}
+                      </td>
+                      <td className={`px-1 py-2 text-center text-xs capitalize text-muted-foreground ${HIDE_MOBILE}`}>
+                        {company.strategy ?? "-"}
+                      </td>
                       <td className={`px-3 py-2.5 text-right tabular-nums ${isDefaulted ? "text-muted-foreground italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
                         {fmtPriceShort(buyPrice)}
                       </td>
@@ -580,7 +609,7 @@ export function CompaniesTable({
                       <td className="px-3 py-2.5 text-right tabular-nums">
                         {fmtIrr(baseReturn)}
                       </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums">
+                      <td className={`px-3 py-2.5 text-right tabular-nums ${HIDE_MOBILE}`}>
                         {fmtIrr(bareReturn)}
                       </td>
                       <td className="px-2 py-2.5 text-center">
@@ -660,7 +689,7 @@ export function CompaniesTable({
                   </td>
                 </tr>
                 <tr className={idx % 2 === 0 ? "" : "bg-muted/15"}>
-                  <td colSpan={isHoldings ? 16 : 10} className="p-0 border-b border-border/20">
+                  <td colSpan={99} className="p-0 border-b border-border/20">
                     <div
                       className="grid transition-[grid-template-rows] duration-250 ease-out"
                       style={{ gridTemplateRows: expandedHighlights === company.id ? "1fr" : "0fr" }}
@@ -692,7 +721,7 @@ export function CompaniesTable({
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={isHoldings ? 16 : 10} className="text-center py-8 text-sm text-muted-foreground">
+                <td colSpan={99} className="text-center py-8 text-sm text-muted-foreground">
                   No companies found.
                 </td>
               </tr>
