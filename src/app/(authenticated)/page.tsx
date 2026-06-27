@@ -9,11 +9,7 @@ import Link from "next/link";
 import { usePortfolioContext } from "@/hooks/use-portfolio-context";
 import { useDashboardData, useInvalidateDashboard } from "@/hooks/use-dashboard-data";
 import type { PortfolioOwner } from "@/types/database";
-import { getDashboardData } from "./actions/company-actions";
 import { useState } from "react";
-
-type DashboardResult = Awaited<ReturnType<typeof getDashboardData>>;
-type CompanyRow = DashboardResult["companies"][number];
 
 export default function DashboardPage() {
   const { selectedId, selectedPortfolio } = usePortfolioContext();
@@ -46,7 +42,7 @@ export default function DashboardPage() {
             buy_date: oh.buy_date,
           };
         })
-        .filter(Boolean) as CompanyRow[];
+        .filter((x): x is NonNullable<typeof x> => x != null);
     }
 
     return rawCompanies;

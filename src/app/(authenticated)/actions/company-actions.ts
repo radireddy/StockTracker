@@ -1,9 +1,6 @@
 "use server";
 
 import { getAuthUser } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { refreshPrices, isIndianTradingHours } from "@/lib/services/price-refresh";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchStockPrice } from "@/app/(authenticated)/actions/price-actions";
 import { revalidatePath } from "next/cache";
 import DOMPurify from "isomorphic-dompurify";
@@ -11,89 +8,10 @@ import { createLogger } from "@/lib/logger";
 
 const log = createLogger({ service: "company-actions" });
 
-const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
-let refreshInProgress = false;
-
 function sanitizeHtml(html: string | null): string | null {
   if (!html) return null;
   return DOMPurify.sanitize(html);
 }
-
-// Dashboard-specific lean select — only fields the table/PnL bar actually use
-const DASHBOARD_COMPANY_SELECT = `
-  id, isin, star_rating, strategy, quantity, avg_buy_price, buy_price, investment_horizon_years,
-  indian_stocks(name, nse_symbol, price, market_cap),
-  projection_models(is_default, valuation_scenarios(scenario_type, target_market_cap, irr, buy_price))
-`;
-
-export async function getDashboardData(
-  portfolioId: string,
-  portfolioType: "holdings" | "watchlist",
-  ownerFilter?: string
-) {
-  const { supabase, user } = await getAuthUser();
-
-  // Fetch companies (lean) and owners in parallel
-  let companyQuery = supabase
-    .from("companies")
-    .select(DASHBOARD_COMPANY_SELECT)
-    .eq("portfolio_id", portfolioId);
-
-  // For holdings portfolios, filter out fully exited stocks
-  if (portfolioType === "holdings") {
-    companyQuery = companyQuery.or("quantity.is.null,quantity.gt.0");
-  }
-
-  const [companiesResult, ownersResult, holdingsResult] = await Promise.all([
-    companyQuery.order("created_at"),
-    supabase
-      .from("portfolio_owners")
-      .select("id, name, is_default")
-      .order("is_default", { ascending: false })
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("owner_holdings")
-      .select("company_id, owner_id, quantity, avg_buy_price, buy_date"),
-  ]);
-
-  if (companiesResult.error) {
-    log.error("getDashboardData companies failed", { error: companiesResult.error.message, portfolioId });
-    throw new Error(companiesResult.error.message);
-  }
-  if (ownersResult.error) {
-    log.error("getDashboardData owners failed", { error: ownersResult.error.message });
-    throw new Error(ownersResult.error.message);
-  }
-  if (holdingsResult.error) {
-    log.error("getDashboardData holdings failed", { error: holdingsResult.error.message });
-    throw new Error(holdingsResult.error.message);
-  }
-
-  const companies = companiesResult.data ?? [];
-  const owners = ownersResult.data ?? [];
-  const allHoldings = (holdingsResult.data ?? []).map((h) => ({
-    company_id: h.company_id as string,
-    owner_id: h.owner_id as string,
-    quantity: (h.quantity as number) ?? 0,
-    avg_buy_price: h.avg_buy_price as number | null,
-    buy_date: h.buy_date as string | null,
-  }));
-
-  // Normalize Supabase FK joins (typed as arrays but returned as objects at runtime)
-  const normalized = companies.map((c) => ({
-    ...c,
-    indian_stocks: (c.indian_stocks as unknown as DashboardStock | null) ?? null,
-    projection_models: ((c.projection_models ?? []) as unknown as DashboardProjectionModel[]),
-  }));
-
-  // Fire-and-forget price refresh if stale
-  triggerPriceRefreshIfStale(supabase);
-
-  return { companies: normalized, owners, allHoldings };
-}
-
-type DashboardStock = { name: string | null; nse_symbol: string | null; price: number | null; market_cap: number | null };
-type DashboardProjectionModel = { is_default: boolean; valuation_scenarios: { scenario_type: string; target_market_cap: number | null; irr: number | null; buy_price: number | null }[] };
 
 export async function getCompany(id: string) {
   const { supabase, user } = await getAuthUser();
@@ -178,42 +96,6 @@ export async function deleteCompany(id: string) {
   log.info("Company deleted", { companyId: id });
 }
 
-async function triggerPriceRefreshIfStale(supabase: SupabaseClient) {
-  if (!isIndianTradingHours() || refreshInProgress) return;
-
-  try {
-    const { data: staleness } = await supabase
-      .from("indian_stocks")
-      .select("last_updated")
-      .order("last_updated", { ascending: true })
-      .limit(1)
-      .single();
-
-    const lastUpdated = staleness?.last_updated
-      ? new Date(staleness.last_updated).getTime()
-      : 0;
-    const isStale = Date.now() - lastUpdated > STALE_THRESHOLD_MS;
-
-    if (isStale) {
-      refreshInProgress = true;
-      const adminClient = createAdminClient();
-      refreshPrices(adminClient)
-        .then((result) => {
-          log.info("Auto-refresh completed", result);
-        })
-        .catch((err) => {
-          log.error("Auto-refresh failed", {
-            error: err instanceof Error ? err.message : String(err),
-          });
-        })
-        .finally(() => {
-          refreshInProgress = false;
-        });
-    }
-  } catch {
-    // staleness check failed — skip refresh
-  }
-}
 
 export async function getCompanyHighlights(id: string): Promise<string | null> {
   const { supabase, user } = await getAuthUser();
