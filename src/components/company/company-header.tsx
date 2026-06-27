@@ -61,7 +61,7 @@ export function CompanyHeader({
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-x-6 gap-y-3 py-3 border-y border-border/50">
         <MetricItem label="Current Price" value={fmtPrice(currentPrice)} />
         <MetricItem label="Market Cap" value={fmtMarketCap(marketCap)} />
-        <MetricItem label="Buy Price" value={fmtPrice(buyPrice)} className={isDefaulted ? "text-muted-foreground italic" : ""} title={isDefaulted ? "Base case buy price (no manual override)" : undefined} />
+        <MetricItem label="Target Buy Price" value={fmtPrice(buyPrice)} className={isDefaulted ? "text-muted-foreground italic" : ""} title={isDefaulted ? "Base case buy price (no manual override)" : undefined} />
         <MetricItem label="MoS" value={mos != null ? `${(mos * 100).toFixed(1)}%` : "-"} className={mosColor} />
         <MetricItem label="Star Rating" value={company.star_rating ? "★".repeat(company.star_rating) : "-"} />
         <MetricItem label="Strategy" value={company.strategy ?? "-"} />

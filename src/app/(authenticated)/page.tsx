@@ -56,7 +56,7 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="max-w-6xl mx-auto space-y-3">
+    <div className="max-w-[95vw] xl:max-w-[1600px] mx-auto space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">
