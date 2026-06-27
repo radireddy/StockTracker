@@ -16,11 +16,13 @@ import {
 import { Save } from "lucide-react";
 import { updateCompany } from "@/app/(authenticated)/actions/company-actions";
 import { roundPrice } from "@/lib/utils/calculations";
+import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
 import type { Company } from "@/types/database";
 
 export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company; baseCaseBuyPrice?: number | null }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const invalidate = useInvalidateDashboard();
   const [starRating, setStarRating] = useState(String(company.star_rating ?? 2));
   const [strategy, setStrategy] = useState(company.strategy ?? "");
 
@@ -34,6 +36,7 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
         star_rating: Number(starRating) || 2,
         strategy: (strategy as "core" | "satellite") || null,
       });
+      invalidate();
       router.refresh();
     } finally {
       setSaving(false);

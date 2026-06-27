@@ -19,6 +19,7 @@ import {
   deleteCompany,
   deleteAllCompanies,
 } from "@/app/(authenticated)/actions/company-actions";
+import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
 
 export function DeleteCompanyButton({
   companyId,
@@ -29,13 +30,14 @@ export function DeleteCompanyButton({
 }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
+  const invalidate = useInvalidateDashboard();
 
   const handleDelete = async () => {
     setDeleting(true);
     try {
       await deleteCompany(companyId);
+      invalidate();
       router.push("/");
-      router.refresh();
     } finally {
       setDeleting(false);
     }
@@ -82,12 +84,13 @@ export function DeleteAllCompaniesButton({
 }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
+  const invalidate = useInvalidateDashboard();
 
   const handleDeleteAll = async () => {
     setDeleting(true);
     try {
       await deleteAllCompanies();
-      router.refresh();
+      invalidate();
     } finally {
       setDeleting(false);
     }

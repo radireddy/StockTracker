@@ -1,78 +1,63 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useMemo, useCallback } from "react";
 import { CompaniesTable } from "@/components/dashboard/companies-table";
 import { PortfolioPnlBar } from "@/components/dashboard/portfolio-pnl-bar";
 import { OwnerFilter } from "@/components/owner/owner-filter";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { usePortfolioContext } from "@/hooks/use-portfolio-context";
-import { getDashboardData } from "./actions/company-actions";
+import { useDashboardData, useInvalidateDashboard } from "@/hooks/use-dashboard-data";
 import type { PortfolioOwner } from "@/types/database";
+import { getDashboardData } from "./actions/company-actions";
+import { useState } from "react";
 
 type DashboardResult = Awaited<ReturnType<typeof getDashboardData>>;
 type CompanyRow = DashboardResult["companies"][number];
 
 export default function DashboardPage() {
   const { selectedId, selectedPortfolio } = usePortfolioContext();
-  const [companies, setCompanies] = useState<CompanyRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [owners, setOwners] = useState<PortfolioOwner[]>([]);
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
 
   const portfolioType = selectedPortfolio?.type ?? "holdings";
   const isHoldings = portfolioType === "holdings";
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
+  const { data, isLoading } = useDashboardData(selectedId, portfolioType, ownerFilter);
+  const invalidate = useInvalidateDashboard();
 
-    getDashboardData(selectedId, portfolioType, ownerFilter)
-      .then(({ companies: data, owners: ownerList, ownerHoldings }) => {
-        if (cancelled) return;
+  const owners = (data?.owners ?? []) as PortfolioOwner[];
 
-        setOwners(ownerList as PortfolioOwner[]);
+  const companies = useMemo(() => {
+    if (!data) return [];
+    const { companies: rawCompanies, allHoldings } = data;
 
-        if (ownerHoldings) {
-          const holdingMap = new Map(
-            ownerHoldings.map((h) => [h.company_id, h])
-          );
-          const filtered = data
-            .map((c) => {
-              const oh = holdingMap.get(c.id);
-              if (!oh) return null;
-              if (oh.quantity === 0) return null;
-              return {
-                ...c,
-                quantity: oh.quantity,
-                avg_buy_price: oh.avg_buy_price,
-                buy_date: oh.buy_date,
-              };
-            })
-            .filter(Boolean) as CompanyRow[];
-          setCompanies(filtered);
-        } else {
-          setCompanies(data);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setCompanies([]);
-          setOwners([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    if (ownerFilter !== "all") {
+      const filtered = allHoldings.filter((h) => h.owner_id === ownerFilter);
+      const holdingMap = new Map(filtered.map((h) => [h.company_id, h]));
+      return rawCompanies
+        .map((c) => {
+          const oh = holdingMap.get(c.id);
+          if (!oh) return null;
+          if (oh.quantity === 0) return null;
+          return {
+            ...c,
+            quantity: oh.quantity,
+            avg_buy_price: oh.avg_buy_price,
+            buy_date: oh.buy_date,
+          };
+        })
+        .filter(Boolean) as CompanyRow[];
+    }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedId, portfolioType, ownerFilter]);
+    return rawCompanies;
+  }, [data, ownerFilter]);
 
-  const removeCompany = useCallback((companyId: string) => {
-    setCompanies((prev) => prev.filter((c) => c.id !== companyId));
-  }, []);
+  const removeCompany = useCallback(
+    (companyId: string) => {
+      invalidate();
+    },
+    [invalidate]
+  );
 
   return (
     <div className="max-w-6xl mx-auto space-y-3">
@@ -96,10 +81,10 @@ export default function DashboardPage() {
           <Button size="sm" className="h-8 text-sm">+ Add Company</Button>
         </Link>
       </div>
-      {isHoldings && !loading && (
+      {isHoldings && !isLoading && (
         <PortfolioPnlBar companies={companies} />
       )}
-      {loading ? (
+      {isLoading ? (
         <div className="text-center py-12 text-sm text-muted-foreground">
           Loading companies...
         </div>

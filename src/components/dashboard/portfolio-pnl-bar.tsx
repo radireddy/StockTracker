@@ -1,9 +1,6 @@
 "use client";
 
-import { useLivePricesContext } from "@/components/auto-refresh";
-
 type CompanyWithStock = {
-  isin: string;
   quantity: number | null;
   avg_buy_price: number | null;
   indian_stocks: { price: number | null } | null;
@@ -14,8 +11,6 @@ export function PortfolioPnlBar({
 }: {
   companies: CompanyWithStock[];
 }) {
-  const livePrices = useLivePricesContext();
-
   let totalInvested = 0;
   let totalCurrent = 0;
 
@@ -24,8 +19,7 @@ export function PortfolioPnlBar({
     const avgBuy = c.avg_buy_price;
     if (!qty || !avgBuy) continue;
 
-    const currentPrice =
-      livePrices[c.isin]?.price ?? c.indian_stocks?.price ?? null;
+    const currentPrice = c.indian_stocks?.price ?? null;
     if (currentPrice == null) continue;
 
     totalInvested += qty * avgBuy;

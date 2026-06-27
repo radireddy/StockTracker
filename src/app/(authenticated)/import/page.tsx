@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { usePortfolioContext } from "@/hooks/use-portfolio-context";
+import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
 import { toast } from "sonner";
 import {
   Upload,
@@ -53,6 +54,7 @@ type ImportJobSummaryRow = Omit<ImportJob, "summary" | "errors"> & {
 
 export default function ImportPage() {
   const { portfolios, selectedId } = usePortfolioContext();
+  const invalidateDashboard = useInvalidateDashboard();
   const holdingsPortfolios = portfolios.filter((p) => p.type === "holdings");
 
   const [portfolioId, setPortfolioId] = useState(
@@ -239,6 +241,7 @@ export default function ImportPage() {
     }
 
     setPhase("done");
+    invalidateDashboard();
     fetchRecentJobs();
   };
 

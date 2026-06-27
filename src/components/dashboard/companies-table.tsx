@@ -7,9 +7,9 @@ import {
 } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
 import { marginOfSafety, isBuySignal, effectiveBuyPrice, computeLiveIrr, fmtPriceShort, fmtPctShort, fmtIrr, fmtNum } from "@/lib/utils/calculations";
-import { useLivePricesContext } from "@/components/auto-refresh";
 import { FileText, X, Loader2, ArrowRightLeft, Trash2 } from "lucide-react";
 import { getCompanyHighlights, deleteCompany } from "@/app/(authenticated)/actions/company-actions";
+import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
 import { MoveStockDialog } from "@/components/portfolio/move-stock-dialog";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import {
@@ -73,8 +73,8 @@ export function CompaniesTable({
 }) {
   const isHoldings = portfolioType === "holdings";
   const router = useRouter();
-  const livePrices = useLivePricesContext();
   const { portfolios, selectedId } = usePortfolioContext();
+  const invalidate = useInvalidateDashboard();
   const [moveTarget, setMoveTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -108,11 +108,11 @@ export function CompaniesTable({
   };
 
   const getPrice = (c: CompanyWithProjections) => {
-    return livePrices[c.isin]?.price ?? c.indian_stocks?.price ?? null;
+    return c.indian_stocks?.price ?? null;
   };
 
   const getMarketCap = (c: CompanyWithProjections) => {
-    return livePrices[c.isin]?.market_cap ?? c.indian_stocks?.market_cap ?? null;
+    return c.indian_stocks?.market_cap ?? null;
   };
 
   const filtered = useMemo(() => {
@@ -179,7 +179,7 @@ export function CompaniesTable({
     });
 
     return result;
-  }, [companies, search, starFilter, strategyFilter, buyOnlyFilter, sortField, sortDir, livePrices]);
+  }, [companies, search, starFilter, strategyFilter, buyOnlyFilter, sortField, sortDir]);
 
   const toggleSort = (field: string) => {
     if (sortField === field) {
@@ -647,6 +647,7 @@ export function CompaniesTable({
                 setDeleting(true);
                 try {
                   await deleteCompany(deleteTarget.id);
+                  invalidate();
                   onRemoveCompany?.(deleteTarget.id);
                   setDeleteTarget(null);
                 } finally {

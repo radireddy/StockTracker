@@ -14,6 +14,7 @@ import { addTransaction } from "@/app/(authenticated)/actions/transaction-action
 import { getDefaultOwnerId } from "@/app/(authenticated)/actions/owner-actions";
 import { StockSearch } from "@/components/company/stock-search";
 import { roundPrice } from "@/lib/utils/calculations";
+import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
 import type { IndianStock } from "@/types/database";
 import { Building2, TrendingUp, ShoppingCart, Star } from "lucide-react";
 
@@ -28,6 +29,7 @@ export function CompanyForm({
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [selectedStock, setSelectedStock] = useState<IndianStock | null>(null);
+  const invalidate = useInvalidateDashboard();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -57,6 +59,7 @@ export function CompanyForm({
     }
 
     setPending(false);
+    invalidate();
     router.push("/");
   };
 

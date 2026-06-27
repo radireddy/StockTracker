@@ -1,8 +1,9 @@
 "use server";
 
-import { createClient, getAuthUser } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { refreshPrices, isIndianTradingHours } from "@/lib/services/price-refresh";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchStockPrice } from "@/app/(authenticated)/actions/price-actions";
 import { revalidatePath } from "next/cache";
 import DOMPurify from "isomorphic-dompurify";
@@ -43,13 +44,16 @@ export async function getDashboardData(
     companyQuery = companyQuery.or("quantity.is.null,quantity.gt.0");
   }
 
-  const [companiesResult, ownersResult] = await Promise.all([
+  const [companiesResult, ownersResult, holdingsResult] = await Promise.all([
     companyQuery.order("created_at"),
     supabase
       .from("portfolio_owners")
       .select("id, name, is_default")
       .order("is_default", { ascending: false })
       .order("created_at", { ascending: true }),
+    supabase
+      .from("owner_holdings")
+      .select("company_id, owner_id, quantity, avg_buy_price, buy_date"),
   ]);
 
   if (companiesResult.error) {
@@ -60,33 +64,20 @@ export async function getDashboardData(
     log.error("getDashboardData owners failed", { error: ownersResult.error.message });
     throw new Error(ownersResult.error.message);
   }
-
-  let companies = companiesResult.data ?? [];
-  const owners = ownersResult.data ?? [];
-
-  // If filtering by owner, overlay owner-specific holdings
-  let ownerHoldings: { company_id: string; quantity: number; avg_buy_price: number | null; buy_date: string | null }[] | null = null;
-  if (ownerFilter && ownerFilter !== "all") {
-    const companyIds = companies.map((c) => c.id);
-    if (companyIds.length > 0) {
-      const { data: holdings, error: hErr } = await supabase
-        .from("owner_holdings")
-        .select("company_id, quantity, avg_buy_price, buy_date")
-        .eq("owner_id", ownerFilter)
-        .in("company_id", companyIds);
-
-      if (hErr) {
-        log.error("getDashboardData owner holdings failed", { error: hErr.message });
-        throw new Error(hErr.message);
-      }
-      ownerHoldings = (holdings ?? []).map((h) => ({
-        company_id: h.company_id,
-        quantity: h.quantity ?? 0,
-        avg_buy_price: h.avg_buy_price,
-        buy_date: h.buy_date,
-      }));
-    }
+  if (holdingsResult.error) {
+    log.error("getDashboardData holdings failed", { error: holdingsResult.error.message });
+    throw new Error(holdingsResult.error.message);
   }
+
+  const companies = companiesResult.data ?? [];
+  const owners = ownersResult.data ?? [];
+  const allHoldings = (holdingsResult.data ?? []).map((h) => ({
+    company_id: h.company_id as string,
+    owner_id: h.owner_id as string,
+    quantity: (h.quantity as number) ?? 0,
+    avg_buy_price: h.avg_buy_price as number | null,
+    buy_date: h.buy_date as string | null,
+  }));
 
   // Normalize Supabase FK joins (typed as arrays but returned as objects at runtime)
   const normalized = companies.map((c) => ({
@@ -95,7 +86,10 @@ export async function getDashboardData(
     projection_models: ((c.projection_models ?? []) as unknown as DashboardProjectionModel[]),
   }));
 
-  return { companies: normalized, owners, ownerHoldings };
+  // Fire-and-forget price refresh if stale
+  triggerPriceRefreshIfStale(supabase);
+
+  return { companies: normalized, owners, allHoldings };
 }
 
 type DashboardStock = { name: string | null; nse_symbol: string | null; price: number | null; market_cap: number | null };
@@ -184,13 +178,10 @@ export async function deleteCompany(id: string) {
   log.info("Company deleted", { companyId: id });
 }
 
-export async function getLivePrices(): Promise<
-  Record<string, { price: number | null; market_cap: number | null }>
-> {
-  const supabase = await createClient();
+async function triggerPriceRefreshIfStale(supabase: SupabaseClient) {
+  if (!isIndianTradingHours() || refreshInProgress) return;
 
-  // Check if prices are stale and trigger background refresh
-  if (isIndianTradingHours() && !refreshInProgress) {
+  try {
     const { data: staleness } = await supabase
       .from("indian_stocks")
       .select("last_updated")
@@ -219,25 +210,9 @@ export async function getLivePrices(): Promise<
           refreshInProgress = false;
         });
     }
+  } catch {
+    // staleness check failed — skip refresh
   }
-
-  const { data, error } = await supabase
-    .from("companies")
-    .select("isin, indian_stocks(isin, price, market_cap)");
-
-  if (error) {
-    log.error("getLivePrices failed", { error: error.message });
-    throw new Error(error.message);
-  }
-
-  const map: Record<string, { price: number | null; market_cap: number | null }> = {};
-  for (const row of data ?? []) {
-    const stock = row.indian_stocks as unknown as { isin: string; price: number | null; market_cap: number | null } | null;
-    if (stock) {
-      map[stock.isin] = { price: stock.price, market_cap: stock.market_cap };
-    }
-  }
-  return map;
 }
 
 export async function getCompanyHighlights(id: string): Promise<string | null> {

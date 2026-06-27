@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Check } from "lucide-react";
 import { moveCompany } from "@/app/(authenticated)/actions/company-actions";
+import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
 import type { Portfolio } from "@/types/database";
 
 type PortfolioWithCount = Portfolio & { company_count: number };
@@ -39,6 +40,7 @@ export function MoveStockDialog({
   const [avgBuyPrice, setAvgBuyPrice] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const invalidate = useInvalidateDashboard();
 
   const targets = portfolios.filter((p) => p.id !== currentPortfolioId);
   const targetPortfolio = targets.find((p) => p.id === targetId);
@@ -54,6 +56,7 @@ export function MoveStockDialog({
         quantity: quantity ? Number(quantity) : undefined,
         avg_buy_price: avgBuyPrice ? Number(avgBuyPrice) : undefined,
       });
+      invalidate();
       onOpenChange(false);
       onMoved?.();
     } catch (e: unknown) {

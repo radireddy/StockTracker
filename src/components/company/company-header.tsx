@@ -3,7 +3,6 @@
 import { Badge } from "@/components/ui/badge";
 import { marginOfSafety, isBuySignal, effectiveBuyPrice, fmtPrice, fmtIrr, fmtMarketCap } from "@/lib/utils/calculations";
 import { DeleteCompanyButton } from "@/components/dashboard/delete-company-dialogs";
-import { useLivePricesContext } from "@/components/auto-refresh";
 import type { Company } from "@/types/database";
 
 function MetricItem({ label, value, className, title }: { label: string; value: string; className?: string; title?: string }) {
@@ -22,10 +21,8 @@ export function CompanyHeader({
   company: Company;
   baseIrr: number | null;
 }) {
-  const livePrices = useLivePricesContext();
-  const liveData = livePrices[company.isin];
-  const currentPrice = liveData?.price ?? company.indian_stocks?.price ?? null;
-  const marketCap = liveData?.market_cap ?? company.indian_stocks?.market_cap ?? null;
+  const currentPrice = company.indian_stocks?.price ?? null;
+  const marketCap = company.indian_stocks?.market_cap ?? null;
   const scenarios = (() => {
     const models = (company as any).projection_models ?? [];
     const defaultModel = models.find((pm: any) => pm.is_default);
