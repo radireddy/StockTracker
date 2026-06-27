@@ -276,9 +276,11 @@ export function CompaniesTable({
         <table className="text-sm border-collapse w-full table-fixed" role="table" aria-label="Companies portfolio table">
           {isHoldings ? (
             <colgroup>
-              <col className="w-[16%]" />  {/* Company */}
-              <col className="w-[5%]" />   {/* Star */}
-              <col className="w-[5%]" />   {/* Type */}
+              {/* Identity */}
+              <col className="w-[15%]" />  {/* Company */}
+              <col className="w-[4.5%]" /> {/* Star */}
+              <col className="w-[4.5%]" /> {/* Type */}
+              {/* Holdings (actual) */}
               <col className="w-[5%]" />   {/* Qty */}
               <col className="w-[6%]" />   {/* Avg Buy */}
               <col className="w-[6%]" />   {/* CMP */}
@@ -286,10 +288,12 @@ export function CompaniesTable({
               <col className="w-[7%]" />   {/* Value */}
               <col className="w-[5.5%]" /> {/* P&L % */}
               <col className="w-[7%]" />   {/* P&L ₹ */}
+              {/* Research (valuation) */}
+              <col className="w-[6%]" />   {/* Target */}
               <col className="w-[5%]" />   {/* MoS% */}
               <col className="w-[5.5%]" /> {/* Base */}
               <col className="w-[5.5%]" /> {/* Bare */}
-              <col className="w-[6%]" />   {/* Target */}
+              {/* Actions */}
               <col className="w-[3.5%]" /> {/* Actions */}
             </colgroup>
           ) : (
@@ -370,6 +374,13 @@ export function CompaniesTable({
                   >
                     P&L ₹<SortIcon field="pnl_amt" />
                   </th>
+                  {/* Research / Valuation columns */}
+                  <th
+                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground border-l border-border/40"
+                    onClick={() => toggleSort("buy_price")}
+                  >
+                    Target<SortIcon field="buy_price" />
+                  </th>
                   <th
                     scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("mos")}
@@ -387,12 +398,6 @@ export function CompaniesTable({
                     onClick={() => toggleSort("bare_cagr")}
                   >
                     Bare<SortIcon field="bare_cagr" />
-                  </th>
-                  <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
-                    onClick={() => toggleSort("buy_price")}
-                  >
-                    Target<SortIcon field="buy_price" />
                   </th>
                 </>
               ) : (
@@ -527,6 +532,10 @@ export function CompaniesTable({
                           return `${amt >= 0 ? "+" : ""}${fmtPriceShort(amt)}`;
                         })()}
                       </td>
+                      {/* Research / Valuation columns */}
+                      <td className={`px-2 py-2 text-right tabular-nums border-l border-border/40 ${isDefaulted ? "text-muted-foreground italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
+                        {fmtPriceShort(buyPrice)}
+                      </td>
                       <td
                         className={`px-2 py-2 text-right tabular-nums font-medium ${
                           mos != null
@@ -545,9 +554,6 @@ export function CompaniesTable({
                       </td>
                       <td className="px-2 py-2 text-right tabular-nums">
                         {fmtIrr(bareReturn)}
-                      </td>
-                      <td className={`px-2 py-2 text-right tabular-nums ${isDefaulted ? "text-muted-foreground italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
-                        {fmtPriceShort(buyPrice)}
                       </td>
                     </>
                   ) : (
