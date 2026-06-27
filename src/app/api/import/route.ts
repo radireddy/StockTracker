@@ -194,3 +194,38 @@ export async function GET(request: Request) {
   }
   return NextResponse.json(jobs);
 }
+
+/**
+ * DELETE /api/import?job_id=<id>  — delete a single import job
+ * DELETE /api/import              — delete all import jobs for the user
+ */
+export async function DELETE(request: Request) {
+  const { supabase, user } = await getAuthUserOrNull();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const url = new URL(request.url);
+  const jobId = url.searchParams.get("job_id");
+
+  if (jobId) {
+    const { error } = await supabase
+      .from("import_jobs")
+      .delete()
+      .eq("id", jobId);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  // Delete all jobs for this user
+  const { error } = await supabase
+    .from("import_jobs")
+    .delete()
+    .eq("user_id", user.id);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true });
+}

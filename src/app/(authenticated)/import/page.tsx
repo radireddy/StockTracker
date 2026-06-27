@@ -27,15 +27,11 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronRight,
-  Scissors,
-  Gift,
-  GitBranch,
-  ArrowLeftRight,
-  Tag,
   Check,
+  Trash2,
 } from "lucide-react";
 import { OwnerPicker } from "@/components/owner/owner-picker";
-import type { ImportJob, ImportAnomaly } from "@/types/database";
+import type { ImportJob } from "@/types/database";
 
 type ImportPhase = "select" | "uploading" | "processing" | "done";
 
@@ -74,8 +70,6 @@ export default function ImportPage() {
   const [fileResults, setFileResults] = useState<FileResult[]>([]);
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const abortRef = useRef(false);
-  // Corporate action anomalies detected after all files finish
-  const [detectedAnomalies, setDetectedAnomalies] = useState<ImportAnomaly[]>([]);
 
   useEffect(() => {
     fetchRecentJobs();
@@ -87,6 +81,34 @@ export default function ImportPage() {
       if (res.ok) setRecentJobs(await res.json());
     } catch {
       /* silent */
+    }
+  };
+
+  const handleDeleteJob = async (jobId: string) => {
+    try {
+      const res = await fetch(`/api/import?job_id=${jobId}`, { method: "DELETE" });
+      if (res.ok) {
+        setRecentJobs((prev) => prev.filter((j) => j.id !== jobId));
+        toast.success("Import record deleted");
+      } else {
+        toast.error("Failed to delete record");
+      }
+    } catch {
+      toast.error("Failed to delete record");
+    }
+  };
+
+  const handleClearAllJobs = async () => {
+    try {
+      const res = await fetch("/api/import", { method: "DELETE" });
+      if (res.ok) {
+        setRecentJobs([]);
+        toast.success("Import history cleared");
+      } else {
+        toast.error("Failed to clear history");
+      }
+    } catch {
+      toast.error("Failed to clear history");
     }
   };
 
@@ -218,28 +240,6 @@ export default function ImportPage() {
       }
     }
 
-    // Run corporate action detection after ALL files are processed.
-    // Always runs (not just when new trades imported) because:
-    // - User may upload files one-by-one across sessions
-    // - Each run clears stale pending detections and re-analyzes the full dataset
-    // - A false positive from file 1 gets resolved when file 2 adds the missing buys
-    setDetectedAnomalies([]);
-    try {
-      const detectRes = await fetch("/api/corporate-actions/detect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ portfolio_id: portfolioId, owner_id: ownerId }),
-      });
-      if (detectRes.ok) {
-        const { anomalies } = await detectRes.json();
-        if (anomalies && anomalies.length > 0) {
-          setDetectedAnomalies(anomalies);
-        }
-      }
-    } catch {
-      // Non-fatal — detection failure shouldn't block import results
-    }
-
     setPhase("done");
     invalidateDashboard();
     fetchRecentJobs();
@@ -253,7 +253,6 @@ export default function ImportPage() {
     setFileResults([]);
     setCurrentFileIndex(0);
     abortRef.current = false;
-    setDetectedAnomalies([]);
     // Keep ownerId for convenience (likely re-importing for same person)
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -461,11 +460,6 @@ export default function ImportPage() {
             <ImportResultCard job={job} onReset={handleReset} />
           )}
 
-          {/* Corporate action anomalies — shown after all files processed */}
-          {phase === "done" && detectedAnomalies.length > 0 && (
-            <AnomalyList anomalies={detectedAnomalies} />
-          )}
-
           {/* Info box */}
           <div className="rounded-md bg-muted/50 p-3 space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground">
@@ -504,15 +498,26 @@ export default function ImportPage() {
       {recentJobs.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              Import History
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Import History
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground hover:text-destructive"
+                onClick={handleClearAllJobs}
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                Clear All
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-border">
               {recentJobs.map((j) => (
-                <ImportHistoryRow key={j.id} job={j} />
+                <ImportHistoryRow key={j.id} job={j} onDelete={handleDeleteJob} />
               ))}
             </div>
           </CardContent>
@@ -734,143 +739,9 @@ function JobDetails({ job }: { job: ImportJob }) {
   );
 }
 
-/* ── Corporate action anomaly list ────────────────────────────────── */
-
-const ANOMALY_ICONS: Record<ImportAnomaly["type"], React.ReactNode> = {
-  STOCK_SPLIT: <Scissors className="h-4 w-4" />,
-  BONUS: <Gift className="h-4 w-4" />,
-  DEMERGER: <GitBranch className="h-4 w-4" />,
-  MERGER: <ArrowLeftRight className="h-4 w-4" />,
-  SYMBOL_RENAME: <Tag className="h-4 w-4" />,
-};
-
-const ANOMALY_LABELS: Record<ImportAnomaly["type"], string> = {
-  STOCK_SPLIT: "Stock Split",
-  BONUS: "Bonus Issue",
-  DEMERGER: "Demerger",
-  MERGER: "Merger",
-  SYMBOL_RENAME: "Symbol Rename",
-};
-
-const CONFIDENCE_COLORS: Record<ImportAnomaly["confidence"], string> = {
-  high: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30",
-  medium: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30",
-  low: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/30",
-};
-
-function AnomalyList({ anomalies }: { anomalies: ImportAnomaly[] }) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-start gap-2 p-3 rounded-md bg-orange-500/10 text-sm">
-        <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 shrink-0" />
-        <div>
-          <p className="font-medium text-orange-800 dark:text-orange-400">
-            Corporate actions detected ({anomalies.length})
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            These stocks may have had splits, bonuses, or other corporate actions
-            that affect your holdings. Review each item and confirm or dismiss.
-          </p>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        {anomalies.map((a, i) => (
-          <AnomalyCard key={`${a.symbol}-${a.type}-${i}`} anomaly={a} />
-        ))}
-      </div>
-
-      <a
-        href="/corporate-actions"
-        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-      >
-        Manage all corporate actions
-        <ArrowRight className="h-3 w-3" />
-      </a>
-    </div>
-  );
-}
-
-function AnomalyCard({ anomaly }: { anomaly: ImportAnomaly }) {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <div className="rounded-md border bg-card text-card-foreground">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors cursor-pointer"
-      >
-        <span className="text-muted-foreground shrink-0">
-          {ANOMALY_ICONS[anomaly.type]}
-        </span>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-primary">{anomaly.symbol}</span>
-            <span className="text-sm text-muted-foreground truncate">{anomaly.description}</span>
-          </div>
-          <div className="flex items-center gap-2 mt-0.5">
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-              {ANOMALY_LABELS[anomaly.type]}
-            </Badge>
-            <Badge
-              variant="outline"
-              className={`text-[10px] px-1.5 py-0 ${CONFIDENCE_COLORS[anomaly.confidence]}`}
-            >
-              {anomaly.confidence} confidence
-            </Badge>
-            {anomaly.suggested_ratio_from != null && anomaly.suggested_ratio_to != null && (
-              <span className="text-[10px] text-muted-foreground">
-                Ratio: {anomaly.suggested_ratio_from}:{anomaly.suggested_ratio_to}
-              </span>
-            )}
-          </div>
-        </div>
-        {expanded ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-        ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-        )}
-      </button>
-
-      {expanded && (
-        <div className="px-3 pb-3 pt-1 border-t space-y-3">
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            {anomaly.details}
-          </p>
-
-          {(anomaly.estimated_date_from || anomaly.estimated_date_to) && (
-            <p className="text-xs text-muted-foreground">
-              Estimated period:{" "}
-              <span className="text-foreground">
-                {anomaly.estimated_date_from ?? "?"} to{" "}
-                {anomaly.estimated_date_to ?? "?"}
-              </span>
-            </p>
-          )}
-
-          {anomaly.new_isin && (
-            <p className="text-xs text-muted-foreground">
-              New ISIN: <span className="text-foreground font-mono">{anomaly.new_isin}</span>
-            </p>
-          )}
-
-          <p className="text-xs text-muted-foreground italic">
-            Go to{" "}
-            <a href="/corporate-actions" className="text-primary hover:underline">
-              Corporate Actions
-            </a>{" "}
-            to confirm, edit details, or dismiss this detection.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ── Import history row — collapsible, lazy-loads details on expand ── */
 
-function ImportHistoryRow({ job }: { job: ImportJobSummaryRow }) {
+function ImportHistoryRow({ job, onDelete }: { job: ImportJobSummaryRow; onDelete: (id: string) => void }) {
   const [expanded, setExpanded] = useState(false);
   const [detail, setDetail] = useState<ImportJob | null>(null);
   const [loading, setLoading] = useState(false);
@@ -947,6 +818,17 @@ function ImportHistoryRow({ job }: { job: ImportJobSummaryRow }) {
           <Badge variant="secondary" className={badgeClass}>
             {badge}
           </Badge>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(job.id);
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
         </div>
       </button>
 

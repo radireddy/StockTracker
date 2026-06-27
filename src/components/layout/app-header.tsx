@@ -32,9 +32,6 @@ export function AppHeader({ profile }: { profile: Profile }) {
           <Link href="/import" className="text-muted-foreground hover:text-foreground">
             Import
           </Link>
-          <Link href="/corporate-actions" className="text-muted-foreground hover:text-foreground">
-            Corp Actions
-          </Link>
           <Link href="/settings" className="text-muted-foreground hover:text-foreground">
             Settings
           </Link>
