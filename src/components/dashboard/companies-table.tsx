@@ -277,13 +277,13 @@ export function CompaniesTable({
           {isHoldings ? (
             <colgroup>
               {/* Identity */}
-              <col style={{width:"17%"}} />  {/* Company */}
+              <col style={{width:"16%"}} />  {/* Company */}
               <col style={{width:"5%"}} />   {/* Star */}
               <col style={{width:"5%"}} />   {/* Type */}
               {/* Holdings (actual) */}
               <col style={{width:"5%"}} />   {/* Qty */}
-              <col style={{width:"7%"}} />   {/* Avg Buy */}
-              <col style={{width:"7%"}} />   {/* CMP */}
+              <col style={{width:"6%"}} />   {/* Avg Buy */}
+              <col style={{width:"6%"}} />   {/* CMP */}
               <col style={{width:"8%"}} />   {/* Cost */}
               <col style={{width:"8%"}} />   {/* Current Value */}
               <col style={{width:"6%"}} />   {/* P&L % */}
@@ -294,7 +294,7 @@ export function CompaniesTable({
               <col style={{width:"6%"}} />   {/* Base Case */}
               <col style={{width:"6%"}} />   {/* Bare Case */}
               {/* Actions */}
-              <col style={{width:"2%"}} />   {/* Actions */}
+              <col style={{width:"5%"}} />   {/* Actions */}
             </colgroup>
           ) : (
             <colgroup>
