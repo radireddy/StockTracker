@@ -294,7 +294,7 @@ export function CompaniesTable({
               <col className="w-[5.5%]" /> {/* Base Case */}
               <col className="w-[5.5%]" /> {/* Bare Case */}
               {/* Actions */}
-              <col className="w-[2%]" />   {/* Actions */}
+              <col className="w-[3%]" />   {/* Actions */}
             </colgroup>
           ) : (
             <colgroup>
@@ -440,7 +440,8 @@ export function CompaniesTable({
                   </th>
                 </>
               )}
-              <th scope="col" className="sticky top-0 z-10 bg-muted/30 px-0 py-2 border-l border-border/40">
+              <th scope="col" className="sticky top-0 z-10 bg-muted/30 text-center px-1 py-2 text-xs font-medium text-muted-foreground border-l border-border/40">
+                Actions
               </th>
             </tr>
           </thead>
@@ -591,8 +592,8 @@ export function CompaniesTable({
                       </td>
                     </>
                   )}
-                  <td className="px-0 py-2 border-l border-border/40">
-                    <div className="flex items-center justify-center gap-0">
+                  <td className="px-1 py-2 text-center border-l border-border/40">
+                    <div className="inline-flex items-center justify-center gap-0">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger
