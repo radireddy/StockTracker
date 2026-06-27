@@ -272,29 +272,29 @@ export function CompaniesTable({
       </div>
 
       {/* Dense table */}
-      <div className="border border-border/60 overflow-auto">
+      <div className="border border-border/60 overflow-x-clip">
         <table className="text-sm border-collapse w-full table-fixed" role="table" aria-label="Companies portfolio table">
           {isHoldings ? (
             <colgroup>
               {/* Identity */}
-              <col className="w-[16%]" />  {/* Company */}
-              <col className="w-[5%]" />   {/* Star */}
-              <col className="w-[5%]" />   {/* Type */}
+              <col style={{width:"17%"}} />  {/* Company */}
+              <col style={{width:"5%"}} />   {/* Star */}
+              <col style={{width:"5%"}} />   {/* Type */}
               {/* Holdings (actual) */}
-              <col className="w-[5%]" />   {/* Qty */}
-              <col className="w-[6%]" />   {/* Avg Buy */}
-              <col className="w-[6%]" />   {/* CMP */}
-              <col className="w-[7.5%]" /> {/* Cost */}
-              <col className="w-[7.5%]" /> {/* Current Value */}
-              <col className="w-[5.5%]" /> {/* P&L % */}
-              <col className="w-[7.5%]" /> {/* P&L ₹ */}
+              <col style={{width:"5%"}} />   {/* Qty */}
+              <col style={{width:"7%"}} />   {/* Avg Buy */}
+              <col style={{width:"7%"}} />   {/* CMP */}
+              <col style={{width:"8%"}} />   {/* Cost */}
+              <col style={{width:"8%"}} />   {/* Current Value */}
+              <col style={{width:"6%"}} />   {/* P&L % */}
+              <col style={{width:"7%"}} />   {/* P&L ₹ */}
               {/* Research (valuation) */}
-              <col className="w-[6%]" />   {/* Target Buy */}
-              <col className="w-[5%]" />   {/* MoS% */}
-              <col className="w-[5.5%]" /> {/* Base Case */}
-              <col className="w-[5.5%]" /> {/* Bare Case */}
+              <col style={{width:"6%"}} />   {/* Target Buy */}
+              <col style={{width:"5%"}} />   {/* MoS% */}
+              <col style={{width:"6%"}} />   {/* Base Case */}
+              <col style={{width:"6%"}} />   {/* Bare Case */}
               {/* Actions */}
-              <col className="w-[3%]" />   {/* Actions */}
+              <col style={{width:"2%"}} />   {/* Actions */}
             </colgroup>
           ) : (
             <colgroup>
