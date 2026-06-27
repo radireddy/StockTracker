@@ -157,6 +157,25 @@ export function CompaniesTable({
           const bp = effectiveBuyPrice(c.buy_price, getDefaultScenarios(c));
           return isBuySignal(getPrice(c), bp) ? 1 : 0;
         }
+        case "total_cost": {
+          const qty = c.quantity;
+          const avgBuy = c.avg_buy_price;
+          if (!qty || !avgBuy) return null;
+          return avgBuy * qty;
+        }
+        case "market_value": {
+          const qty = c.quantity;
+          const price = getPrice(c);
+          if (!qty || !price) return null;
+          return price * qty;
+        }
+        case "pnl_amt": {
+          const qty = c.quantity;
+          const avgBuy = c.avg_buy_price;
+          const price = getPrice(c);
+          if (!qty || !avgBuy || !price) return null;
+          return (price - avgBuy) * qty;
+        }
         case "pnl_pct": {
           const avgBuy = c.avg_buy_price;
           const price = getPrice(c);
@@ -245,34 +264,21 @@ export function CompaniesTable({
 
       {/* Dense table */}
       <div className="border border-border/60 overflow-auto">
-        <table className="w-full text-sm border-collapse table-fixed" role="table" aria-label="Companies portfolio table">
-          <colgroup>
-            <col className="w-[19%]" />
-            <col className="w-[5%]" />
-            <col className="w-[7%]" />
-            {isHoldings ? (
-              <>
-                <col className="w-[7%]" />
-                <col className="w-[8%]" />
-                <col className="w-[8%]" />
-                <col className="w-[7%]" />
-                <col className="w-[7%]" />
-                <col className="w-[9%]" />
-                <col className="w-[9%]" />
-                <col className="w-[7%]" />
-              </>
-            ) : (
-              <>
-                <col className="w-[9%]" />
-                <col className="w-[8%]" />
-                <col className="w-[7%]" />
-                <col className="w-[10%]" />
-                <col className="w-[10%]" />
-                <col className="w-[7%]" />
-                <col className="w-[10%]" />
-              </>
-            )}
-          </colgroup>
+        <table className={`text-sm border-collapse ${isHoldings ? "min-w-[1200px] w-full" : "w-full table-fixed"}`} role="table" aria-label="Companies portfolio table">
+          {!isHoldings && (
+            <colgroup>
+              <col className="w-[19%]" />
+              <col className="w-[5%]" />
+              <col className="w-[7%]" />
+              <col className="w-[9%]" />
+              <col className="w-[8%]" />
+              <col className="w-[7%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
+              <col className="w-[7%]" />
+              <col className="w-[10%]" />
+            </colgroup>
+          )}
           <thead>
             <tr className="border-b-2 border-border/40 bg-muted/30">
               <th
@@ -315,15 +321,33 @@ export function CompaniesTable({
                   </th>
                   <th
                     scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
-                    onClick={() => toggleSort("mos")}
+                    onClick={() => toggleSort("total_cost")}
                   >
-                    MoS%<SortIcon field="mos" />
+                    Total Cost<SortIcon field="total_cost" />
+                  </th>
+                  <th
+                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    onClick={() => toggleSort("market_value")}
+                  >
+                    Mkt Value<SortIcon field="market_value" />
                   </th>
                   <th
                     scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("pnl_pct")}
                   >
-                    P&L%<SortIcon field="pnl_pct" />
+                    Gain/Loss %<SortIcon field="pnl_pct" />
+                  </th>
+                  <th
+                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    onClick={() => toggleSort("pnl_amt")}
+                  >
+                    Gain/Loss ₹<SortIcon field="pnl_amt" />
+                  </th>
+                  <th
+                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    onClick={() => toggleSort("mos")}
+                  >
+                    MoS%<SortIcon field="mos" />
                   </th>
                   <th
                     scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
@@ -429,18 +453,15 @@ export function CompaniesTable({
                       <td className="px-3 py-2.5 text-right tabular-nums">
                         {fmtPriceShort(currentPrice)}
                       </td>
-                      <td
-                        className={`px-3 py-2.5 text-right tabular-nums font-medium ${
-                          mos != null
-                            ? mos > 0
-                              ? "text-green-600"
-                              : mos < -0.1
-                                ? "text-red-600"
-                                : "text-yellow-600"
-                            : ""
-                        }`}
-                      >
-                        {fmtPctShort(mos)}
+                      <td className="px-3 py-2.5 text-right tabular-nums">
+                        {company.quantity && company.avg_buy_price
+                          ? fmtPriceShort(company.avg_buy_price * company.quantity)
+                          : "-"}
+                      </td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">
+                        {company.quantity && currentPrice
+                          ? fmtPriceShort(currentPrice * company.quantity)
+                          : "-"}
                       </td>
                       <td className={`px-3 py-2.5 text-right tabular-nums font-medium ${
                         (() => {
@@ -456,6 +477,35 @@ export function CompaniesTable({
                           const pct = ((currentPrice - avgBuy) / avgBuy) * 100;
                           return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
                         })()}
+                      </td>
+                      <td className={`px-3 py-2.5 text-right tabular-nums font-medium ${
+                        (() => {
+                          const qty = company.quantity;
+                          const avgBuy = company.avg_buy_price;
+                          if (!qty || !avgBuy || !currentPrice) return "";
+                          return (currentPrice - avgBuy) * qty >= 0 ? "text-green-600" : "text-red-600";
+                        })()
+                      }`}>
+                        {(() => {
+                          const qty = company.quantity;
+                          const avgBuy = company.avg_buy_price;
+                          if (!qty || !avgBuy || !currentPrice) return "-";
+                          const amt = (currentPrice - avgBuy) * qty;
+                          return `${amt >= 0 ? "+" : ""}${fmtPriceShort(amt)}`;
+                        })()}
+                      </td>
+                      <td
+                        className={`px-3 py-2.5 text-right tabular-nums font-medium ${
+                          mos != null
+                            ? mos > 0
+                              ? "text-green-600"
+                              : mos < -0.1
+                                ? "text-red-600"
+                                : "text-yellow-600"
+                            : ""
+                        }`}
+                      >
+                        {fmtPctShort(mos)}
                       </td>
                       <td className="px-3 py-2.5 text-right tabular-nums">
                         {fmtIrr(baseReturn)}
@@ -565,7 +615,7 @@ export function CompaniesTable({
                   </td>
                 </tr>
                 <tr className={idx % 2 === 0 ? "" : "bg-muted/15"}>
-                  <td colSpan={isHoldings ? 11 : 10} className="p-0 border-b border-border/20">
+                  <td colSpan={isHoldings ? 15 : 10} className="p-0 border-b border-border/20">
                     <div
                       className="grid transition-[grid-template-rows] duration-250 ease-out"
                       style={{ gridTemplateRows: expandedHighlights === company.id ? "1fr" : "0fr" }}
@@ -597,7 +647,7 @@ export function CompaniesTable({
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={isHoldings ? 11 : 10} className="text-center py-8 text-sm text-muted-foreground">
+                <td colSpan={isHoldings ? 15 : 10} className="text-center py-8 text-sm text-muted-foreground">
                   No companies found.
                 </td>
               </tr>
