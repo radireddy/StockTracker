@@ -277,24 +277,24 @@ export function CompaniesTable({
           {isHoldings ? (
             <colgroup>
               {/* Identity */}
-              <col className="w-[15%]" />  {/* Company */}
-              <col className="w-[4.5%]" /> {/* Star */}
-              <col className="w-[4.5%]" /> {/* Type */}
+              <col className="w-[16%]" />  {/* Company */}
+              <col className="w-[5%]" />   {/* Star */}
+              <col className="w-[5%]" />   {/* Type */}
               {/* Holdings (actual) */}
               <col className="w-[5%]" />   {/* Qty */}
               <col className="w-[6%]" />   {/* Avg Buy */}
               <col className="w-[6%]" />   {/* CMP */}
-              <col className="w-[7%]" />   {/* Cost */}
-              <col className="w-[7%]" />   {/* Value */}
+              <col className="w-[7.5%]" /> {/* Cost */}
+              <col className="w-[7.5%]" /> {/* Current Value */}
               <col className="w-[5.5%]" /> {/* P&L % */}
-              <col className="w-[7%]" />   {/* P&L ₹ */}
+              <col className="w-[7.5%]" /> {/* P&L ₹ */}
               {/* Research (valuation) */}
-              <col className="w-[6%]" />   {/* Target */}
+              <col className="w-[6%]" />   {/* Target Buy */}
               <col className="w-[5%]" />   {/* MoS% */}
-              <col className="w-[5.5%]" /> {/* Base */}
-              <col className="w-[5.5%]" /> {/* Bare */}
+              <col className="w-[5.5%]" /> {/* Base Case */}
+              <col className="w-[5.5%]" /> {/* Bare Case */}
               {/* Actions */}
-              <col className="w-[3.5%]" /> {/* Actions */}
+              <col className="w-[2%]" />   {/* Actions */}
             </colgroup>
           ) : (
             <colgroup>
@@ -360,7 +360,7 @@ export function CompaniesTable({
                     scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("market_value")}
                   >
-                    Value<SortIcon field="market_value" />
+                    Cur. Value<SortIcon field="market_value" />
                   </th>
                   <th
                     scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
@@ -379,7 +379,7 @@ export function CompaniesTable({
                     scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground border-l border-border/40"
                     onClick={() => toggleSort("buy_price")}
                   >
-                    Target<SortIcon field="buy_price" />
+                    Target Buy<SortIcon field="buy_price" />
                   </th>
                   <th
                     scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
@@ -391,13 +391,13 @@ export function CompaniesTable({
                     scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("base_cagr")}
                   >
-                    Base<SortIcon field="base_cagr" />
+                    Base Case<SortIcon field="base_cagr" />
                   </th>
                   <th
                     scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("bare_cagr")}
                   >
-                    Bare<SortIcon field="bare_cagr" />
+                    Bare Case<SortIcon field="bare_cagr" />
                   </th>
                 </>
               ) : (
@@ -440,8 +440,7 @@ export function CompaniesTable({
                   </th>
                 </>
               )}
-              <th scope="col" className="sticky top-0 z-10 bg-muted/30 text-center px-1 py-2 text-xs font-medium text-muted-foreground border-l border-border/40">
-                Actions
+              <th scope="col" className="sticky top-0 z-10 bg-muted/30 px-0 py-2 border-l border-border/40">
               </th>
             </tr>
           </thead>
@@ -592,8 +591,8 @@ export function CompaniesTable({
                       </td>
                     </>
                   )}
-                  <td className="px-1 py-2 text-center border-l border-border/40">
-                    <div className="flex items-center justify-center gap-0.5">
+                  <td className="px-0 py-2 border-l border-border/40">
+                    <div className="flex items-center justify-center gap-0">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger
