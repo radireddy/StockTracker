@@ -7,11 +7,18 @@ import {
 } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
 import { marginOfSafety, isBuySignal, effectiveBuyPrice, computeLiveIrr, fmtPriceShort, fmtPctShort, fmtIrr, fmtNum } from "@/lib/utils/calculations";
-import { FileText, X, Loader2, ArrowRightLeft, Trash2 } from "lucide-react";
+import { FileText, X, Loader2, ArrowRightLeft, Trash2, MoreVertical } from "lucide-react";
 import { getCompanyHighlights, deleteCompany } from "@/app/(authenticated)/actions/company-actions";
 import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
 import { MoveStockDialog } from "@/components/portfolio/move-stock-dialog";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,6 +68,10 @@ function getScenarioReturn(
   if (!s) return null;
   return computeLiveIrr(s.target_market_cap, currentMarketCapRaw, horizon) ?? s.irr ?? null;
 }
+
+// Responsive column visibility:
+// Hidden on mobile (< lg): Star, Type, Cost, P&L ₹, Bare Case
+const HIDE_MOBILE = "hidden lg:table-cell";
 
 export function CompaniesTable({
   companies,
@@ -157,12 +168,33 @@ export function CompaniesTable({
           const bp = effectiveBuyPrice(c.buy_price, getDefaultScenarios(c));
           return isBuySignal(getPrice(c), bp) ? 1 : 0;
         }
+        case "total_cost": {
+          const qty = c.quantity;
+          const avgBuy = c.avg_buy_price;
+          if (!qty || !avgBuy) return null;
+          return avgBuy * qty;
+        }
+        case "market_value": {
+          const qty = c.quantity;
+          const price = getPrice(c);
+          if (!qty || !price) return null;
+          return price * qty;
+        }
+        case "pnl_amt": {
+          const qty = c.quantity;
+          const avgBuy = c.avg_buy_price;
+          const price = getPrice(c);
+          if (!qty || !avgBuy || !price) return null;
+          return (price - avgBuy) * qty;
+        }
         case "pnl_pct": {
           const avgBuy = c.avg_buy_price;
           const price = getPrice(c);
           if (!avgBuy || !price) return null;
           return ((price - avgBuy) / avgBuy) * 100;
         }
+        case "buy_price":
+          return effectiveBuyPrice(c.buy_price, getDefaultScenarios(c));
         default:
           return c[sortField as keyof DashboardCompany] as string | number | null;
       }
@@ -194,6 +226,11 @@ export function CompaniesTable({
     if (sortField !== field) return null;
     return <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>;
   };
+
+  // Common th class for holdings headers
+  const thBase = "sticky top-0 z-10 bg-muted/30 px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground";
+  const thRight = `${thBase} text-right`;
+  const thCenter = `${thBase} text-center`;
 
   return (
     <div className="space-y-3">
@@ -244,107 +281,150 @@ export function CompaniesTable({
       </div>
 
       {/* Dense table */}
-      <div className="border border-border/60 overflow-auto">
-        <table className="w-full text-sm border-collapse table-fixed" role="table" aria-label="Companies portfolio table">
-          <colgroup>
-            <col className="w-[19%]" />
-            <col className="w-[5%]" />
-            <col className="w-[7%]" />
-            {isHoldings ? (
-              <>
-                <col className="w-[7%]" />
-                <col className="w-[8%]" />
-                <col className="w-[8%]" />
-                <col className="w-[7%]" />
-                <col className="w-[7%]" />
-                <col className="w-[9%]" />
-                <col className="w-[9%]" />
-                <col className="w-[7%]" />
-              </>
-            ) : (
-              <>
-                <col className="w-[9%]" />
-                <col className="w-[8%]" />
-                <col className="w-[7%]" />
-                <col className="w-[10%]" />
-                <col className="w-[10%]" />
-                <col className="w-[7%]" />
-                <col className="w-[10%]" />
-              </>
-            )}
-          </colgroup>
+      <div className="border border-border/60 overflow-x-auto">
+        <table className="text-sm border-collapse w-full lg:table-fixed" role="table" aria-label="Companies portfolio table">
+          {!isHoldings && (
+            <colgroup>
+              <col className="w-[19%]" />
+              <col className="w-[5%]" />
+              <col className="w-[7%]" />
+              <col className="w-[9%]" />
+              <col className="w-[8%]" />
+              <col className="w-[7%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
+              <col className="w-[7%]" />
+              <col className="w-[10%]" />
+            </colgroup>
+          )}
           <thead>
             <tr className="border-b-2 border-border/40 bg-muted/30">
               <th
-                scope="col" className="sticky top-0 z-10 bg-muted/30 text-left px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                scope="col" className={`${thBase} text-left`}
+                style={{width:"16%"}}
                 onClick={() => toggleSort("name")}
               >
                 Company<SortIcon field="name" />
               </th>
-              <th
-                scope="col" className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
-                onClick={() => toggleSort("star_rating")}
-              >
-                Star<SortIcon field="star_rating" />
-              </th>
-              <th
-                scope="col" className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
-                onClick={() => toggleSort("strategy")}
-              >
-                Strategy<SortIcon field="strategy" />
-              </th>
               {isHoldings ? (
                 <>
+                  {/* Star - hidden on mobile */}
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={`${thCenter} ${HIDE_MOBILE}`}
+                    style={{width:"5%"}}
+                    onClick={() => toggleSort("star_rating")}
+                  >
+                    Star<SortIcon field="star_rating" />
+                  </th>
+                  {/* Type - hidden on mobile */}
+                  <th
+                    scope="col" className={`${thCenter} ${HIDE_MOBILE}`}
+                    style={{width:"5%"}}
+                    onClick={() => toggleSort("strategy")}
+                  >
+                    Type<SortIcon field="strategy" />
+                  </th>
+                  <th
+                    scope="col" className={thRight}
+                    style={{width:"5%"}}
                     onClick={() => toggleSort("quantity")}
                   >
                     Qty<SortIcon field="quantity" />
                   </th>
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={thRight}
+                    style={{width:"6%"}}
                     onClick={() => toggleSort("avg_buy_price")}
                   >
                     Avg Buy<SortIcon field="avg_buy_price" />
                   </th>
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={thRight}
+                    style={{width:"6%"}}
                     onClick={() => toggleSort("current_price")}
                   >
                     CMP<SortIcon field="current_price" />
                   </th>
+                  {/* Cost - hidden on mobile */}
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={`${thRight} ${HIDE_MOBILE}`}
+                    style={{width:"8%"}}
+                    onClick={() => toggleSort("total_cost")}
+                  >
+                    Cost<SortIcon field="total_cost" />
+                  </th>
+                  <th
+                    scope="col" className={thRight}
+                    style={{width:"8%"}}
+                    onClick={() => toggleSort("market_value")}
+                  >
+                    Cur. Value<SortIcon field="market_value" />
+                  </th>
+                  <th
+                    scope="col" className={thRight}
+                    style={{width:"6%"}}
+                    onClick={() => toggleSort("pnl_pct")}
+                  >
+                    P&L %<SortIcon field="pnl_pct" />
+                  </th>
+                  {/* P&L ₹ - hidden on mobile */}
+                  <th
+                    scope="col" className={`${thRight} ${HIDE_MOBILE}`}
+                    style={{width:"7%"}}
+                    onClick={() => toggleSort("pnl_amt")}
+                  >
+                    P&L ₹<SortIcon field="pnl_amt" />
+                  </th>
+                  {/* Research / Valuation columns */}
+                  <th
+                    scope="col" className={`${thRight} border-l border-border/40`}
+                    style={{width:"6%"}}
+                    onClick={() => toggleSort("buy_price")}
+                  >
+                    Target Buy<SortIcon field="buy_price" />
+                  </th>
+                  <th
+                    scope="col" className={thRight}
+                    style={{width:"5%"}}
                     onClick={() => toggleSort("mos")}
                   >
                     MoS%<SortIcon field="mos" />
                   </th>
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
-                    onClick={() => toggleSort("pnl_pct")}
-                  >
-                    P&L%<SortIcon field="pnl_pct" />
-                  </th>
-                  <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={thRight}
+                    style={{width:"6%"}}
                     onClick={() => toggleSort("base_cagr")}
                   >
-                    Base CAGR<SortIcon field="base_cagr" />
+                    Base Case<SortIcon field="base_cagr" />
                   </th>
+                  {/* Bare Case - hidden on mobile */}
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={`${thRight} ${HIDE_MOBILE}`}
+                    style={{width:"6%"}}
                     onClick={() => toggleSort("bare_cagr")}
                   >
-                    Bare CAGR<SortIcon field="bare_cagr" />
+                    Bare Case<SortIcon field="bare_cagr" />
                   </th>
                 </>
               ) : (
                 <>
                   <th
+                    scope="col" className={`${thCenter} ${HIDE_MOBILE}`}
+                    onClick={() => toggleSort("star_rating")}
+                  >
+                    Star<SortIcon field="star_rating" />
+                  </th>
+                  <th
+                    scope="col" className={`${thCenter} ${HIDE_MOBILE}`}
+                    onClick={() => toggleSort("strategy")}
+                  >
+                    Type<SortIcon field="strategy" />
+                  </th>
+                  <th
                     scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                     onClick={() => toggleSort("buy_price")}
                   >
-                    Buy Price<SortIcon field="buy_price" />
+                    Target Buy<SortIcon field="buy_price" />
                   </th>
                   <th
                     scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
@@ -365,7 +445,7 @@ export function CompaniesTable({
                     Base CAGR<SortIcon field="base_cagr" />
                   </th>
                   <th
-                    scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
+                    scope="col" className={`sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground ${HIDE_MOBILE}`}
                     onClick={() => toggleSort("bare_cagr")}
                   >
                     Bare CAGR<SortIcon field="bare_cagr" />
@@ -378,7 +458,7 @@ export function CompaniesTable({
                   </th>
                 </>
               )}
-              <th scope="col" className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2.5 text-sm font-medium text-muted-foreground border-l border-border/40">
+              <th scope="col" className={`${thCenter} border-l border-border/40`} style={{width:"5%"}}>
                 Actions
               </th>
             </tr>
@@ -404,45 +484,45 @@ export function CompaniesTable({
                   }`}
                   onClick={() => router.push(`/company/${company.id}`)}
                 >
-                  <td className="px-3 py-2.5 font-medium">
+                  <td className="px-2 py-2 font-medium truncate max-w-0">
                     {company.indian_stocks?.name ?? ""}
                     {company.indian_stocks?.nse_symbol && (
-                      <span className="ml-1.5 text-xs text-muted-foreground">
+                      <span className="ml-1 text-xs text-muted-foreground">
                         {company.indian_stocks.nse_symbol}
                       </span>
                     )}
                   </td>
-                  <td className="px-2 py-2.5 text-center text-sm">
-                    {"★".repeat(company.star_rating ?? 0)}
-                  </td>
-                  <td className="px-2 py-2.5 text-center text-sm capitalize text-muted-foreground">
-                    {company.strategy ?? "-"}
-                  </td>
                   {isHoldings ? (
                     <>
-                      <td className="px-3 py-2.5 text-right tabular-nums">
+                      {/* Star - hidden on mobile */}
+                      <td className={`px-1 py-2 text-center text-sm ${HIDE_MOBILE}`}>
+                        {"★".repeat(company.star_rating ?? 0)}
+                      </td>
+                      {/* Type - hidden on mobile */}
+                      <td className={`px-1 py-2 text-center text-xs capitalize text-muted-foreground ${HIDE_MOBILE}`}>
+                        {company.strategy ?? "-"}
+                      </td>
+                      <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
                         {company.quantity != null ? fmtNum(company.quantity, 0) : "-"}
                       </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums">
+                      <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
                         {fmtPriceShort(company.avg_buy_price ?? null)}
                       </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums">
+                      <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
                         {fmtPriceShort(currentPrice)}
                       </td>
-                      <td
-                        className={`px-3 py-2.5 text-right tabular-nums font-medium ${
-                          mos != null
-                            ? mos > 0
-                              ? "text-green-600"
-                              : mos < -0.1
-                                ? "text-red-600"
-                                : "text-yellow-600"
-                            : ""
-                        }`}
-                      >
-                        {fmtPctShort(mos)}
+                      {/* Cost - hidden on mobile */}
+                      <td className={`px-2 py-2 text-right tabular-nums whitespace-nowrap ${HIDE_MOBILE}`}>
+                        {company.quantity && company.avg_buy_price
+                          ? fmtPriceShort(company.avg_buy_price * company.quantity)
+                          : "-"}
                       </td>
-                      <td className={`px-3 py-2.5 text-right tabular-nums font-medium ${
+                      <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
+                        {company.quantity && currentPrice
+                          ? fmtPriceShort(currentPrice * company.quantity)
+                          : "-"}
+                      </td>
+                      <td className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${
                         (() => {
                           const avgBuy = company.avg_buy_price;
                           if (!avgBuy || !currentPrice) return "";
@@ -457,15 +537,56 @@ export function CompaniesTable({
                           return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
                         })()}
                       </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums">
+                      {/* P&L ₹ - hidden on mobile */}
+                      <td className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${HIDE_MOBILE} ${
+                        (() => {
+                          const qty = company.quantity;
+                          const avgBuy = company.avg_buy_price;
+                          if (!qty || !avgBuy || !currentPrice) return "";
+                          return (currentPrice - avgBuy) * qty >= 0 ? "text-green-600" : "text-red-600";
+                        })()
+                      }`}>
+                        {(() => {
+                          const qty = company.quantity;
+                          const avgBuy = company.avg_buy_price;
+                          if (!qty || !avgBuy || !currentPrice) return "-";
+                          const amt = (currentPrice - avgBuy) * qty;
+                          return `${amt >= 0 ? "+" : ""}${fmtPriceShort(amt)}`;
+                        })()}
+                      </td>
+                      {/* Research / Valuation columns */}
+                      <td className={`px-2 py-2 text-right tabular-nums whitespace-nowrap border-l border-border/40 ${isDefaulted ? "text-muted-foreground italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
+                        {fmtPriceShort(buyPrice)}
+                      </td>
+                      <td
+                        className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${
+                          mos != null
+                            ? mos > 0
+                              ? "text-green-600"
+                              : mos < -0.1
+                                ? "text-red-600"
+                                : "text-yellow-600"
+                            : ""
+                        }`}
+                      >
+                        {fmtPctShort(mos)}
+                      </td>
+                      <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
                         {fmtIrr(baseReturn)}
                       </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums">
+                      {/* Bare Case - hidden on mobile */}
+                      <td className={`px-2 py-2 text-right tabular-nums whitespace-nowrap ${HIDE_MOBILE}`}>
                         {fmtIrr(bareReturn)}
                       </td>
                     </>
                   ) : (
                     <>
+                      <td className={`px-1 py-2 text-center text-sm ${HIDE_MOBILE}`}>
+                        {"★".repeat(company.star_rating ?? 0)}
+                      </td>
+                      <td className={`px-1 py-2 text-center text-xs capitalize text-muted-foreground ${HIDE_MOBILE}`}>
+                        {company.strategy ?? "-"}
+                      </td>
                       <td className={`px-3 py-2.5 text-right tabular-nums ${isDefaulted ? "text-muted-foreground italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
                         {fmtPriceShort(buyPrice)}
                       </td>
@@ -488,7 +609,7 @@ export function CompaniesTable({
                       <td className="px-3 py-2.5 text-right tabular-nums">
                         {fmtIrr(baseReturn)}
                       </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums">
+                      <td className={`px-3 py-2.5 text-right tabular-nums ${HIDE_MOBILE}`}>
                         {fmtIrr(bareReturn)}
                       </td>
                       <td className="px-2 py-2.5 text-center">
@@ -500,72 +621,75 @@ export function CompaniesTable({
                       </td>
                     </>
                   )}
-                  <td className="px-2 py-2.5 text-center border-l border-border/40">
-                    <TooltipProvider>
-                      <nav aria-label={`Actions for ${company.indian_stocks?.name ?? company.isin}`}>
-                        <div className="flex items-center justify-center gap-1" role="toolbar">
-                          <Tooltip>
-                            <TooltipTrigger
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleHighlights(company.id);
-                              }}
-                              className="inline-flex items-center justify-center rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                              aria-label={expandedHighlights === company.id ? "Hide highlights" : "View highlights"}
-                            >
-                              {highlightsLoading === company.id ? (
-                                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-                              ) : expandedHighlights === company.id ? (
-                                <X size={14} aria-hidden="true" />
-                              ) : (
-                                <FileText size={14} aria-hidden="true" />
-                              )}
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom">
-                              {expandedHighlights === company.id ? "Hide highlights" : "View highlights"}
-                            </TooltipContent>
-                          </Tooltip>
+                  <td className="px-1 py-2 text-center border-l border-border/40">
+                    <div className="inline-flex items-center justify-center gap-0">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleHighlights(company.id);
+                            }}
+                            className="inline-flex items-center justify-center rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                            aria-label={expandedHighlights === company.id ? "Hide highlights" : "View highlights"}
+                          >
+                            {highlightsLoading === company.id ? (
+                              <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                            ) : expandedHighlights === company.id ? (
+                              <X size={14} aria-hidden="true" />
+                            ) : (
+                              <FileText size={14} aria-hidden="true" />
+                            )}
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            {expandedHighlights === company.id ? "Hide highlights" : "View highlights"}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center justify-center rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                          aria-label={`More actions for ${company.indian_stocks?.name ?? company.isin}`}
+                        >
+                          <MoreVertical size={14} aria-hidden="true" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" side="bottom">
                           {portfolios.length > 1 && (
-                            <Tooltip>
-                              <TooltipTrigger
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setMoveTarget({
-                                    id: company.id,
-                                    name: company.indian_stocks?.name ?? company.isin,
-                                  });
-                                }}
-                                className="inline-flex items-center justify-center rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                                aria-label={`Move ${company.indian_stocks?.name ?? company.isin} to another portfolio`}
-                              >
-                                <ArrowRightLeft size={14} aria-hidden="true" />
-                              </TooltipTrigger>
-                              <TooltipContent side="bottom">Move to another portfolio</TooltipContent>
-                            </Tooltip>
-                          )}
-                          <Tooltip>
-                            <TooltipTrigger
+                            <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setDeleteTarget({
+                                setMoveTarget({
                                   id: company.id,
                                   name: company.indian_stocks?.name ?? company.isin,
                                 });
                               }}
-                              className="inline-flex items-center justify-center rounded p-1 text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-colors"
-                              aria-label={`Delete ${company.indian_stocks?.name ?? company.isin}`}
                             >
-                              <Trash2 size={14} aria-hidden="true" />
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom">Delete company</TooltipContent>
-                          </Tooltip>
-                        </div>
-                      </nav>
-                    </TooltipProvider>
+                              <ArrowRightLeft size={14} aria-hidden="true" />
+                              Move to another portfolio
+                            </DropdownMenuItem>
+                          )}
+                          {portfolios.length > 1 && <DropdownMenuSeparator />}
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteTarget({
+                                id: company.id,
+                                name: company.indian_stocks?.name ?? company.isin,
+                              });
+                            }}
+                          >
+                            <Trash2 size={14} aria-hidden="true" />
+                            Delete company
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </td>
                 </tr>
                 <tr className={idx % 2 === 0 ? "" : "bg-muted/15"}>
-                  <td colSpan={isHoldings ? 11 : 10} className="p-0 border-b border-border/20">
+                  <td colSpan={99} className="p-0 border-b border-border/20">
                     <div
                       className="grid transition-[grid-template-rows] duration-250 ease-out"
                       style={{ gridTemplateRows: expandedHighlights === company.id ? "1fr" : "0fr" }}
@@ -597,7 +721,7 @@ export function CompaniesTable({
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={isHoldings ? 11 : 10} className="text-center py-8 text-sm text-muted-foreground">
+                <td colSpan={99} className="text-center py-8 text-sm text-muted-foreground">
                   No companies found.
                 </td>
               </tr>
