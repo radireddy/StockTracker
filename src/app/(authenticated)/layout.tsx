@@ -15,12 +15,13 @@ export default async function AuthenticatedLayout({
     redirect("/login");
   }
 
-  // Try to get profile; if it doesn't exist yet (trigger delay), create it
-  let { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
+  // Fetch profile and portfolios in parallel
+  const [profileResult, portfolios] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", user.id).single(),
+    getPortfolios(),
+  ]);
+
+  let profile = profileResult.data;
 
   if (!profile) {
     const { data: newProfile } = await supabase
@@ -37,8 +38,6 @@ export default async function AuthenticatedLayout({
   }
 
   if (!profile) redirect("/login");
-
-  const portfolios = await getPortfolios();
   const defaultPortfolioId =
     portfolios.find((p) => p.is_default)?.id ?? portfolios[0]?.id ?? "";
 
