@@ -102,6 +102,10 @@ const STATUS_LABEL: Record<AllocationStatus, string> = {
   over: "Over",
 };
 
+function fmtRupee(n: number): string {
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Math.abs(n));
+}
+
 export function CompaniesTable({
   companies,
   portfolioType = "holdings",
@@ -418,6 +422,12 @@ export function CompaniesTable({
         </span>
       </div>
 
+      {showAllocationView && (
+        <p className="text-xs text-muted-foreground">
+          Hover over the active % column for target range in rupees, or over Delta for the amount to invest/reduce.
+        </p>
+      )}
+
       {/* Table */}
       <div className="border border-border/60 overflow-x-auto">
         {showAllocationView ? (
@@ -425,6 +435,8 @@ export function CompaniesTable({
             filtered={filtered}
             getAllocationData={getAllocationData}
             allocationBasis={allocationBasis}
+            totalCost={totalCost}
+            totalValue={totalValue}
             toggleSort={toggleSort}
             SortIcon={SortIcon}
             thBase={thBase}
@@ -973,6 +985,8 @@ function AllocationTable({
   filtered,
   getAllocationData,
   allocationBasis,
+  totalCost,
+  totalValue,
   toggleSort,
   SortIcon,
   thBase,
@@ -991,6 +1005,8 @@ function AllocationTable({
     valueDelta: number;
   };
   allocationBasis: "invested" | "current";
+  totalCost: number;
+  totalValue: number;
   toggleSort: (field: string) => void;
   SortIcon: React.ComponentType<{ field: string }>;
   thBase: string;
@@ -1086,10 +1102,28 @@ function AllocationTable({
           const activeStatus = allocationBasis === "invested" ? alloc.costStatus : alloc.valueStatus;
           const activePct = allocationBasis === "invested" ? alloc.costPct : alloc.valuePct;
           const activeDelta = allocationBasis === "invested" ? alloc.costDelta : alloc.valueDelta;
+          const activeTotal = allocationBasis === "invested" ? totalCost : totalValue;
           const currentPrice = company.indian_stocks?.price ?? null;
           const buyPrice = effectiveBuyPrice(company.buy_price, getDefaultScenarios(company));
           const isDefaulted = company.buy_price == null && buyPrice != null;
           const mos = buyPrice && currentPrice ? marginOfSafety(buyPrice, currentPrice) : null;
+
+          // Rupee amounts for tooltips
+          const rangeMinAmt = (alloc.range.min / 100) * activeTotal;
+          const rangeMaxAmt = (alloc.range.max / 100) * activeTotal;
+          const currentAmt = (activePct / 100) * activeTotal;
+          const investedTooltip = `Target range: ${fmtRupee(rangeMinAmt)} — ${fmtRupee(rangeMaxAmt)}`;
+
+          let deltaTooltip = "";
+          if (activeStatus === "under") {
+            const needMin = rangeMinAmt - currentAmt;
+            const needMax = rangeMaxAmt - currentAmt;
+            deltaTooltip = `Invest ${fmtRupee(needMin)} to ${fmtRupee(needMax)} more to reach target`;
+          } else if (activeStatus === "over") {
+            const excessMin = currentAmt - rangeMaxAmt;
+            const excessMax = currentAmt - rangeMinAmt;
+            deltaTooltip = `Reduce ${fmtRupee(excessMin)} to ${fmtRupee(excessMax)} to reach target`;
+          }
 
           return (
             <tr
@@ -1116,10 +1150,10 @@ function AllocationTable({
               <td className={`px-2 py-2 text-right tabular-nums whitespace-nowrap ${HIDE_MOBILE} ${isDefaulted ? "text-muted-foreground italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
                 {fmtPriceShort(buyPrice)}
               </td>
-              <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
+              <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap" title={allocationBasis === "invested" ? investedTooltip : undefined}>
                 {alloc.costPct.toFixed(1)}%
               </td>
-              <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
+              <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap" title={allocationBasis === "current" ? investedTooltip : undefined}>
                 {alloc.valuePct.toFixed(1)}%
               </td>
               <td className="px-2 py-2 text-center tabular-nums whitespace-nowrap text-muted-foreground">
@@ -1136,7 +1170,7 @@ function AllocationTable({
               <td className={`px-2 py-2 text-center text-xs font-medium whitespace-nowrap ${HIDE_MOBILE} ${STATUS_TEXT[activeStatus]}`}>
                 {STATUS_LABEL[activeStatus]}
               </td>
-              <td className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${STATUS_TEXT[activeStatus]}`}>
+              <td className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${STATUS_TEXT[activeStatus]}`} title={deltaTooltip || undefined}>
                 {activeDelta === 0
                   ? "-"
                   : `${activeDelta > 0 ? "+" : ""}${activeDelta.toFixed(1)}%`}
