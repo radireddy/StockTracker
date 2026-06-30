@@ -602,13 +602,12 @@ export function CompaniesTable({
                 // Allocation border color (only for holdings portfolio view)
                 const allocData = isHoldings ? getAllocationData(company) : null;
                 const borderClass = isHoldings && allocData ? BORDER_COLORS[allocData.valueStatus] : "";
+                const rowBgClass = isHoldings && allocData ? STATUS_BG[allocData.valueStatus] : (idx % 2 === 0 ? "" : "bg-muted/15");
 
                 return (
                   <Fragment key={company.id}>
                   <tr
-                    className={`cursor-pointer border-b border-border/20 hover:bg-muted/40 transition-colors ${
-                      idx % 2 === 0 ? "" : "bg-muted/15"
-                    } ${borderClass}`}
+                    className={`cursor-pointer border-b border-border/20 hover:bg-muted/40 transition-colors ${rowBgClass} ${borderClass}`}
                     onClick={() => router.push(`/company/${company.id}`)}
                   >
                     <td className="px-2 py-2 font-medium truncate max-w-0">
