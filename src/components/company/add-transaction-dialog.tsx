@@ -31,6 +31,7 @@ export function AddTransactionDialog({
   const [price, setPrice] = useState("");
   const [fees, setFees] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [time, setTime] = useState("");
   const [notes, setNotes] = useState("");
   const [ownerId, setOwnerId] = useState("");
   const [owners, setOwners] = useState<PortfolioOwner[]>([]);
@@ -54,13 +55,17 @@ export function AddTransactionDialog({
     setPending(true);
     setError(null);
 
+    // Build traded_at: combine date + time (IST), default to midnight if no time
+    const timePart = time || "00:00";
+    const tradedAt = `${date}T${timePart}:00+05:30`;
+
     try {
       await addTransaction(companyId, {
         type,
         quantity: Number(quantity),
         price: Number(price),
         fees: fees ? Number(fees) : undefined,
-        date,
+        traded_at: tradedAt,
         notes: notes.trim() || undefined,
         owner_id: ownerId,
       });
@@ -69,6 +74,7 @@ export function AddTransactionDialog({
       setPrice("");
       setFees("");
       setNotes("");
+      setTime("");
       setType("BUY");
       onSuccess();
     } catch (e: unknown) {
@@ -168,6 +174,19 @@ export function AddTransactionDialog({
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
               />
+            </div>
+            <div className="space-y-1.5 col-span-2">
+              <Label htmlFor="tx-time">Time (optional)</Label>
+              <Input
+                id="tx-time"
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                placeholder="HH:MM"
+              />
+              <p className="text-xs text-muted-foreground">
+                Helps determine FIFO order for same-day trades
+              </p>
             </div>
           </div>
 

@@ -423,7 +423,7 @@ async function processGroup(
     quantity: newQuantity,
     price: group.avg_price,
     fees: 0,
-    date: group.trade_date,
+    traded_at: group.earliest_execution_time || `${group.trade_date}T00:00:00+05:30`,
     source: broker,
     trade_id: newTradeIds[0],
     trade_ids: newTradeIds,

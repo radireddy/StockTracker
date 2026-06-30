@@ -219,7 +219,7 @@ export type Transaction = {
   quantity: number;
   price: number;
   fees: number;
-  date: string;
+  traded_at: string;
   notes: string | null;
   source: string;
   trade_id: string | null;

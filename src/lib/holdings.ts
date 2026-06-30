@@ -19,10 +19,9 @@ export async function recomputeHoldings(
 ): Promise<boolean> {
   const { data: transactions, error } = await supabase
     .from("transactions")
-    .select("type, quantity, price, date, owner_id, user_id")
+    .select("type, quantity, price, traded_at, owner_id, user_id")
     .eq("company_id", companyId)
-    .order("date")
-    .order("created_at");
+    .order("traded_at");
 
   if (error) {
     log.error("recomputeHoldings: failed to fetch transactions", {
@@ -51,7 +50,7 @@ export async function recomputeHoldings(
       type: string;
       quantity: number;
       price: number;
-      date: string;
+      traded_at: string;
       owner_id: string;
       user_id: string;
     }>
@@ -105,7 +104,7 @@ export async function recomputeHoldings(
         ? Math.round((ownerCost / ownerQty) * 100) / 100
         : null;
     const earliestBuy = ownerTxns.find((t) => t.type === "BUY");
-    const buyDate = earliestBuy ? earliestBuy.date : null;
+    const buyDate = earliestBuy ? earliestBuy.traded_at.slice(0, 10) : null;
 
     // Upsert owner_holdings
     const { error: upsertErr } = await supabase

@@ -18,8 +18,7 @@ export async function getTransactions(
     .from("transactions")
     .select("*, portfolio_owners(id, name)")
     .eq("company_id", companyId)
-    .order("date")
-    .order("created_at");
+    .order("traded_at");
 
   if (ownerId) {
     query = query.eq("owner_id", ownerId);
@@ -42,7 +41,7 @@ export async function addTransaction(
     quantity: number;
     price: number;
     fees?: number;
-    date: string;
+    traded_at: string;
     notes?: string;
     owner_id: string;
   }
@@ -59,7 +58,7 @@ export async function addTransaction(
     quantity: input.quantity,
     price: input.price,
     fees: input.fees ?? 0,
-    date: input.date,
+    traded_at: input.traded_at,
     notes: input.notes ?? null,
   });
 
@@ -79,7 +78,7 @@ export async function updateTransaction(
     quantity?: number;
     price?: number;
     fees?: number;
-    date?: string;
+    traded_at?: string;
     notes?: string;
     owner_id?: string;
   }

@@ -64,7 +64,7 @@ export async function ensureMissingStocks(
           .limit(1)
           .single()
       ).data?.id ?? "")
-      .order("date", { ascending: false })
+      .order("traded_at", { ascending: false })
       .limit(1)
       .single();
 

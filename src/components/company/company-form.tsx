@@ -53,7 +53,7 @@ export function CompanyForm({
         type: "BUY",
         quantity: Number(txQty),
         price: Number(txPrice),
-        date: (txDate as string) || new Date().toISOString().split("T")[0],
+        traded_at: ((txDate as string) || new Date().toISOString().split("T")[0]) + "T00:00:00+05:30",
         owner_id: defaultOwnerId,
       });
     }

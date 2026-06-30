@@ -30,9 +30,9 @@ export function TransactionsTab({
     fetchTransactions();
   }, [companyId]);
 
-  // Sort by decreasing date (newest first)
+  // Sort by decreasing traded_at (newest first)
   const sorted = [...transactions].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    (a, b) => new Date(b.traded_at).getTime() - new Date(a.traded_at).getTime()
   );
 
   // Check if there are multiple owners
@@ -178,7 +178,14 @@ export function TransactionsTab({
 
                   return (
                     <tr key={t.id} className="border-b border-border/20">
-                      <td className="px-3 py-2">{t.date}</td>
+                      <td className="px-3 py-2">
+                        <div>{new Date(t.traded_at).toLocaleDateString("en-IN")}</div>
+                        {new Date(t.traded_at).getHours() !== 0 || new Date(t.traded_at).getMinutes() !== 0 ? (
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(t.traded_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                          </div>
+                        ) : null}
+                      </td>
                       {hasMultipleOwners && (
                         <td className="px-3 py-2 text-muted-foreground">
                           {t.portfolio_owners?.name ?? "—"}
