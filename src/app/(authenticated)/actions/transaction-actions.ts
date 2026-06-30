@@ -4,6 +4,7 @@ import { getAuthUser } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { createLogger } from "@/lib/logger";
 import { recomputeHoldings } from "@/lib/holdings";
+import { transactionSchema } from "@/lib/validations";
 import type { Transaction } from "@/types/database";
 
 const log = createLogger({ service: "transaction-actions" });
@@ -49,7 +50,17 @@ export async function addTransaction(
 ) {
   const { supabase, user } = await getAuthUser();
 
-  if (!input.owner_id) throw new Error("Owner is required");
+  const parsed = transactionSchema.safeParse({
+    company_id: companyId,
+    owner_id: input.owner_id,
+    type: input.type,
+    quantity: input.quantity,
+    price: input.price,
+    date: input.date,
+    fees: input.fees,
+    notes: input.notes,
+  });
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
 
   const { error } = await supabase.from("transactions").insert({
     company_id: companyId,

@@ -44,6 +44,7 @@ interface ModelState {
   financialYears: FinancialYear[];
   overrides: Set<string>;
   scenarioData: Record<ScenarioType, Record<string, number | null>>;
+  storedDerivedScenarios: Record<ScenarioType, Record<string, number | null>>;
   expReturns: number;
 }
 
@@ -131,15 +132,24 @@ function initModelState(model: ProjectionModel, company: Company): ModelState {
   });
 
   // Build scenarioData from existing valuation_scenarios (extract input fields only)
-  const inputFields = strategy.getValuationFields().filter((f) => f.isInput).map((f) => f.key);
+  const valuationFields = strategy.getValuationFields();
+  const inputFields = valuationFields.filter((f) => f.isInput).map((f) => f.key);
+  const derivedFieldKeys = valuationFields.filter((f) => !f.isInput).map((f) => f.key);
   const scenarioData: Record<ScenarioType, Record<string, number | null>> = {
+    bull: {}, base: {}, bare: {},
+  };
+  const storedDerivedScenarios: Record<ScenarioType, Record<string, number | null>> = {
     bull: {}, base: {}, bare: {},
   };
   for (const vs of model.valuation_scenarios ?? []) {
     const type = vs.scenario_type as ScenarioType;
     if (type in scenarioData) {
+      const row = vs as unknown as Record<string, number | null>;
       for (const key of inputFields) {
-        scenarioData[type][key] = (vs as unknown as Record<string, number | null>)[key] ?? null;
+        scenarioData[type][key] = row[key] ?? null;
+      }
+      for (const key of derivedFieldKeys) {
+        storedDerivedScenarios[type][key] = row[key] ?? null;
       }
     }
   }
@@ -148,7 +158,7 @@ function initModelState(model: ProjectionModel, company: Company): ModelState {
     ? company.expected_returns * 100
     : 25;
 
-  return { model, financialYears, overrides, scenarioData, expReturns };
+  return { model, financialYears, overrides, scenarioData, storedDerivedScenarios, expReturns };
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -555,6 +565,7 @@ export function ProjectionsValuationTab({
                     <ValuationScenarios
                       strategy={strategy}
                       scenarioData={ms.scenarioData}
+                      storedDerivedScenarios={ms.storedDerivedScenarios}
                       financialYears={computedYears}
                       company={{
                         market_cap: marketCapInCrores(company.indian_stocks?.market_cap),

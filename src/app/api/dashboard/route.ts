@@ -3,6 +3,8 @@ import { getAuthUserOrNull } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { refreshPrices, isIndianTradingHours } from "@/lib/services/price-refresh";
 import { createLogger } from "@/lib/logger";
+import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { dashboardQuerySchema } from "@/lib/validations";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const log = createLogger({ service: "api-dashboard" });
@@ -22,13 +24,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { searchParams } = request.nextUrl;
-  const portfolioId = searchParams.get("portfolioId");
-  const portfolioType = searchParams.get("portfolioType") as "holdings" | "watchlist" | null;
-
-  if (!portfolioId || !portfolioType) {
-    return NextResponse.json({ error: "Missing portfolioId or portfolioType" }, { status: 400 });
+  const rl = await rateLimit(user.id, RATE_LIMITS.dashboard);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil((rl.reset - Date.now()) / 1000)) } }
+    );
   }
+
+  const { searchParams } = request.nextUrl;
+  const parsed = dashboardQuerySchema.safeParse({
+    portfolioId: searchParams.get("portfolioId"),
+    portfolioType: searchParams.get("portfolioType"),
+  });
+
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+  }
+
+  const { portfolioId, portfolioType } = parsed.data;
 
   let companyQuery = supabase
     .from("companies")

@@ -514,12 +514,12 @@ export function CompaniesTable({
                       {/* Cost - hidden on mobile */}
                       <td className={`px-2 py-2 text-right tabular-nums whitespace-nowrap ${HIDE_MOBILE}`}>
                         {company.quantity && company.avg_buy_price
-                          ? fmtPriceShort(company.avg_buy_price * company.quantity)
+                          ? fmtPriceShort(Math.round(company.avg_buy_price * company.quantity))
                           : "-"}
                       </td>
                       <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
                         {company.quantity && currentPrice
-                          ? fmtPriceShort(currentPrice * company.quantity)
+                          ? fmtPriceShort(Math.round(currentPrice * company.quantity))
                           : "-"}
                       </td>
                       <td className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${
@@ -551,7 +551,7 @@ export function CompaniesTable({
                           const avgBuy = company.avg_buy_price;
                           if (!qty || !avgBuy || !currentPrice) return "-";
                           const amt = (currentPrice - avgBuy) * qty;
-                          return `${amt >= 0 ? "+" : ""}${fmtPriceShort(amt)}`;
+                          return `${amt >= 0 ? "+" : ""}${fmtPriceShort(Math.round(amt))}`;
                         })()}
                       </td>
                       {/* Research / Valuation columns */}

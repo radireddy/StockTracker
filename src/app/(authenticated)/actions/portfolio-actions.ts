@@ -3,6 +3,7 @@
 import { getAuthUser } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { createLogger } from "@/lib/logger";
+import { portfolioSchema } from "@/lib/validations";
 import type { Portfolio } from "@/types/database";
 
 const log = createLogger({ service: "portfolio-actions" });
@@ -152,6 +153,9 @@ export async function createPortfolio(input: {
   icon?: string;
 }): Promise<Portfolio> {
   const { supabase, user } = await getAuthUser();
+
+  const parsed = portfolioSchema.safeParse({ name: input.name, type: input.type });
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
 
   // Check plan limits
   const { data: profile } = await supabase

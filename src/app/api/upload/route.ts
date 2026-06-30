@@ -3,6 +3,7 @@ import { getAuthUserOrNull } from "@/lib/supabase/server";
 import { storageRegistry } from "@/lib/providers/storage/registry";
 import { isAllowedType, getMaxSize } from "@/lib/providers/storage/types";
 import { createLogger } from "@/lib/logger";
+import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 const log = createLogger({ service: "upload" });
 
@@ -11,6 +12,14 @@ export async function POST(request: NextRequest) {
   const { user } = await getAuthUserOrNull();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = await rateLimit(user.id, RATE_LIMITS.upload);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil((rl.reset - Date.now()) / 1000)) } }
+    );
   }
 
   // 2. Parse form data
