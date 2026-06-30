@@ -551,7 +551,7 @@ export function CompaniesTable({
                           const avgBuy = company.avg_buy_price;
                           if (!qty || !avgBuy || !currentPrice) return "-";
                           const amt = (currentPrice - avgBuy) * qty;
-                          return `${amt >= 0 ? "+" : ""}${fmtPriceShort(amt)}`;
+                          return `${amt >= 0 ? "+" : ""}${fmtPriceShort(Math.round(amt))}`;
                         })()}
                       </td>
                       {/* Research / Valuation columns */}
