@@ -375,17 +375,33 @@ export function CompaniesTable({
           </Select>
         )}
         {showAllocationView && (
-          <Select value={allocationStatusFilter} onValueChange={(v) => setAllocationStatusFilter(v ?? "all")}>
-            <SelectTrigger className="w-32 h-8 text-sm">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="over">Over-allocated</SelectItem>
-              <SelectItem value="in_range">In Range</SelectItem>
-              <SelectItem value="under">Under-allocated</SelectItem>
-            </SelectContent>
-          </Select>
+          <>
+            <div className="inline-flex rounded-md border border-border/60 overflow-hidden text-xs">
+              <button
+                className={`px-3 py-1.5 transition-colors ${allocationBasis === "invested" ? "bg-foreground text-background font-medium" : "hover:bg-muted/50"}`}
+                onClick={() => setAllocationBasis("invested")}
+              >
+                Invested
+              </button>
+              <button
+                className={`px-3 py-1.5 transition-colors border-l border-border/60 ${allocationBasis === "current" ? "bg-foreground text-background font-medium" : "hover:bg-muted/50"}`}
+                onClick={() => setAllocationBasis("current")}
+              >
+                Current
+              </button>
+            </div>
+            <Select value={allocationStatusFilter} onValueChange={(v) => setAllocationStatusFilter(v ?? "all")}>
+              <SelectTrigger className="w-32 h-8 text-sm">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="over">Over-allocated</SelectItem>
+                <SelectItem value="in_range">In Range</SelectItem>
+                <SelectItem value="under">Under-allocated</SelectItem>
+              </SelectContent>
+            </Select>
+          </>
         )}
         {!isHoldings && (
           <label className="flex items-center gap-1.5 text-xs">
@@ -409,7 +425,6 @@ export function CompaniesTable({
             filtered={filtered}
             getAllocationData={getAllocationData}
             allocationBasis={allocationBasis}
-            onBasisChange={setAllocationBasis}
             toggleSort={toggleSort}
             SortIcon={SortIcon}
             thBase={thBase}
@@ -958,7 +973,6 @@ function AllocationTable({
   filtered,
   getAllocationData,
   allocationBasis,
-  onBasisChange,
   toggleSort,
   SortIcon,
   thBase,
@@ -977,7 +991,6 @@ function AllocationTable({
     valueDelta: number;
   };
   allocationBasis: "invested" | "current";
-  onBasisChange: (basis: "invested" | "current") => void;
   toggleSort: (field: string) => void;
   SortIcon: React.ComponentType<{ field: string }>;
   thBase: string;
@@ -1028,19 +1041,7 @@ function AllocationTable({
             scope="col" className={thCenter}
             style={{ width: "20%" }}
           >
-            <div className="flex items-center justify-center gap-1">
-              <span>{basisLabel} Status</span>
-              <button
-                className="ml-1 text-[10px] px-1.5 py-0.5 rounded border border-border/60 hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onBasisChange(allocationBasis === "invested" ? "current" : "invested");
-                }}
-                title={`Switch to ${allocationBasis === "invested" ? "Current" : "Invested"} basis`}
-              >
-                {allocationBasis === "invested" ? "Cur" : "Inv"}
-              </button>
-            </div>
+            {basisLabel} Status
           </th>
           <th
             scope="col" className={`${thCenter} ${HIDE_MOBILE}`}
