@@ -39,6 +39,7 @@ function formatFieldValue(key: string, val: number | null): string {
 interface ValuationScenariosProps {
   strategy: ProjectionStrategy;
   scenarioData: Record<ScenarioType, Record<string, number | null>>;
+  storedDerivedScenarios?: Record<ScenarioType, Record<string, number | null>>;
   financialYears: FinancialYear[];
   company: {
     market_cap: number | null;
@@ -56,6 +57,7 @@ interface ValuationScenariosProps {
 export function ValuationScenarios({
   strategy,
   scenarioData,
+  storedDerivedScenarios,
   financialYears,
   company,
   expReturns,
@@ -193,13 +195,16 @@ export function ValuationScenarios({
                       );
                     }
 
-                    const val = derived[f.key] ?? null;
+                    const liveVal = derived[f.key] ?? null;
+                    const storedVal = storedDerivedScenarios?.[type]?.[f.key] ?? null;
+                    const val = liveVal ?? storedVal;
+                    const isStale = liveVal == null && storedVal != null;
                     const isBoldField = f.key === "irr" || f.key === "buy_price";
 
                     return (
                       <TableCell
                         key={f.key}
-                        className={`text-right text-sm tabular-nums ${isBoldField ? "font-medium" : ""}`}
+                        className={`text-right text-sm tabular-nums ${isBoldField ? "font-medium" : ""} ${isStale ? "italic text-muted-foreground" : ""}`}
                       >
                         {formatFieldValue(f.key, val) || ""}
                       </TableCell>
