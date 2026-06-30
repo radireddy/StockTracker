@@ -1005,54 +1005,75 @@ function AllocationTable({
         <tr className="border-b-2 border-border/40 bg-muted/30">
           <th
             scope="col" className={`${thBase} text-left`}
-            style={{ width: "22%" }}
+            style={{ width: "16%" }}
             onClick={() => toggleSort("name")}
           >
             Company<SortIcon field="name" />
           </th>
           <th
             scope="col" className={thCenter}
-            style={{ width: "6%" }}
+            style={{ width: "5%" }}
             onClick={() => toggleSort("star_rating")}
           >
             Star<SortIcon field="star_rating" />
           </th>
           <th
             scope="col" className={thRight}
-            style={{ width: "8%" }}
+            style={{ width: "6%" }}
+            onClick={() => toggleSort("current_price")}
+          >
+            CMP<SortIcon field="current_price" />
+          </th>
+          <th
+            scope="col" className={`${thRight} ${HIDE_MOBILE}`}
+            style={{ width: "6%" }}
+            onClick={() => toggleSort("buy_price")}
+          >
+            Target Buy<SortIcon field="buy_price" />
+          </th>
+          <th
+            scope="col" className={thRight}
+            style={{ width: "5%" }}
+            onClick={() => toggleSort("mos")}
+          >
+            MoS%<SortIcon field="mos" />
+          </th>
+          <th
+            scope="col" className={thRight}
+            style={{ width: "6%" }}
             onClick={() => toggleSort("cost_pct")}
           >
             Invested %<SortIcon field="cost_pct" />
           </th>
           <th
             scope="col" className={thRight}
-            style={{ width: "8%" }}
+            style={{ width: "6%" }}
             onClick={() => toggleSort("value_pct")}
           >
             Current %<SortIcon field="value_pct" />
           </th>
           <th
             scope="col" className={`${thCenter}`}
-            style={{ width: "10%" }}
+            style={{ width: "7%" }}
           >
-            Target Range
+            Target
           </th>
           <th
             scope="col" className={thCenter}
-            style={{ width: "20%" }}
+            style={{ width: "14%" }}
           >
             {basisLabel} Status
           </th>
           <th
             scope="col" className={`${thCenter} ${HIDE_MOBILE}`}
-            style={{ width: "8%" }}
+            style={{ width: "6%" }}
             onClick={() => toggleSort("alloc_status")}
           >
             Status<SortIcon field="alloc_status" />
           </th>
           <th
             scope="col" className={thRight}
-            style={{ width: "8%" }}
+            style={{ width: "6%" }}
             onClick={() => toggleSort("alloc_delta")}
           >
             Delta<SortIcon field="alloc_delta" />
@@ -1065,6 +1086,10 @@ function AllocationTable({
           const activeStatus = allocationBasis === "invested" ? alloc.costStatus : alloc.valueStatus;
           const activePct = allocationBasis === "invested" ? alloc.costPct : alloc.valuePct;
           const activeDelta = allocationBasis === "invested" ? alloc.costDelta : alloc.valueDelta;
+          const currentPrice = company.indian_stocks?.price ?? null;
+          const buyPrice = effectiveBuyPrice(company.buy_price, getDefaultScenarios(company));
+          const isDefaulted = company.buy_price == null && buyPrice != null;
+          const mos = buyPrice && currentPrice ? marginOfSafety(buyPrice, currentPrice) : null;
 
           return (
             <tr
@@ -1086,13 +1111,32 @@ function AllocationTable({
                 {"★".repeat(company.star_rating ?? 0)}
               </td>
               <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
+                {fmtPriceShort(currentPrice)}
+              </td>
+              <td className={`px-2 py-2 text-right tabular-nums whitespace-nowrap ${HIDE_MOBILE} ${isDefaulted ? "text-muted-foreground italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
+                {fmtPriceShort(buyPrice)}
+              </td>
+              <td
+                className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${
+                  mos != null
+                    ? mos > 0
+                      ? "text-green-600"
+                      : mos < -0.1
+                        ? "text-red-600"
+                        : "text-yellow-600"
+                    : ""
+                }`}
+              >
+                {fmtPctShort(mos)}
+              </td>
+              <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
                 {alloc.costPct.toFixed(1)}%
               </td>
               <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
                 {alloc.valuePct.toFixed(1)}%
               </td>
               <td className="px-2 py-2 text-center tabular-nums whitespace-nowrap text-muted-foreground">
-                {alloc.range.min}% - {alloc.range.max}%
+                {alloc.range.min}-{alloc.range.max}%
               </td>
               <td className="px-2 py-2">
                 <RangeBar
