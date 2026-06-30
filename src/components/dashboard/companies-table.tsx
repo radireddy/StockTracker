@@ -610,12 +610,13 @@ export function CompaniesTable({
                 const allocData = isHoldings ? getAllocationData(company) : null;
                 const activeStatus = allocData ? (allocationBasis === "invested" ? allocData.costStatus : allocData.valueStatus) : null;
                 const borderClass = isHoldings && activeStatus ? BORDER_COLORS[activeStatus] : "";
-                const rowBgClass = isHoldings && activeStatus ? STATUS_BG[activeStatus] : (idx % 2 === 0 ? "" : "bg-muted/15");
 
                 return (
                   <Fragment key={company.id}>
                   <tr
-                    className={`cursor-pointer border-b border-border/20 hover:bg-muted/40 transition-colors ${rowBgClass} ${borderClass}`}
+                    className={`cursor-pointer border-b border-border/20 hover:bg-muted/40 transition-colors ${
+                      idx % 2 === 0 ? "" : "bg-muted/15"
+                    } ${borderClass}`}
                     onClick={() => router.push(`/company/${company.id}`)}
                   >
                     <td className="px-2 py-2 font-medium truncate max-w-0">
