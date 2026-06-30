@@ -1157,7 +1157,7 @@ function AllocationTable({
                       <TooltipTrigger className="cursor-help border-b border-dashed border-muted-foreground/40">
                         {alloc.costPct.toFixed(1)}%
                       </TooltipTrigger>
-                      <TooltipContent side="bottom"><p className="text-xs">{investedTooltip}</p></TooltipContent>
+                      <TooltipContent side="bottom" className="text-sm font-medium">{investedTooltip}</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 ) : (
@@ -1171,7 +1171,7 @@ function AllocationTable({
                       <TooltipTrigger className="cursor-help border-b border-dashed border-muted-foreground/40">
                         {alloc.valuePct.toFixed(1)}%
                       </TooltipTrigger>
-                      <TooltipContent side="bottom"><p className="text-xs">{investedTooltip}</p></TooltipContent>
+                      <TooltipContent side="bottom" className="text-sm font-medium">{investedTooltip}</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 ) : (
@@ -1190,7 +1190,18 @@ function AllocationTable({
                 />
               </td>
               <td className={`px-2 py-2 text-center text-xs font-medium whitespace-nowrap ${HIDE_MOBILE} ${STATUS_TEXT[activeStatus]}`}>
-                {STATUS_LABEL[activeStatus]}
+                {deltaTooltip ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-help">
+                        {STATUS_LABEL[activeStatus]}
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-sm font-medium">{deltaTooltip}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  STATUS_LABEL[activeStatus]
+                )}
               </td>
               <td className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${STATUS_TEXT[activeStatus]}`}>
                 {activeDelta === 0 ? (
@@ -1201,7 +1212,7 @@ function AllocationTable({
                       <TooltipTrigger className="cursor-help border-b border-dashed border-current">
                         {activeDelta > 0 ? "+" : ""}{activeDelta.toFixed(1)}%
                       </TooltipTrigger>
-                      <TooltipContent side="bottom"><p className="text-xs">{deltaTooltip}</p></TooltipContent>
+                      <TooltipContent side="bottom" className="text-sm font-medium">{deltaTooltip}</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 ) : (
