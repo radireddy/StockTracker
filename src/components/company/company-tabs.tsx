@@ -69,7 +69,7 @@ export function CompanyTabs({
         );
       case "transactions":
         return portfolioType === "holdings" ? (
-          <TransactionsTab companyId={company.id} />
+          <TransactionsTab companyId={company.id} currentPrice={company.indian_stocks?.price ?? null} />
         ) : null;
       case "thesis":
         return <ThesisTab company={company} />;
