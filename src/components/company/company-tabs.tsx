@@ -7,22 +7,33 @@ import { TimelineTab } from "@/components/company/timeline-tab";
 import { HighlightsSection } from "@/components/company/highlights-section";
 import { EditCompanyTab } from "@/components/company/edit-company-tab";
 import { TransactionsTab } from "@/components/company/transactions-tab";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getDefaultModelBuyPrice } from "@/lib/utils/calculations";
-import type { Company, ProjectionModel, TimelineEntry } from "@/types/database";
+import type { Company, ProjectionModel } from "@/types/database";
 
 type TabDef = { id: string; label: string };
+
+function TabLoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-6 w-48" />
+      <Skeleton className="h-40 w-full" />
+      <Skeleton className="h-32 w-full" />
+    </div>
+  );
+}
 
 export function CompanyTabs({
   company,
   projectionModels,
-  timelineEntries,
   onBaseIrrChange,
+  isFullDataLoaded = true,
   portfolioType = "holdings",
 }: {
-  company: Company & { segment_valuations: any[]; market_perceptions: any[] };
+  company: Company;
   projectionModels: ProjectionModel[];
-  timelineEntries: TimelineEntry[];
   onBaseIrrChange?: (irr: number | null) => void;
+  isFullDataLoaded?: boolean;
   portfolioType?: "holdings" | "watchlist";
 }) {
   const tabs = useMemo(() => {
@@ -40,6 +51,44 @@ export function CompanyTabs({
   }, [portfolioType]);
 
   const [activeTab, setActiveTab] = useState("details");
+
+  const needsFullData = activeTab === "thesis" || activeTab === "projections" || activeTab === "highlights";
+
+  const renderTab = () => {
+    if (needsFullData && !isFullDataLoaded) {
+      return <TabLoadingSkeleton />;
+    }
+
+    switch (activeTab) {
+      case "details":
+        return (
+          <EditCompanyTab
+            company={company}
+            baseCaseBuyPrice={getDefaultModelBuyPrice(projectionModels)}
+          />
+        );
+      case "transactions":
+        return portfolioType === "holdings" ? (
+          <TransactionsTab companyId={company.id} />
+        ) : null;
+      case "thesis":
+        return <ThesisTab company={company} />;
+      case "projections":
+        return (
+          <ProjectionsValuationTab
+            company={company}
+            projectionModels={projectionModels}
+            onBaseIrrChange={onBaseIrrChange}
+          />
+        );
+      case "timeline":
+        return <TimelineTab companyId={company.id} />;
+      case "highlights":
+        return <HighlightsSection company={company} />;
+      default:
+        return null;
+    }
+  };
 
   return (
     <div>
@@ -62,33 +111,7 @@ export function CompanyTabs({
       </nav>
 
       <div className="py-6">
-        <div className={activeTab === "details" ? undefined : "hidden"}>
-          <EditCompanyTab
-            company={company}
-            baseCaseBuyPrice={getDefaultModelBuyPrice(projectionModels)}
-          />
-        </div>
-        {portfolioType === "holdings" && (
-          <div className={activeTab === "transactions" ? undefined : "hidden"}>
-            <TransactionsTab companyId={company.id} />
-          </div>
-        )}
-        <div className={activeTab === "thesis" ? undefined : "hidden"}>
-          <ThesisTab company={company} />
-        </div>
-        <div className={activeTab === "projections" ? undefined : "hidden"}>
-          <ProjectionsValuationTab
-            company={company}
-            projectionModels={projectionModels}
-            onBaseIrrChange={onBaseIrrChange}
-          />
-        </div>
-        <div className={activeTab === "timeline" ? undefined : "hidden"}>
-          <TimelineTab companyId={company.id} entries={timelineEntries} />
-        </div>
-        <div className={activeTab === "highlights" ? undefined : "hidden"}>
-          <HighlightsSection company={company} />
-        </div>
+        {renderTab()}
       </div>
     </div>
   );

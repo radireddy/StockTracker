@@ -14,17 +14,14 @@ function sanitizeHtml(html: string | null): string | null {
 }
 
 export async function getCompany(id: string) {
-  const { supabase, user } = await getAuthUser();
+  const { supabase } = await getAuthUser();
 
   const { data, error } = await supabase
     .from("companies")
     .select(`
       *,
       indian_stocks(*),
-      projection_models(*, financial_years(*), valuation_scenarios(*)),
-      timeline_entries(*),
-      segment_valuations(*),
-      market_perceptions(*)
+      projection_models(*, financial_years(*), valuation_scenarios(*))
     `)
     .eq("id", id)
     .single();
@@ -111,6 +108,38 @@ export async function getCompanyHighlights(id: string): Promise<string | null> {
     throw new Error(error.message);
   }
   return data?.highlights ?? null;
+}
+
+export async function getSegmentValuations(companyId: string) {
+  const { supabase } = await getAuthUser();
+
+  const { data, error } = await supabase
+    .from("segment_valuations")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    log.error("getSegmentValuations failed", { error: error.message, companyId });
+    throw new Error(error.message);
+  }
+  return data ?? [];
+}
+
+export async function getMarketPerceptions(companyId: string) {
+  const { supabase } = await getAuthUser();
+
+  const { data, error } = await supabase
+    .from("market_perceptions")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    log.error("getMarketPerceptions failed", { error: error.message, companyId });
+    throw new Error(error.message);
+  }
+  return data ?? [];
 }
 
 export async function deleteAllCompanies() {

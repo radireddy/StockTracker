@@ -53,6 +53,22 @@ export async function updateTimelineEntry(
   log.info("Timeline entry updated", { entryId: id, companyId });
 }
 
+export async function getTimelineEntries(companyId: string) {
+  const { supabase } = await getAuthUser();
+
+  const { data, error } = await supabase
+    .from("timeline_entries")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    log.error("getTimelineEntries failed", { error: error.message, companyId });
+    throw new Error(error.message);
+  }
+  return data ?? [];
+}
+
 export async function deleteTimelineEntry(id: string, companyId: string) {
   const { supabase, user } = await getAuthUser();
 

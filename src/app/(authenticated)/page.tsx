@@ -10,6 +10,7 @@ import { usePortfolioContext } from "@/hooks/use-portfolio-context";
 import { useDashboardData, useInvalidateDashboard } from "@/hooks/use-dashboard-data";
 import type { PortfolioOwner } from "@/types/database";
 import { useState } from "react";
+import { DashboardTableSkeleton, PortfolioPnlBarSkeleton } from "@/components/dashboard/dashboard-table-skeleton";
 
 export default function DashboardPage() {
   const { selectedId, selectedPortfolio } = usePortfolioContext();
@@ -77,13 +78,11 @@ export default function DashboardPage() {
           <Button size="sm" className="h-8 text-sm">+ Add Company</Button>
         </Link>
       </div>
-      {isHoldings && !isLoading && (
-        <PortfolioPnlBar companies={companies} />
+      {isHoldings && (
+        isLoading ? <PortfolioPnlBarSkeleton /> : <PortfolioPnlBar companies={companies} />
       )}
       {isLoading ? (
-        <div className="text-center py-12 text-sm text-muted-foreground">
-          Loading companies...
-        </div>
+        <DashboardTableSkeleton />
       ) : (
         <CompaniesTable companies={companies} portfolioType={portfolioType} onRemoveCompany={removeCompany} />
       )}

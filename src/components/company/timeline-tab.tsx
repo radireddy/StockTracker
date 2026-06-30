@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import type { Editor } from "@tiptap/react";
 import {
+  getTimelineEntries,
   createTimelineEntry,
   updateTimelineEntry,
   deleteTimelineEntry,
@@ -14,13 +15,9 @@ import type { TimelineEntry } from "@/types/database";
 
 const PAGE_SIZE = 5;
 
-export function TimelineTab({
-  companyId,
-  entries,
-}: {
-  companyId: string;
-  entries: TimelineEntry[];
-}) {
+export function TimelineTab({ companyId }: { companyId: string }) {
+  const [entries, setEntries] = useState<TimelineEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [quarter, setQuarter] = useState("");
   const [saving, setSaving] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -30,6 +27,18 @@ export function TimelineTab({
   const editorRef = useRef<Editor | null>(null);
   const editHtmlRef = useRef("");
   const editEditorRef = useRef<Editor | null>(null);
+
+  const fetchEntries = useCallback(() => {
+    setLoading(true);
+    getTimelineEntries(companyId)
+      .then(setEntries)
+      .catch(() => setEntries([]))
+      .finally(() => setLoading(false));
+  }, [companyId]);
+
+  useEffect(() => {
+    fetchEntries();
+  }, [fetchEntries]);
 
   const setEditor = useCallback((editor: Editor | null) => {
     editorRef.current = editor;
@@ -52,6 +61,7 @@ export function TimelineTab({
     htmlRef.current = "";
     setQuarter("");
     setSaving(false);
+    fetchEntries();
   };
 
   const handleEdit = (entry: TimelineEntry) => {
@@ -75,10 +85,12 @@ export function TimelineTab({
     });
     setEditingId(null);
     setSaving(false);
+    fetchEntries();
   };
 
   const handleDelete = async (id: string) => {
     await deleteTimelineEntry(id, companyId);
+    fetchEntries();
   };
 
   // Sort newest first by created_at
@@ -117,78 +129,82 @@ export function TimelineTab({
       </div>
 
       {/* Entries list */}
-      <div className="divide-y divide-border/30">
-        {visible.map((entry) => (
-          <div key={entry.id} className="py-3">
-            {editingId === entry.id ? (
-              <div className="space-y-3">
-                <Input
-                  placeholder="Quarter / Label (e.g., Q1FY26)"
-                  value={editQuarter}
-                  onChange={(e) => setEditQuarter(e.target.value)}
-                  className="w-64"
-                />
-                <RichTextEditor
-                  placeholder="Edit entry..."
-                  minHeight="80px"
-                  content={entry.content}
-                  onChange={(html) => { editHtmlRef.current = html; }}
-                  editorRef={setEditEditor}
-                  companyId={companyId}
-                />
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => handleSaveEdit(entry)} disabled={saving}>
-                    {saving ? "Saving..." : "Save"}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={handleCancelEdit}>
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-2 text-sm">
-                    {entry.quarter && (
-                      <span className="font-semibold">{entry.quarter}</span>
-                    )}
-                    {entry.entry_date && (
-                      <span className="text-muted-foreground text-xs">{entry.entry_date}</span>
-                    )}
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-xs text-muted-foreground hover:text-foreground"
-                      onClick={() => handleEdit(entry)}
-                    >
-                      Edit
+      {loading ? (
+        <p className="text-sm text-muted-foreground text-center py-8">Loading timeline...</p>
+      ) : (
+        <div className="divide-y divide-border/30">
+          {visible.map((entry) => (
+            <div key={entry.id} className="py-3">
+              {editingId === entry.id ? (
+                <div className="space-y-3">
+                  <Input
+                    placeholder="Quarter / Label (e.g., Q1FY26)"
+                    value={editQuarter}
+                    onChange={(e) => setEditQuarter(e.target.value)}
+                    className="w-64"
+                  />
+                  <RichTextEditor
+                    placeholder="Edit entry..."
+                    minHeight="80px"
+                    content={entry.content}
+                    onChange={(html) => { editHtmlRef.current = html; }}
+                    editorRef={setEditEditor}
+                    companyId={companyId}
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => handleSaveEdit(entry)} disabled={saving}>
+                      {saving ? "Saving..." : "Save"}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-xs text-muted-foreground hover:text-destructive"
-                      onClick={() => handleDelete(entry.id)}
-                    >
-                      Delete
+                    <Button size="sm" variant="ghost" onClick={handleCancelEdit}>
+                      Cancel
                     </Button>
                   </div>
                 </div>
-                <div
-                  className="prose prose-sm max-w-none text-foreground/80"
-                  dangerouslySetInnerHTML={{ __html: entry.content }}
-                />
-              </>
-            )}
-          </div>
-        ))}
-        {entries.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            No timeline entries yet.
-          </p>
-        )}
-      </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2 text-sm">
+                      {entry.quarter && (
+                        <span className="font-semibold">{entry.quarter}</span>
+                      )}
+                      {entry.entry_date && (
+                        <span className="text-muted-foreground text-xs">{entry.entry_date}</span>
+                      )}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => handleEdit(entry)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDelete(entry.id)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                  <div
+                    className="prose prose-sm max-w-none text-foreground/80"
+                    dangerouslySetInnerHTML={{ __html: entry.content }}
+                  />
+                </>
+              )}
+            </div>
+          ))}
+          {entries.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              No timeline entries yet.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Show More */}
       {hasMore && (
