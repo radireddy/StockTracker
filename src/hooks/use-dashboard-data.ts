@@ -47,6 +47,7 @@ export type DashboardData = {
   companies: DashboardCompany[];
   owners: { id: string; name: string; is_default: boolean }[];
   allHoldings: DashboardHolding[];
+  allocationRanges: Record<string, { min: number; max: number }> | null;
 };
 
 async function fetchDashboard(portfolioId: string, portfolioType: string): Promise<DashboardData> {

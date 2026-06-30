@@ -3,12 +3,13 @@
 import { useMemo, useCallback } from "react";
 import { CompaniesTable } from "@/components/dashboard/companies-table";
 import { PortfolioPnlBar } from "@/components/dashboard/portfolio-pnl-bar";
+import { AllocationSummaryBar } from "@/components/dashboard/allocation-summary-bar";
 import { OwnerFilter } from "@/components/owner/owner-filter";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { usePortfolioContext } from "@/hooks/use-portfolio-context";
 import { useDashboardData, useInvalidateDashboard } from "@/hooks/use-dashboard-data";
-import type { PortfolioOwner } from "@/types/database";
+import type { PortfolioOwner, AllocationRanges } from "@/types/database";
 import { useState } from "react";
 import { DashboardTableSkeleton, PortfolioPnlBarSkeleton } from "@/components/dashboard/dashboard-table-skeleton";
 
@@ -23,6 +24,7 @@ export default function DashboardPage() {
   const invalidate = useInvalidateDashboard();
 
   const owners = (data?.owners ?? []) as PortfolioOwner[];
+  const allocationRanges = (data?.allocationRanges ?? null) as AllocationRanges | null;
 
   const companies = useMemo(() => {
     if (!data) return [];
@@ -79,12 +81,17 @@ export default function DashboardPage() {
         </Link>
       </div>
       {isHoldings && (
-        isLoading ? <PortfolioPnlBarSkeleton /> : <PortfolioPnlBar companies={companies} />
+        isLoading ? <PortfolioPnlBarSkeleton /> : (
+          <>
+            <PortfolioPnlBar companies={companies} />
+            <AllocationSummaryBar companies={companies} allocationRanges={allocationRanges} />
+          </>
+        )
       )}
       {isLoading ? (
         <DashboardTableSkeleton />
       ) : (
-        <CompaniesTable companies={companies} portfolioType={portfolioType} onRemoveCompany={removeCompany} />
+        <CompaniesTable companies={companies} portfolioType={portfolioType} onRemoveCompany={removeCompany} allocationRanges={allocationRanges} />
       )}
     </div>
   );
