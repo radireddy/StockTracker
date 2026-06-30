@@ -79,19 +79,19 @@ const HIDE_MOBILE = "hidden lg:table-cell";
 type ViewMode = "portfolio" | "allocation";
 
 const BORDER_COLORS: Record<AllocationStatus, string> = {
-  under: "border-l-[3px] border-l-blue-500",
+  under: "border-l-[3px] border-l-rose-400",
   in_range: "border-l-[3px] border-l-green-500",
-  over: "border-l-[3px] border-l-red-500",
+  over: "border-l-[3px] border-l-red-600",
 };
 
 const STATUS_BG: Record<AllocationStatus, string> = {
-  under: "bg-blue-50/50 dark:bg-blue-950/20",
+  under: "bg-rose-50/50 dark:bg-rose-950/20",
   in_range: "bg-green-50/50 dark:bg-green-950/20",
   over: "bg-red-50/50 dark:bg-red-950/20",
 };
 
 const STATUS_TEXT: Record<AllocationStatus, string> = {
-  under: "text-blue-600",
+  under: "text-rose-500",
   in_range: "text-green-600",
   over: "text-red-600",
 };
@@ -919,7 +919,7 @@ function RangeBar({ actual, min, max, status }: { actual: number; min: number; m
   const maxPos = (max / upperBound) * 100;
   const actualPos = Math.min((actual / upperBound) * 100, 100);
 
-  const barColor = status === "over" ? "bg-red-500" : status === "under" ? "bg-blue-500" : "bg-green-500";
+  const barColor = status === "over" ? "bg-red-500" : status === "under" ? "bg-rose-400" : "bg-green-500";
 
   return (
     <div className="relative h-3 w-full min-w-[80px] bg-muted/40 rounded-sm overflow-hidden">

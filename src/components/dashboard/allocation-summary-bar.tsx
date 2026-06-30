@@ -54,13 +54,13 @@ export function AllocationSummaryBar({
   if (!starGroups) return null;
 
   const statusColors = {
-    under: "text-blue-600",
+    under: "text-rose-500",
     in_range: "text-green-600",
     over: "text-red-600",
   };
 
   const statusBg = {
-    under: "bg-blue-50 dark:bg-blue-950/30",
+    under: "bg-rose-50 dark:bg-rose-950/30",
     in_range: "bg-green-50 dark:bg-green-950/30",
     over: "bg-red-50 dark:bg-red-950/30",
   };
