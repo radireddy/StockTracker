@@ -1033,13 +1033,6 @@ function AllocationTable({
           </th>
           <th
             scope="col" className={thRight}
-            style={{ width: "5%" }}
-            onClick={() => toggleSort("mos")}
-          >
-            MoS%<SortIcon field="mos" />
-          </th>
-          <th
-            scope="col" className={thRight}
             style={{ width: "6%" }}
             onClick={() => toggleSort("cost_pct")}
           >
@@ -1077,6 +1070,13 @@ function AllocationTable({
             onClick={() => toggleSort("alloc_delta")}
           >
             Delta<SortIcon field="alloc_delta" />
+          </th>
+          <th
+            scope="col" className={thRight}
+            style={{ width: "5%" }}
+            onClick={() => toggleSort("mos")}
+          >
+            MoS%<SortIcon field="mos" />
           </th>
         </tr>
       </thead>
@@ -1116,19 +1116,6 @@ function AllocationTable({
               <td className={`px-2 py-2 text-right tabular-nums whitespace-nowrap ${HIDE_MOBILE} ${isDefaulted ? "text-muted-foreground italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
                 {fmtPriceShort(buyPrice)}
               </td>
-              <td
-                className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${
-                  mos != null
-                    ? mos > 0
-                      ? "text-green-600"
-                      : mos < -0.1
-                        ? "text-red-600"
-                        : "text-yellow-600"
-                    : ""
-                }`}
-              >
-                {fmtPctShort(mos)}
-              </td>
               <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
                 {alloc.costPct.toFixed(1)}%
               </td>
@@ -1153,6 +1140,19 @@ function AllocationTable({
                 {activeDelta === 0
                   ? "-"
                   : `${activeDelta > 0 ? "+" : ""}${activeDelta.toFixed(1)}%`}
+              </td>
+              <td
+                className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${
+                  mos != null
+                    ? mos > 0
+                      ? "text-green-600"
+                      : mos < -0.1
+                        ? "text-red-600"
+                        : "text-yellow-600"
+                    : ""
+                }`}
+              >
+                {fmtPctShort(mos)}
               </td>
             </tr>
           );
