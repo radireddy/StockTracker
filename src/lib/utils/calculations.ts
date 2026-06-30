@@ -205,6 +205,12 @@ export function fmtPriceShort(val: number | null): string {
   return roundPrice(val).toLocaleString(IN_LOCALE);
 }
 
+/** Amount without decimals — for totals like Cost, Current Value, P&L */
+export function fmtAmountShort(val: number | null): string {
+  if (val == null) return "-";
+  return Math.round(val).toLocaleString(IN_LOCALE);
+}
+
 /** Percentage from decimal (0.25 → "25.0%"). Guards against absurd values. */
 export function fmtPct(val: number | null): string {
   if (val == null || !isFinite(val)) return "-";

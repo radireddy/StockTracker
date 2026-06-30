@@ -6,7 +6,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
-import { marginOfSafety, isBuySignal, effectiveBuyPrice, computeLiveIrr, fmtPriceShort, fmtPctShort, fmtIrr, fmtNum } from "@/lib/utils/calculations";
+import { marginOfSafety, isBuySignal, effectiveBuyPrice, computeLiveIrr, fmtPriceShort, fmtAmountShort, fmtPctShort, fmtIrr, fmtNum } from "@/lib/utils/calculations";
 import { FileText, X, Loader2, ArrowRightLeft, Trash2, MoreVertical } from "lucide-react";
 import { getCompanyHighlights, deleteCompany } from "@/app/(authenticated)/actions/company-actions";
 import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
@@ -514,12 +514,12 @@ export function CompaniesTable({
                       {/* Cost - hidden on mobile */}
                       <td className={`px-2 py-2 text-right tabular-nums whitespace-nowrap ${HIDE_MOBILE}`}>
                         {company.quantity && company.avg_buy_price
-                          ? fmtPriceShort(company.avg_buy_price * company.quantity)
+                          ? fmtAmountShort(company.avg_buy_price * company.quantity)
                           : "-"}
                       </td>
                       <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
                         {company.quantity && currentPrice
-                          ? fmtPriceShort(currentPrice * company.quantity)
+                          ? fmtAmountShort(currentPrice * company.quantity)
                           : "-"}
                       </td>
                       <td className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${
@@ -551,7 +551,7 @@ export function CompaniesTable({
                           const avgBuy = company.avg_buy_price;
                           if (!qty || !avgBuy || !currentPrice) return "-";
                           const amt = (currentPrice - avgBuy) * qty;
-                          return `${amt >= 0 ? "+" : ""}${fmtPriceShort(Math.round(amt))}`;
+                          return `${amt >= 0 ? "+" : ""}${fmtAmountShort(amt)}`;
                         })()}
                       </td>
                       {/* Research / Valuation columns */}
