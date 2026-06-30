@@ -1150,11 +1150,33 @@ function AllocationTable({
               <td className={`px-2 py-2 text-right tabular-nums whitespace-nowrap ${HIDE_MOBILE} ${isDefaulted ? "text-muted-foreground italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
                 {fmtPriceShort(buyPrice)}
               </td>
-              <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap" title={allocationBasis === "invested" ? investedTooltip : undefined}>
-                {alloc.costPct.toFixed(1)}%
+              <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
+                {allocationBasis === "invested" ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-help border-b border-dashed border-muted-foreground/40">
+                        {alloc.costPct.toFixed(1)}%
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom"><p className="text-xs">{investedTooltip}</p></TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <span>{alloc.costPct.toFixed(1)}%</span>
+                )}
               </td>
-              <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap" title={allocationBasis === "current" ? investedTooltip : undefined}>
-                {alloc.valuePct.toFixed(1)}%
+              <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
+                {allocationBasis === "current" ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-help border-b border-dashed border-muted-foreground/40">
+                        {alloc.valuePct.toFixed(1)}%
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom"><p className="text-xs">{investedTooltip}</p></TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <span>{alloc.valuePct.toFixed(1)}%</span>
+                )}
               </td>
               <td className="px-2 py-2 text-center tabular-nums whitespace-nowrap text-muted-foreground">
                 {alloc.range.min}-{alloc.range.max}%
@@ -1170,10 +1192,21 @@ function AllocationTable({
               <td className={`px-2 py-2 text-center text-xs font-medium whitespace-nowrap ${HIDE_MOBILE} ${STATUS_TEXT[activeStatus]}`}>
                 {STATUS_LABEL[activeStatus]}
               </td>
-              <td className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${STATUS_TEXT[activeStatus]}`} title={deltaTooltip || undefined}>
-                {activeDelta === 0
-                  ? "-"
-                  : `${activeDelta > 0 ? "+" : ""}${activeDelta.toFixed(1)}%`}
+              <td className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${STATUS_TEXT[activeStatus]}`}>
+                {activeDelta === 0 ? (
+                  "-"
+                ) : deltaTooltip ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-help border-b border-dashed border-current">
+                        {activeDelta > 0 ? "+" : ""}{activeDelta.toFixed(1)}%
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom"><p className="text-xs">{deltaTooltip}</p></TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  `${activeDelta > 0 ? "+" : ""}${activeDelta.toFixed(1)}%`
+                )}
               </td>
               <td
                 className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${
