@@ -424,7 +424,7 @@ export function CompaniesTable({
 
       {showAllocationView && (
         <p className="text-xs text-muted-foreground">
-          Hover over the active % column for target range in rupees, or over Delta for the amount to invest/reduce.
+          Hover over Invested/Current %, Status, or Delta for target range and actionable amounts in rupees.
         </p>
       )}
 
