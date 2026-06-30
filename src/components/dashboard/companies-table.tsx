@@ -130,6 +130,7 @@ export function CompaniesTable({
   const [highlightsCache, setHighlightsCache] = useState<Record<string, string | null>>({});
   const [highlightsLoading, setHighlightsLoading] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("portfolio");
+  const [allocationBasis, setAllocationBasis] = useState<"invested" | "current">("invested");
   const [allocationStatusFilter, setAllocationStatusFilter] = useState<string>("all");
 
   const ranges = getEffectiveRanges(allocationRanges ?? null);
@@ -217,8 +218,9 @@ export function CompaniesTable({
     // Allocation status filter (only in allocation view for holdings)
     if (viewMode === "allocation" && allocationStatusFilter !== "all") {
       result = result.filter((c) => {
-        const { valueStatus } = getAllocationData(c);
-        return valueStatus === allocationStatusFilter;
+        const ad = getAllocationData(c);
+        const status = allocationBasis === "invested" ? ad.costStatus : ad.valueStatus;
+        return status === allocationStatusFilter;
       });
     }
 
@@ -273,10 +275,13 @@ export function CompaniesTable({
           return getAllocationData(c).costPct;
         case "value_pct":
           return getAllocationData(c).valuePct;
-        case "alloc_delta":
-          return getAllocationData(c).valueDelta;
+        case "alloc_delta": {
+          const ad = getAllocationData(c);
+          return allocationBasis === "invested" ? ad.costDelta : ad.valueDelta;
+        }
         case "alloc_status": {
-          const s = getAllocationData(c).valueStatus;
+          const ad2 = getAllocationData(c);
+          const s = allocationBasis === "invested" ? ad2.costStatus : ad2.valueStatus;
           return s === "over" ? 2 : s === "under" ? 0 : 1;
         }
         default:
@@ -295,7 +300,7 @@ export function CompaniesTable({
     });
 
     return result;
-  }, [companies, search, starFilter, strategyFilter, buyOnlyFilter, sortField, sortDir, viewMode, allocationStatusFilter, totalCost, totalValue, ranges]);
+  }, [companies, search, starFilter, strategyFilter, buyOnlyFilter, sortField, sortDir, viewMode, allocationBasis, allocationStatusFilter, totalCost, totalValue, ranges]);
 
   const toggleSort = (field: string) => {
     if (sortField === field) {
@@ -403,6 +408,8 @@ export function CompaniesTable({
           <AllocationTable
             filtered={filtered}
             getAllocationData={getAllocationData}
+            allocationBasis={allocationBasis}
+            onBasisChange={setAllocationBasis}
             toggleSort={toggleSort}
             SortIcon={SortIcon}
             thBase={thBase}
@@ -601,8 +608,9 @@ export function CompaniesTable({
 
                 // Allocation border color (only for holdings portfolio view)
                 const allocData = isHoldings ? getAllocationData(company) : null;
-                const borderClass = isHoldings && allocData ? BORDER_COLORS[allocData.valueStatus] : "";
-                const rowBgClass = isHoldings && allocData ? STATUS_BG[allocData.valueStatus] : (idx % 2 === 0 ? "" : "bg-muted/15");
+                const activeStatus = allocData ? (allocationBasis === "invested" ? allocData.costStatus : allocData.valueStatus) : null;
+                const borderClass = isHoldings && activeStatus ? BORDER_COLORS[activeStatus] : "";
+                const rowBgClass = isHoldings && activeStatus ? STATUS_BG[activeStatus] : (idx % 2 === 0 ? "" : "bg-muted/15");
 
                 return (
                   <Fragment key={company.id}>
@@ -948,6 +956,8 @@ function RangeBar({ actual, min, max, status }: { actual: number; min: number; m
 function AllocationTable({
   filtered,
   getAllocationData,
+  allocationBasis,
+  onBasisChange,
   toggleSort,
   SortIcon,
   thBase,
@@ -965,6 +975,8 @@ function AllocationTable({
     costDelta: number;
     valueDelta: number;
   };
+  allocationBasis: "invested" | "current";
+  onBasisChange: (basis: "invested" | "current") => void;
   toggleSort: (field: string) => void;
   SortIcon: React.ComponentType<{ field: string }>;
   thBase: string;
@@ -972,6 +984,7 @@ function AllocationTable({
   thCenter: string;
   router: ReturnType<typeof useRouter>;
 }) {
+  const basisLabel = allocationBasis === "invested" ? "Invested" : "Current";
   return (
     <table className="text-sm border-collapse w-full lg:table-fixed" role="table" aria-label="Allocation analysis table">
       <thead>
@@ -1014,7 +1027,19 @@ function AllocationTable({
             scope="col" className={thCenter}
             style={{ width: "20%" }}
           >
-            Value Status
+            <div className="flex items-center justify-center gap-1">
+              <span>{basisLabel} Status</span>
+              <button
+                className="ml-1 text-[10px] px-1.5 py-0.5 rounded border border-border/60 hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onBasisChange(allocationBasis === "invested" ? "current" : "invested");
+                }}
+                title={`Switch to ${allocationBasis === "invested" ? "Current" : "Invested"} basis`}
+              >
+                {allocationBasis === "invested" ? "Cur" : "Inv"}
+              </button>
+            </div>
           </th>
           <th
             scope="col" className={`${thCenter} ${HIDE_MOBILE}`}
@@ -1035,13 +1060,16 @@ function AllocationTable({
       <tbody>
         {filtered.map((company, idx) => {
           const alloc = getAllocationData(company);
+          const activeStatus = allocationBasis === "invested" ? alloc.costStatus : alloc.valueStatus;
+          const activePct = allocationBasis === "invested" ? alloc.costPct : alloc.valuePct;
+          const activeDelta = allocationBasis === "invested" ? alloc.costDelta : alloc.valueDelta;
 
           return (
             <tr
               key={company.id}
               className={`cursor-pointer border-b border-border/20 hover:bg-muted/40 transition-colors ${
                 idx % 2 === 0 ? "" : "bg-muted/15"
-              } ${BORDER_COLORS[alloc.valueStatus]} ${STATUS_BG[alloc.valueStatus]}`}
+              } ${BORDER_COLORS[activeStatus]} ${STATUS_BG[activeStatus]}`}
               onClick={() => router.push(`/company/${company.id}`)}
             >
               <td className="px-2 py-2 font-medium truncate max-w-0">
@@ -1058,7 +1086,7 @@ function AllocationTable({
               <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
                 {alloc.costPct.toFixed(1)}%
               </td>
-              <td className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${STATUS_TEXT[alloc.valueStatus]}`}>
+              <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
                 {alloc.valuePct.toFixed(1)}%
               </td>
               <td className="px-2 py-2 text-center tabular-nums whitespace-nowrap text-muted-foreground">
@@ -1066,19 +1094,19 @@ function AllocationTable({
               </td>
               <td className="px-2 py-2">
                 <RangeBar
-                  actual={alloc.valuePct}
+                  actual={activePct}
                   min={alloc.range.min}
                   max={alloc.range.max}
-                  status={alloc.valueStatus}
+                  status={activeStatus}
                 />
               </td>
-              <td className={`px-2 py-2 text-center text-xs font-medium whitespace-nowrap ${HIDE_MOBILE} ${STATUS_TEXT[alloc.valueStatus]}`}>
-                {STATUS_LABEL[alloc.valueStatus]}
+              <td className={`px-2 py-2 text-center text-xs font-medium whitespace-nowrap ${HIDE_MOBILE} ${STATUS_TEXT[activeStatus]}`}>
+                {STATUS_LABEL[activeStatus]}
               </td>
-              <td className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${STATUS_TEXT[alloc.valueStatus]}`}>
-                {alloc.valueDelta === 0
+              <td className={`px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap ${STATUS_TEXT[activeStatus]}`}>
+                {activeDelta === 0
                   ? "-"
-                  : `${alloc.valueDelta > 0 ? "+" : ""}${alloc.valueDelta.toFixed(1)}%`}
+                  : `${activeDelta > 0 ? "+" : ""}${activeDelta.toFixed(1)}%`}
               </td>
             </tr>
           );
