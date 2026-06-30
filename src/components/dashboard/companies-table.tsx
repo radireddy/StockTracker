@@ -1142,7 +1142,14 @@ function AllocationTable({
                 )}
               </td>
               <td className="px-1 py-2 text-center text-sm">
-                {"★".repeat(company.star_rating ?? 0)}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger className="cursor-help border-b border-dashed border-muted-foreground/40">
+                      {"★".repeat(company.star_rating ?? 0)}
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-sm font-medium">{investedTooltip}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </td>
               <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
                 {fmtPriceShort(currentPrice)}
