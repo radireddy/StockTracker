@@ -3,7 +3,6 @@ import { createLogger } from "@/lib/logger";
 import { recomputeHoldings } from "@/lib/holdings";
 import type {
   BrokerParseResult,
-  GroupedTrade,
   ImportResult,
   ParsedTrade,
 } from "./types";
@@ -11,63 +10,21 @@ import type {
 const log = createLogger({ service: "import-engine" });
 
 /**
- * Groups trades by symbol + date + price + type for efficient insertion.
- * Trades at the same price on the same day for the same stock
- * are combined into a single transaction.
+ * Sort trades chronologically by execution_time, then trade_date as fallback.
  */
-export function groupTrades(trades: ParsedTrade[]): GroupedTrade[] {
-  const groups = new Map<string, ParsedTrade[]>();
-
-  for (const t of trades) {
-    const key = `${t.isin}|${t.trade_date}|${t.price}|${t.trade_type}`;
-    const existing = groups.get(key);
-    if (existing) {
-      existing.push(t);
-    } else {
-      groups.set(key, [t]);
-    }
-  }
-
-  const result: GroupedTrade[] = [];
-  for (const [, groupTrades] of groups) {
-    const first = groupTrades[0];
-    const totalQuantity = groupTrades.reduce((sum, t) => sum + t.quantity, 0);
-    const totalValue = groupTrades.reduce(
-      (sum, t) => sum + t.quantity * t.price,
-      0
-    );
-
-    result.push({
-      symbol: first.symbol,
-      isin: first.isin,
-      trade_date: first.trade_date,
-      exchange: first.exchange,
-      trade_type: first.trade_type.toUpperCase() as "BUY" | "SELL",
-      total_quantity: totalQuantity,
-      avg_price: Math.round((totalValue / totalQuantity) * 100) / 100,
-      trade_ids: groupTrades.map((t) => t.trade_id),
-      order_ids: [...new Set(groupTrades.map((t) => t.order_id))],
-      earliest_execution_time: groupTrades.reduce(
-        (min, t) => (t.execution_time < min ? t.execution_time : min),
-        groupTrades[0].execution_time
-      ),
-    });
-  }
-
-  // Sort chronologically
-  result.sort((a, b) => {
+function sortTrades(trades: ParsedTrade[]): ParsedTrade[] {
+  return [...trades].sort((a, b) => {
     if (a.trade_date !== b.trade_date)
       return a.trade_date.localeCompare(b.trade_date);
-    return a.earliest_execution_time.localeCompare(b.earliest_execution_time);
+    return a.execution_time.localeCompare(b.execution_time);
   });
-
-  return result;
 }
 
 /**
- * Import Engine — processes grouped trades into the database.
+ * Import Engine — processes each raw trade into the database individually.
  *
  * Key properties:
+ * - No grouping: Each broker trade is saved as a separate transaction row
  * - Idempotent: Uses (owner_id, trade_id) unique constraint; re-importing skips existing trades
  * - Incremental: Can import partial tradebooks in any order
  * - Auto-creates companies: Stocks not yet in the portfolio get created automatically
@@ -102,11 +59,10 @@ export async function executeImport(
     }
   }
 
-  const grouped = groupTrades(parseResult.trades);
-  let processedRows = 0;
+  const sorted = sortTrades(parseResult.trades);
 
   // Batch: collect all unique ISINs and auto-create missing stocks
-  const uniqueIsins = [...new Set(grouped.map((g) => g.isin))];
+  const uniqueIsins = [...new Set(sorted.map((t) => t.isin))];
   const { data: stocks } = await adminClient
     .from("indian_stocks")
     .select("isin, name, nse_symbol")
@@ -124,7 +80,7 @@ export async function executeImport(
     const failed: string[] = [];
 
     for (const isin of missingIsins) {
-      const trade = grouped.find((g) => g.isin === isin)!;
+      const trade = sorted.find((t) => t.isin === isin)!;
       const stockRow = {
         isin,
         name: trade.symbol,
@@ -197,33 +153,32 @@ export async function executeImport(
     ] as [string, string])
   );
 
-  // Batch: get all existing trade_ids for this owner (idempotency check scoped to owner)
-  const allTradeIds = grouped.flatMap((g) => g.trade_ids);
+  // Batch: get existing trade_id values for this owner (idempotency check)
+  const allTradeIds = sorted.map((t) => t.trade_id);
   const existingTradeIdSet = new Set<string>();
 
   for (let i = 0; i < allTradeIds.length; i += 500) {
     const batch = allTradeIds.slice(i, i + 500);
     const { data: byTradeId } = await userSupabase
       .from("transactions")
-      .select("trade_id, trade_ids")
+      .select("trade_id")
       .eq("owner_id", ownerId)
       .in("trade_id", batch);
 
     for (const t of byTradeId ?? []) {
       existingTradeIdSet.add(t.trade_id);
-      if (Array.isArray(t.trade_ids)) {
-        for (const id of t.trade_ids) existingTradeIdSet.add(id);
-      }
     }
   }
 
-  for (const group of grouped) {
+  let processedRows = 0;
+
+  for (const trade of sorted) {
     try {
-      const result = await processGroup(
+      const result = await processTrade(
         userId,
         portfolioId,
         ownerId,
-        group,
+        trade,
         broker,
         stockMap,
         companyMap,
@@ -234,21 +189,21 @@ export async function executeImport(
 
       if (result === "imported") {
         importedCount++;
-        symbolsImported.add(group.symbol);
+        symbolsImported.add(trade.symbol);
       } else {
         skippedCount++;
-        symbolsSkipped.add(group.symbol);
+        symbolsSkipped.add(trade.symbol);
       }
     } catch (err) {
       failedCount++;
-      symbolsFailed.add(group.symbol);
+      symbolsFailed.add(trade.symbol);
       errors.push({
-        symbol: group.symbol,
-        message: `${group.trade_type} ${group.total_quantity} @ ${group.avg_price} on ${group.trade_date}: ${(err as Error).message}`,
+        symbol: trade.symbol,
+        message: `${trade.trade_type.toUpperCase()} ${trade.quantity} @ ${trade.price} on ${trade.trade_date}: ${(err as Error).message}`,
       });
     }
 
-    processedRows += group.trade_ids.length;
+    processedRows++;
 
     if (processedRows % 100 === 0 || processedRows === parseResult.trades.length) {
       await userSupabase
@@ -266,10 +221,10 @@ export async function executeImport(
   // Recompute holdings for all affected companies (per-owner + aggregate)
   const isinToSymbol = new Map<string, string>();
   const affectedIsins = new Set<string>();
-  for (const group of grouped) {
-    isinToSymbol.set(group.isin, group.symbol);
-    if (symbolsImported.has(group.symbol)) {
-      affectedIsins.add(group.isin);
+  for (const trade of sorted) {
+    isinToSymbol.set(trade.isin, trade.symbol);
+    if (symbolsImported.has(trade.symbol)) {
+      affectedIsins.add(trade.isin);
     }
   }
 
@@ -339,18 +294,17 @@ export async function executeImport(
     imported: importedCount,
     skipped: skippedCount,
     failed: failedCount,
-    groups: grouped.length,
     raw_trades: parseResult.trades.length,
   });
 
   return result;
 }
 
-async function processGroup(
+async function processTrade(
   userId: string,
   portfolioId: string,
   ownerId: string,
-  group: GroupedTrade,
+  trade: ParsedTrade,
   broker: string,
   stockMap: Map<string, { isin: string; name: string; nse_symbol: string | null }>,
   companyMap: Map<string, string>,
@@ -359,27 +313,24 @@ async function processGroup(
   userSupabase: any,
   newCompaniesCreated: string[]
 ): Promise<"imported" | "skipped"> {
-  // Idempotency: check if all trade_ids already exist for this owner
-  const newTradeIds = group.trade_ids.filter(
-    (id) => !existingTradeIdSet.has(id)
-  );
-  if (newTradeIds.length === 0) return "skipped";
+  // Idempotency: check if trade_id already exists for this owner
+  if (existingTradeIdSet.has(trade.trade_id)) return "skipped";
 
-  if (!stockMap.has(group.isin)) {
+  if (!stockMap.has(trade.isin)) {
     throw new Error(
-      `Stock not found for ISIN ${group.isin} (${group.symbol}). Auto-creation may have failed.`
+      `Stock not found for ISIN ${trade.isin} (${trade.symbol}). Auto-creation may have failed.`
     );
   }
 
   // Ensure company exists
-  let companyId = companyMap.get(group.isin);
+  let companyId = companyMap.get(trade.isin);
   if (!companyId) {
     const { data: newCompany, error: createErr } = await userSupabase
       .from("companies")
       .insert({
         user_id: userId,
         portfolio_id: portfolioId,
-        isin: group.isin,
+        isin: trade.isin,
       })
       .select("id")
       .single();
@@ -390,11 +341,11 @@ async function processGroup(
           .from("companies")
           .select("id")
           .eq("portfolio_id", portfolioId)
-          .eq("isin", group.isin)
+          .eq("isin", trade.isin)
           .single();
         if (existing) {
           companyId = existing.id as string;
-          companyMap.set(group.isin, companyId);
+          companyMap.set(trade.isin, companyId);
         } else {
           throw new Error(`Failed to create company: ${createErr.message}`);
         }
@@ -403,36 +354,24 @@ async function processGroup(
       }
     } else {
       companyId = newCompany.id as string;
-      companyMap.set(group.isin, companyId);
-      newCompaniesCreated.push(group.symbol);
+      companyMap.set(trade.isin, companyId);
+      newCompaniesCreated.push(trade.symbol);
     }
   }
-
-  const newQuantity =
-    newTradeIds.length === group.trade_ids.length
-      ? group.total_quantity
-      : Math.round(
-          (group.total_quantity * newTradeIds.length) / group.trade_ids.length
-        );
 
   const { error: txnErr } = await userSupabase.from("transactions").insert({
     company_id: companyId,
     user_id: userId,
     owner_id: ownerId,
-    type: group.trade_type,
-    quantity: newQuantity,
-    price: group.avg_price,
+    type: trade.trade_type.toUpperCase(),
+    quantity: trade.quantity,
+    price: trade.price,
     fees: 0,
-    traded_at: group.earliest_execution_time || `${group.trade_date}T00:00:00+05:30`,
+    traded_at: trade.execution_time || `${trade.trade_date}T00:00:00+05:30`,
     source: broker,
-    trade_id: newTradeIds[0],
-    trade_ids: newTradeIds,
-    order_id: group.order_ids[0] || null,
-    exchange: group.exchange,
-    notes:
-      newTradeIds.length > 1
-        ? `Grouped ${newTradeIds.length} executions`
-        : null,
+    trade_id: trade.trade_id,
+    order_id: trade.order_id || null,
+    exchange: trade.exchange,
   });
 
   if (txnErr) {
@@ -442,10 +381,7 @@ async function processGroup(
     throw new Error(`Failed to insert transaction: ${txnErr.message}`);
   }
 
-  for (const id of newTradeIds) {
-    existingTradeIdSet.add(id);
-  }
+  existingTradeIdSet.add(trade.trade_id);
 
   return "imported";
 }
-

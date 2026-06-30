@@ -32,7 +32,6 @@ export function AddTransactionDialog({
   const [fees, setFees] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [time, setTime] = useState("");
-  const [notes, setNotes] = useState("");
   const [ownerId, setOwnerId] = useState("");
   const [owners, setOwners] = useState<PortfolioOwner[]>([]);
   const [pending, setPending] = useState(false);
@@ -66,14 +65,12 @@ export function AddTransactionDialog({
         price: Number(price),
         fees: fees ? Number(fees) : undefined,
         traded_at: tradedAt,
-        notes: notes.trim() || undefined,
         owner_id: ownerId,
       });
       onOpenChange(false);
       setQuantity("");
       setPrice("");
       setFees("");
-      setNotes("");
       setTime("");
       setType("BUY");
       onSuccess();
@@ -188,16 +185,6 @@ export function AddTransactionDialog({
                 Helps determine FIFO order for same-day trades
               </p>
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="tx-notes">Notes</Label>
-            <Input
-              id="tx-notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional notes"
-            />
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}

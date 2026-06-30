@@ -42,7 +42,6 @@ export async function addTransaction(
     price: number;
     fees?: number;
     traded_at: string;
-    notes?: string;
     owner_id: string;
   }
 ) {
@@ -59,7 +58,7 @@ export async function addTransaction(
     price: input.price,
     fees: input.fees ?? 0,
     traded_at: input.traded_at,
-    notes: input.notes ?? null,
+    source: "manual",
   });
 
   if (error) {
@@ -79,7 +78,6 @@ export async function updateTransaction(
     price?: number;
     fees?: number;
     traded_at?: string;
-    notes?: string;
     owner_id?: string;
   }
 ) {

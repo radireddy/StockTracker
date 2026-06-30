@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type {
   ParsedTrade,
-  GroupedTrade,
   BrokerParseResult,
   BrokerMetadata,
   ParseError,
@@ -27,22 +26,6 @@ describe("import types", () => {
     };
     expect(trade.symbol).toBe("RELIANCE");
     expect(trade.trade_type).toBe("buy");
-  });
-
-  it("GroupedTrade has uppercased trade type", () => {
-    const group: GroupedTrade = {
-      symbol: "RELIANCE",
-      isin: "INE002A01018",
-      trade_date: "2024-01-15",
-      exchange: "NSE",
-      trade_type: "BUY",
-      total_quantity: 10,
-      avg_price: 2500,
-      trade_ids: ["T001"],
-      order_ids: ["O001"],
-      earliest_execution_time: "2024-01-15T10:30:00",
-    };
-    expect(group.trade_type).toBe("BUY");
   });
 
   it("ImportResult has expected fields", () => {

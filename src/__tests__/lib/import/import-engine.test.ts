@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { BrokerParseResult, ParsedTrade, GroupedTrade } from "@/lib/import/types";
+import type { BrokerParseResult, ParsedTrade } from "@/lib/import/types";
 
 // Mock dependencies
 vi.mock("@/lib/supabase/admin", () => ({
@@ -53,7 +53,7 @@ function makeTrade(overrides: Partial<ParsedTrade> = {}): ParsedTrade {
 
 function createMockUserSupabase(options: {
   existingCompanies?: Array<{ id: string; isin: string }>;
-  existingTradeIds?: Array<{ trade_id: string; trade_ids: string[] }>;
+  existingTradeIds?: Array<{ trade_id: string }>;
   insertError?: { code?: string; message: string } | null;
   companyInsertResult?: { data: { id: string } | null; error: any | null };
 } = {}) {
@@ -183,7 +183,7 @@ describe("executeImport", () => {
 
     const userSupabase = createMockUserSupabase({
       existingCompanies: [{ id: "c1", isin: "INE002A01018" }],
-      existingTradeIds: [{ trade_id: "T001", trade_ids: ["T001"] }],
+      existingTradeIds: [{ trade_id: "T001" }],
     });
 
     const result = await executeImport(
@@ -816,18 +816,18 @@ describe("executeImport", () => {
     expect(result.errors.some((e) => e.message.includes("Failed to create company"))).toBe(true);
   });
 
-  it("handles partial new trade_ids in a group", async () => {
+  it("skips already-imported trade and imports new one", async () => {
     const { executeImport } = await import("@/lib/import/import-engine");
 
-    // Two trades with same key will be grouped, but one is already imported
+    // Two trades, one already imported
     const parseResult = createMockParseResult([
       makeTrade({ trade_id: "T001", quantity: 10 }),
-      makeTrade({ trade_id: "T002", quantity: 5 }), // Same key, will be grouped
+      makeTrade({ trade_id: "T002", quantity: 5 }),
     ]);
 
     const userSupabase = createMockUserSupabase({
       existingCompanies: [{ id: "c1", isin: "INE002A01018" }],
-      existingTradeIds: [{ trade_id: "T001", trade_ids: ["T001"] }],
+      existingTradeIds: [{ trade_id: "T001" }],
     });
 
     const result = await executeImport(
@@ -839,8 +839,8 @@ describe("executeImport", () => {
       userSupabase
     );
 
-    // One group with 2 trade_ids, but T001 already exists, so only T002 is new
     expect(result.imported_count).toBe(1);
+    expect(result.skipped_count).toBe(1);
   });
 
   it("retries stock insert without symbol columns on failure", async () => {

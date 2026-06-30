@@ -4,8 +4,7 @@
  * Architecture:
  * - BrokerAdapter: Interface that each broker implements (Zerodha, Groww, etc.)
  * - ParsedTrade: Normalized trade format all brokers produce
- * - GroupedTrade: Trades grouped by symbol+date+price+type for efficient insertion
- * - ImportEngine: Orchestrates parsing, validation, grouping, and DB operations
+ * - ImportEngine: Orchestrates parsing, validation, and DB operations (each trade saved individually)
  */
 
 /** Raw normalized trade from any broker */
@@ -20,20 +19,6 @@ export interface ParsedTrade {
   trade_id: string; // Unique per execution (from broker)
   order_id: string;
   execution_time: string; // ISO datetime
-}
-
-/** Grouped trades for efficient batch insertion */
-export interface GroupedTrade {
-  symbol: string;
-  isin: string;
-  trade_date: string;
-  exchange: string;
-  trade_type: "BUY" | "SELL";
-  total_quantity: number;
-  avg_price: number;
-  trade_ids: string[];
-  order_ids: string[];
-  earliest_execution_time: string;
 }
 
 /** Result from parsing a broker tradebook */

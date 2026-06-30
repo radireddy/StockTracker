@@ -220,10 +220,8 @@ export type Transaction = {
   price: number;
   fees: number;
   traded_at: string;
-  notes: string | null;
   source: string;
   trade_id: string | null;
-  trade_ids: string[];
   order_id: string | null;
   exchange: string | null;
   created_at: string;

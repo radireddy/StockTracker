@@ -467,8 +467,7 @@ export default function ImportPage() {
             </p>
             <ul className="text-xs text-muted-foreground space-y-0.5 list-disc pl-4">
               <li>
-                Trades at the same price, on the same day, for the same stock
-                are grouped into a single transaction
+                Each trade is saved individually as a separate transaction
               </li>
               <li>
                 Re-importing the same file is safe — duplicate trades are
