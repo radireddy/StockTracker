@@ -995,14 +995,14 @@ function AllocationTable({
             style={{ width: "8%" }}
             onClick={() => toggleSort("cost_pct")}
           >
-            Cost %<SortIcon field="cost_pct" />
+            Invested %<SortIcon field="cost_pct" />
           </th>
           <th
             scope="col" className={thRight}
             style={{ width: "8%" }}
             onClick={() => toggleSort("value_pct")}
           >
-            Value %<SortIcon field="value_pct" />
+            Current %<SortIcon field="value_pct" />
           </th>
           <th
             scope="col" className={`${thCenter}`}
