@@ -3,6 +3,7 @@
 import { getAuthUser } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { createLogger } from "@/lib/logger";
+import { ownerSchema } from "@/lib/validations";
 import type { PortfolioOwner } from "@/types/database";
 
 const log = createLogger({ service: "owner-actions" });
@@ -75,7 +76,8 @@ export async function createOwner(input: {
 }): Promise<PortfolioOwner> {
   const { supabase, user } = await getAuthUser();
 
-  if (!input.name.trim()) throw new Error("Name is required");
+  const parsed = ownerSchema.safeParse(input);
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
 
   // Check if this is the first owner (should be default)
   const { count } = await supabase

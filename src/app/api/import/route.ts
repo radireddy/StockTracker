@@ -3,6 +3,7 @@ import { detectBroker, getBrokerAdapter } from "@/lib/import/broker-registry";
 import { executeImport } from "@/lib/import/import-engine";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
+import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import type { BrokerType } from "@/lib/import/types";
 
 const log = createLogger({ service: "import-api" });
@@ -15,6 +16,14 @@ const log = createLogger({ service: "import-api" });
 export async function POST(request: Request) {
   const { supabase, user } = await getAuthUserOrNull();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const rl = await rateLimit(user.id, RATE_LIMITS.import);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil((rl.reset - Date.now()) / 1000)) } }
+    );
+  }
 
   const formData = await request.formData();
   const file = formData.get("file") as File;
@@ -61,6 +70,19 @@ export async function POST(request: Request) {
 
   // Parse the file
   const buffer = await file.arrayBuffer();
+
+  // Validate ZIP magic bytes (XLSX = ZIP format)
+  const bytes = new Uint8Array(buffer.slice(0, 4));
+  const isZip = bytes[0] === 0x50 && bytes[1] === 0x4B && bytes[2] === 0x03 && bytes[3] === 0x04;
+  if (!isZip) {
+    return NextResponse.json({ error: "Invalid file format. Please upload a valid .xlsx file." }, { status: 400 });
+  }
+
+  // Enforce 5MB limit for import files
+  const MAX_IMPORT_SIZE = 5 * 1024 * 1024;
+  if (buffer.byteLength > MAX_IMPORT_SIZE) {
+    return NextResponse.json({ error: "File too large. Maximum import file size is 5MB." }, { status: 400 });
+  }
 
   const adapter = brokerHint
     ? getBrokerAdapter(brokerHint)
@@ -167,6 +189,14 @@ export async function GET(request: Request) {
   const { supabase, user } = await getAuthUserOrNull();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const rl = await rateLimit(user.id, RATE_LIMITS.import);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil((rl.reset - Date.now()) / 1000)) } }
+    );
+  }
+
   const url = new URL(request.url);
   const jobId = url.searchParams.get("job_id");
 
@@ -202,6 +232,14 @@ export async function GET(request: Request) {
 export async function DELETE(request: Request) {
   const { supabase, user } = await getAuthUserOrNull();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const rl = await rateLimit(user.id, RATE_LIMITS.import);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil((rl.reset - Date.now()) / 1000)) } }
+    );
+  }
 
   const url = new URL(request.url);
   const jobId = url.searchParams.get("job_id");

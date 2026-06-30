@@ -5,6 +5,7 @@ import { fetchStockPrice } from "@/app/(authenticated)/actions/price-actions";
 import { revalidatePath } from "next/cache";
 import DOMPurify from "isomorphic-dompurify";
 import { createLogger } from "@/lib/logger";
+import { companyCreateSchema } from "@/lib/validations";
 
 const log = createLogger({ service: "company-actions" });
 
@@ -38,6 +39,16 @@ export async function getCompany(id: string) {
 
 export async function createCompany(formData: FormData) {
   const { supabase, user } = await getAuthUser();
+
+  const parsed = companyCreateSchema.safeParse({
+    portfolio_id: formData.get("portfolio_id"),
+    isin: formData.get("isin"),
+    strategy: formData.get("strategy") || undefined,
+    investment_horizon_years: formData.get("investment_horizon_years") ? Number(formData.get("investment_horizon_years")) : undefined,
+    star_rating: formData.get("star_rating") ? Number(formData.get("star_rating")) : undefined,
+    buy_price: formData.get("buy_price") ? Number(formData.get("buy_price")) : undefined,
+  });
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
 
   const { data: newCompany, error } = await supabase.from("companies").insert({
     user_id: user.id,
