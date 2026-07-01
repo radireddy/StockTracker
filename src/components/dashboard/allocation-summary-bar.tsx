@@ -67,7 +67,7 @@ export function AllocationSummaryBar({
 
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-muted/20 px-4 py-2 text-sm">
-      <span className="text-xs font-medium text-muted-foreground mr-1">Allocation</span>
+      <span className="text-xs font-medium text-muted-foreground mr-1">Allocation (Current Value)</span>
       {starGroups.map(({ star, pct, groupMin, groupMax, status, count }) => {
         if (count === 0) return null;
         return (

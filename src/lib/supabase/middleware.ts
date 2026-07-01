@@ -43,7 +43,8 @@ export async function updateSession(request: NextRequest) {
     !user &&
     !request.nextUrl.pathname.startsWith("/login") &&
     !request.nextUrl.pathname.startsWith("/auth") &&
-    !request.nextUrl.pathname.startsWith("/api/cron")
+    !request.nextUrl.pathname.startsWith("/api/cron") &&
+    !request.nextUrl.pathname.startsWith("/api/e2e-login")
   ) {
     log.warn("Unauthorized access, redirecting to login", {
       path: request.nextUrl.pathname,
