@@ -6,6 +6,7 @@ import { createLogger } from "@/lib/logger";
 import { holdingSchema, companyWithHoldingSchema } from "@/lib/validations";
 import { fetchStockPrice } from "@/app/(authenticated)/actions/price-actions";
 import { combineHoldingLots } from "@/lib/holdings";
+import { resolveAccountId } from "@/lib/accounts";
 import type { Holding } from "@/types/database";
 
 const log = createLogger({ service: "holdings-actions" });
@@ -179,23 +180,10 @@ export async function createCompanyWithHolding(formData: FormData): Promise<stri
   if (existing) throw new Error("This stock is already in this portfolio.");
 
   // 2. Resolve the account (create it if a new label was given).
-  let accountId = d.account_id ?? null;
-  if (d.new_account_label) {
-    const label = d.new_account_label.trim();
-    const { data: acct, error: acctErr } = await supabase
-      .from("accounts")
-      .insert({ user_id: user.id, label, broker: "manual" })
-      .select("id")
-      .single();
-    if (acctErr) {
-      throw new Error(
-        acctErr.code === "23505"
-          ? `An account named "${label}" already exists`
-          : acctErr.message
-      );
-    }
-    accountId = acct!.id;
-  }
+  const accountId = await resolveAccountId(supabase, user.id, {
+    account_id: d.account_id,
+    new_account_label: d.new_account_label,
+  });
 
   // 3. Insert the company (research stub; defaults applied).
   const { data: company, error: compErr } = await supabase
@@ -221,7 +209,6 @@ export async function createCompanyWithHolding(formData: FormData): Promise<stri
 
   // 4. Insert the holding. Account is guaranteed; quantity and avg price are
   //    optional (default to 0) and can be filled in later on the Holdings tab.
-  if (!accountId) throw new Error("Account is required");
   const { error: holdErr } = await supabase.from("holdings").insert({
     user_id: user.id,
     portfolio_id: d.portfolio_id,
