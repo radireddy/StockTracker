@@ -1,5 +1,15 @@
 export type ProjectionType = 'pe_earnings' | 'ev_ebitda';
 
+export type AllocationRange = { min: number; max: number };
+export type AllocationRanges = Record<string, AllocationRange>;
+
+export const DEFAULT_ALLOCATION_RANGES: AllocationRanges = {
+  "1": { min: 0, max: 2 },
+  "2": { min: 2, max: 4 },
+  "3": { min: 4, max: 6 },
+  "4": { min: 6, max: 8 },
+};
+
 export interface Profile {
   id: string;
   email: string;
@@ -11,6 +21,7 @@ export interface Profile {
     max_portfolios: number;
     alerts_enabled: boolean;
   };
+  allocation_ranges: AllocationRanges | null;
   created_at: string;
   updated_at: string;
 }

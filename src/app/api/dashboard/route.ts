@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     .select(DASHBOARD_COMPANY_SELECT)
     .eq("portfolio_id", portfolioId);
 
-  const [companiesResult, accountsResult, holdingsResult] = await Promise.all([
+  const [companiesResult, accountsResult, holdingsResult, profileResult] = await Promise.all([
     companyQuery.order("created_at"),
     supabase
       .from("accounts")
@@ -59,6 +59,11 @@ export async function GET(request: NextRequest) {
       .from("holdings")
       .select("company_id, account_id, quantity, avg_buy_price")
       .eq("portfolio_id", portfolioId),
+    supabase
+      .from("profiles")
+      .select("allocation_ranges")
+      .eq("id", user.id)
+      .single(),
   ]);
 
   if (companiesResult.error) {
@@ -95,7 +100,10 @@ export async function GET(request: NextRequest) {
   // Fire-and-forget price refresh if stale
   triggerPriceRefreshIfStale(supabase);
 
-  return NextResponse.json({ companies: normalized, accounts, allHoldings });
+  const allocationRanges =
+    (profileResult.data?.allocation_ranges as Record<string, { min: number; max: number }> | null) ?? null;
+
+  return NextResponse.json({ companies: normalized, accounts, allHoldings, allocationRanges });
 }
 
 async function triggerPriceRefreshIfStale(supabase: SupabaseClient) {

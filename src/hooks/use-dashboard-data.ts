@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
+import type { AllocationRanges } from "@/types/database";
 
 export const DASHBOARD_QUERY_KEY = "dashboard-data";
 
@@ -57,6 +58,7 @@ export type DashboardData = {
   companies: DashboardCompany[];
   accounts: DashboardAccount[];
   allHoldings: DashboardHolding[];
+  allocationRanges: AllocationRanges | null;
 };
 
 async function fetchDashboard(portfolioId: string, portfolioType: string): Promise<DashboardData> {
