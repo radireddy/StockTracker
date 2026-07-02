@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { companyWithHoldingSchema } from "@/lib/validations";
+import { companyWithHoldingSchema, moveToHoldingsSchema } from "@/lib/validations";
 
 const PID = "550e8400-e29b-41d4-a716-446655440000";
 const AID = "550e8400-e29b-41d4-a716-446655440001";
@@ -63,5 +63,32 @@ describe("companyWithHoldingSchema", () => {
       portfolio_id: PID, isin: "BAD", account_id: AID, quantity: 10, avg_buy_price: 100,
     });
     expect(r.success).toBe(false);
+  });
+});
+
+describe("moveToHoldingsSchema", () => {
+  const AID = "550e8400-e29b-41d4-a716-446655440001";
+
+  it("accepts an existing account with no qty/price", () => {
+    expect(moveToHoldingsSchema.safeParse({ account_id: AID }).success).toBe(true);
+  });
+  it("accepts a new account label with qty and price", () => {
+    const r = moveToHoldingsSchema.safeParse({
+      new_account_label: "Father – Groww",
+      quantity: 10,
+      avg_buy_price: 245.5,
+    });
+    expect(r.success).toBe(true);
+  });
+  it("rejects when no account is provided", () => {
+    expect(moveToHoldingsSchema.safeParse({ quantity: 10 }).success).toBe(false);
+  });
+  it("rejects a non-positive quantity", () => {
+    expect(moveToHoldingsSchema.safeParse({ account_id: AID, quantity: 0 }).success).toBe(false);
+  });
+  it("rejects a negative avg price", () => {
+    expect(
+      moveToHoldingsSchema.safeParse({ account_id: AID, avg_buy_price: -1 }).success
+    ).toBe(false);
   });
 });

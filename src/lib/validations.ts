@@ -46,6 +46,23 @@ export const companyWithHoldingSchema = z
     path: ["account_id"],
   });
 
+/**
+ * The position collected when moving a company into a Holdings portfolio.
+ * Account is mandatory (existing `account_id` or a `new_account_label`);
+ * quantity and avg_buy_price are optional and default to 0 when omitted.
+ */
+export const moveToHoldingsSchema = z
+  .object({
+    account_id: uuidSchema.optional(),
+    new_account_label: z.string().min(1).max(100).optional(),
+    quantity: z.number().positive("Quantity must be positive").optional(),
+    avg_buy_price: z.number().nonnegative("Average price cannot be negative").optional(),
+  })
+  .refine((d) => Boolean(d.account_id || d.new_account_label), {
+    message: "Account is required",
+    path: ["account_id"],
+  });
+
 export const portfolioSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   type: z.enum(["holdings", "watchlist"]),
