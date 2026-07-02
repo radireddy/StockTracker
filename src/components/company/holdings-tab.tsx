@@ -13,6 +13,7 @@ import {
 import { getAccounts, createAccount } from "@/app/(authenticated)/actions/account-actions";
 import type { Holding, Account } from "@/types/database";
 import { Pencil, Trash2, Check, X, Plus, Loader2 } from "lucide-react";
+import { AccountSelect, NEW_ACCOUNT } from "@/components/account/account-select";
 import { toast } from "sonner";
 
 const fmt = (n: number) => new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(n);
@@ -109,7 +110,7 @@ export function HoldingsTab({
     setBusy(true);
     try {
       let accountId = addAccountId;
-      if (accountId === "__new__") {
+      if (accountId === NEW_ACCOUNT) {
         if (!newAccountLabel.trim()) {
           toast.error("Enter a name for the new account");
           setBusy(false);
@@ -274,21 +275,13 @@ export function HoldingsTab({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Account</label>
-                  <select
+                  <AccountSelect
+                    accounts={accounts}
                     value={addAccountId}
-                    onChange={(e) => setAddAccountId(e.target.value)}
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                  >
-                    <option value="" disabled>
-                      Select account…
-                    </option>
-                    {accounts.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.label}
-                      </option>
-                    ))}
-                    <option value="__new__">+ New account…</option>
-                  </select>
+                    onChange={setAddAccountId}
+                    newLabel={newAccountLabel}
+                    onNewLabelChange={setNewAccountLabel}
+                  />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Quantity</label>
@@ -299,14 +292,6 @@ export function HoldingsTab({
                   <Input value={addPrice} onChange={(e) => setAddPrice(e.target.value)} inputMode="decimal" className="h-9" />
                 </div>
               </div>
-              {addAccountId === "__new__" && (
-                <Input
-                  placeholder="New account name (e.g. Father – Groww)"
-                  value={newAccountLabel}
-                  onChange={(e) => setNewAccountLabel(e.target.value)}
-                  className="h-9"
-                />
-              )}
               <div className="flex gap-2">
                 <Button size="sm" disabled={busy} onClick={handleAdd}>
                   {busy && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
