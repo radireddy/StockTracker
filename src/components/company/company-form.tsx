@@ -40,7 +40,16 @@ export function CompanyForm() {
   const [avgPrice, setAvgPrice] = useState("");
 
   useEffect(() => {
-    if (isHoldings) getAccounts().then(setAccounts).catch(() => setAccounts([]));
+    if (isHoldings) {
+      getAccounts().then(setAccounts).catch(() => setAccounts([]));
+    } else {
+      Promise.resolve().then(() => {
+        setAccountId("");
+        setNewAccountLabel("");
+        setQuantity("");
+        setAvgPrice("");
+      });
+    }
   }, [isHoldings]);
 
   const hasAnyPosition = Boolean(accountId || quantity || avgPrice);
@@ -82,7 +91,7 @@ export function CompanyForm() {
       const accountOk =
         (accountId && accountId !== NEW_ACCOUNT) ||
         (accountId === NEW_ACCOUNT && newAccountLabel.trim());
-      if (!accountOk || !quantity || !avgPrice) {
+      if (!accountOk || !(Number(quantity) > 0) || !(Number(avgPrice) >= 0)) {
         toast.error("Enter account, quantity and avg price together");
         return;
       }
