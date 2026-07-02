@@ -61,11 +61,10 @@ beforeEach(() => {
 });
 
 describe("createCompanyWithHolding", () => {
-  it("creates a research-only company (no position, no holding)", async () => {
-    const id = await createCompanyWithHolding(mkForm({ portfolio_id: PID, isin: ISIN, star_rating: "3" }));
-    expect(id).toBe("co-1");
-    expect(fromCalls.holdings ?? 0).toBe(0);
-    expect(fromCalls.accounts ?? 0).toBe(0);
+  it("rejects a research-only add (position is mandatory)", async () => {
+    await expect(
+      createCompanyWithHolding(mkForm({ portfolio_id: PID, isin: ISIN, star_rating: "3" }))
+    ).rejects.toThrow();
   });
 
   it("creates a company + holding with an existing account", async () => {
@@ -89,13 +88,15 @@ describe("createCompanyWithHolding", () => {
   it("rejects a duplicate stock in the portfolio", async () => {
     handlers.companies = (op) => (op.insert ? { data: { id: "co-1" } } : { data: { id: "existing" } });
     await expect(
-      createCompanyWithHolding(mkForm({ portfolio_id: PID, isin: ISIN }))
+      createCompanyWithHolding(
+        mkForm({ portfolio_id: PID, isin: ISIN, account_id: AID, quantity: "10", avg_buy_price: "100" })
+      )
     ).rejects.toThrow(/already in this portfolio/i);
   });
 
-  it("rejects a partial position", async () => {
+  it("rejects a missing account", async () => {
     await expect(
-      createCompanyWithHolding(mkForm({ portfolio_id: PID, isin: ISIN, quantity: "10" }))
-    ).rejects.toThrow(/together/i);
+      createCompanyWithHolding(mkForm({ portfolio_id: PID, isin: ISIN, quantity: "10", avg_buy_price: "100" }))
+    ).rejects.toThrow(/account is required/i);
   });
 });

@@ -21,9 +21,9 @@ export const companyCreateSchema = z.object({
 });
 
 /**
- * Add a company with an OPTIONAL, all-or-nothing holding position.
- * Research fields are all optional. If any position field is provided,
- * account + quantity + avg_buy_price must all be provided together.
+ * Add a company to a Holdings portfolio WITH a mandatory position.
+ * Research fields are optional; account + quantity + avg_buy_price are
+ * required. Provide either an existing `account_id` or a `new_account_label`.
  */
 export const companyWithHoldingSchema = z
   .object({
@@ -34,23 +34,16 @@ export const companyWithHoldingSchema = z
     investment_horizon_years: z.number().int().min(0).max(30).optional(),
     star_rating: z.number().int().min(1).max(5).optional(),
     buy_price: z.number().nonnegative().optional().nullable(),
-    // position (all-or-nothing)
+    // position (required)
     account_id: uuidSchema.optional(),
     new_account_label: z.string().min(1).max(100).optional(),
-    quantity: z.number().positive().optional(),
-    avg_buy_price: z.number().nonnegative().optional(),
+    quantity: z.number().positive("Quantity must be positive"),
+    avg_buy_price: z.number().nonnegative("Average price cannot be negative"),
   })
-  .refine(
-    (d) => {
-      const hasAccount = Boolean(d.account_id || d.new_account_label);
-      const hasQty = d.quantity !== undefined;
-      const hasPrice = d.avg_buy_price !== undefined;
-      const some = hasAccount || hasQty || hasPrice;
-      const all = hasAccount && hasQty && hasPrice;
-      return !some || all;
-    },
-    { message: "Enter account, quantity and avg price together" }
-  );
+  .refine((d) => Boolean(d.account_id || d.new_account_label), {
+    message: "Account is required",
+    path: ["account_id"],
+  });
 
 export const portfolioSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),

@@ -178,11 +178,9 @@ export async function createCompanyWithHolding(formData: FormData): Promise<stri
     .maybeSingle();
   if (existing) throw new Error("This stock is already in this portfolio.");
 
-  const hasPosition = Boolean(d.account_id || d.new_account_label);
-
   // 2. Resolve the account (create it if a new label was given).
   let accountId = d.account_id ?? null;
-  if (hasPosition && d.new_account_label) {
+  if (d.new_account_label) {
     const label = d.new_account_label.trim();
     const { data: acct, error: acctErr } = await supabase
       .from("accounts")
@@ -221,24 +219,23 @@ export async function createCompanyWithHolding(formData: FormData): Promise<stri
     );
   }
 
-  // 4. Insert the holding when a position was provided.
-  if (hasPosition && accountId) {
-    const { error: holdErr } = await supabase.from("holdings").insert({
-      user_id: user.id,
-      portfolio_id: d.portfolio_id,
-      account_id: accountId,
-      company_id: company.id,
-      isin: d.isin,
-      quantity: d.quantity!,
-      avg_buy_price: d.avg_buy_price!,
-      source: "manual",
-      import_holding_id: null,
-    });
-    if (holdErr) throw new Error(holdErr.message);
-  }
+  // 4. Insert the holding (position is mandatory; account is guaranteed).
+  if (!accountId) throw new Error("Account is required");
+  const { error: holdErr } = await supabase.from("holdings").insert({
+    user_id: user.id,
+    portfolio_id: d.portfolio_id,
+    account_id: accountId,
+    company_id: company.id,
+    isin: d.isin,
+    quantity: d.quantity,
+    avg_buy_price: d.avg_buy_price,
+    source: "manual",
+    import_holding_id: null,
+  });
+  if (holdErr) throw new Error(holdErr.message);
 
   await fetchStockPrice(d.isin);
   revalidatePath("/");
-  log.info("Company created with holding", { isin: d.isin, hasPosition });
+  log.info("Company created with holding", { isin: d.isin });
   return company.id;
 }
