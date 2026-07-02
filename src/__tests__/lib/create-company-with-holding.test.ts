@@ -61,10 +61,16 @@ beforeEach(() => {
 });
 
 describe("createCompanyWithHolding", () => {
-  it("rejects a research-only add (position is mandatory)", async () => {
+  it("creates a company + holding with an account only (qty & price deferred)", async () => {
+    const id = await createCompanyWithHolding(mkForm({ portfolio_id: PID, isin: ISIN, account_id: AID }));
+    expect(id).toBe("co-1");
+    expect(fromCalls.holdings).toBe(1);
+  });
+
+  it("rejects an add with no account (account is mandatory)", async () => {
     await expect(
       createCompanyWithHolding(mkForm({ portfolio_id: PID, isin: ISIN, star_rating: "3" }))
-    ).rejects.toThrow();
+    ).rejects.toThrow(/account is required/i);
   });
 
   it("creates a company + holding with an existing account", async () => {

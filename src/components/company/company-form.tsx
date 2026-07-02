@@ -84,18 +84,26 @@ export function CompanyForm() {
       return;
     }
 
-    // Holdings: account, quantity and avg buy price are all mandatory.
+    // Holdings: account is mandatory; quantity & avg price can be added later.
     const accountOk =
       (accountId && accountId !== NEW_ACCOUNT) ||
       (accountId === NEW_ACCOUNT && newAccountLabel.trim());
-    if (!accountOk || !(Number(quantity) > 0) || !(Number(avgPrice) >= 0)) {
-      toast.error("Account, quantity and avg buy price are required");
+    if (!accountOk) {
+      toast.error("Account is required");
+      return;
+    }
+    if (quantity && !(Number(quantity) > 0)) {
+      toast.error("Quantity must be positive");
+      return;
+    }
+    if (avgPrice && Number(avgPrice) < 0) {
+      toast.error("Average price cannot be negative");
       return;
     }
     if (accountId === NEW_ACCOUNT) fd.set("new_account_label", newAccountLabel.trim());
     else fd.set("account_id", accountId);
-    fd.set("quantity", quantity);
-    fd.set("avg_buy_price", avgPrice);
+    if (quantity) fd.set("quantity", quantity);
+    if (avgPrice) fd.set("avg_buy_price", avgPrice);
 
     setPending(true);
     try {
@@ -201,7 +209,7 @@ export function CompanyForm() {
               <div className="flex items-center gap-2 mb-1">
                 <Wallet className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium">Position</span>
-                <span className="text-xs text-muted-foreground">(required)</span>
+                <span className="text-xs text-muted-foreground">(account required; qty &amp; price can be added later)</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
@@ -215,11 +223,11 @@ export function CompanyForm() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-sm">Quantity *</Label>
+                  <Label className="text-sm">Quantity</Label>
                   <Input value={quantity} onChange={(e) => setQuantity(e.target.value)} inputMode="decimal" placeholder="e.g. 100" className="bg-background" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-sm">Avg Buy Price (₹) *</Label>
+                  <Label className="text-sm">Avg Buy Price (₹)</Label>
                   <Input value={avgPrice} onChange={(e) => setAvgPrice(e.target.value)} inputMode="decimal" placeholder="e.g. 245.50" className="bg-background" />
                 </div>
               </div>

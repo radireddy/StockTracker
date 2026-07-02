@@ -219,7 +219,8 @@ export async function createCompanyWithHolding(formData: FormData): Promise<stri
     );
   }
 
-  // 4. Insert the holding (position is mandatory; account is guaranteed).
+  // 4. Insert the holding. Account is guaranteed; quantity and avg price are
+  //    optional (default to 0) and can be filled in later on the Holdings tab.
   if (!accountId) throw new Error("Account is required");
   const { error: holdErr } = await supabase.from("holdings").insert({
     user_id: user.id,
@@ -227,8 +228,8 @@ export async function createCompanyWithHolding(formData: FormData): Promise<stri
     account_id: accountId,
     company_id: company.id,
     isin: d.isin,
-    quantity: d.quantity,
-    avg_buy_price: d.avg_buy_price,
+    quantity: d.quantity ?? 0,
+    avg_buy_price: d.avg_buy_price ?? 0,
     source: "manual",
     import_holding_id: null,
   });
