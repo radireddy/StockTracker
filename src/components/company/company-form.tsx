@@ -65,7 +65,7 @@ export function CompanyForm({
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Stock Search */}
-        <Card className="border-primary/10 shadow-sm">
+        <Card className="border-primary/10 shadow-sm overflow-visible">
           <CardContent className="pt-5 pb-5">
             <Label className="text-sm font-medium mb-2 block">Stock *</Label>
             <StockSearch
