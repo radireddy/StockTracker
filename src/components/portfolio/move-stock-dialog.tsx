@@ -155,7 +155,7 @@ export function MoveStockDialog({
                 </span>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm">Account *</Label>
+                <Label className="text-sm">Account <span className="text-destructive">*</span></Label>
                 <AccountSelect
                   accounts={accounts}
                   value={accountId}
@@ -206,7 +206,13 @@ export function MoveStockDialog({
           </Button>
           <Button
             onClick={handleMove}
-            disabled={pending || !targetId || (needsAccount && !accountId)}
+            disabled={
+              pending ||
+              !targetId ||
+              (needsAccount &&
+                (!accountId ||
+                  (accountId === NEW_ACCOUNT && !newAccountLabel.trim())))
+            }
           >
             {pending ? "Moving..." : "Move Stock"}
           </Button>
