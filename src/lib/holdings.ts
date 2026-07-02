@@ -16,3 +16,17 @@ export function combineHoldingLots(
     existing.quantity * existing.avg_buy_price + added.quantity * added.avg_buy_price;
   return { quantity, avg_buy_price: cost / quantity };
 }
+
+/**
+ * Whether moving a company into `targetType` from `currentType` must prompt for
+ * an account. Only the watchlist -> holdings move needs one: there is no
+ * position to carry, so an account is required to create the initial holdings
+ * row. Holdings -> holdings carries existing positions (with their own
+ * accounts), and watchlist targets hold no positions at all.
+ */
+export function requiresAccountForMove(
+  currentType: "holdings" | "watchlist",
+  targetType: "holdings" | "watchlist"
+): boolean {
+  return currentType === "watchlist" && targetType === "holdings";
+}

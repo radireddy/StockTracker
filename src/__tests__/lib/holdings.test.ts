@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { combineHoldingLots } from "@/lib/holdings";
+import { combineHoldingLots, requiresAccountForMove } from "@/lib/holdings";
 
 describe("combineHoldingLots", () => {
   it("adds quantities and cost-weights the average price", () => {
@@ -28,5 +28,18 @@ describe("combineHoldingLots", () => {
     );
     expect(result.quantity).toBe(30);
     expect(result.avg_buy_price).toBe(500);
+  });
+});
+
+describe("requiresAccountForMove", () => {
+  it("requires an account moving watchlist -> holdings", () => {
+    expect(requiresAccountForMove("watchlist", "holdings")).toBe(true);
+  });
+  it("does not require one moving holdings -> holdings (positions carry over)", () => {
+    expect(requiresAccountForMove("holdings", "holdings")).toBe(false);
+  });
+  it("does not require one when the target is a watchlist", () => {
+    expect(requiresAccountForMove("watchlist", "watchlist")).toBe(false);
+    expect(requiresAccountForMove("holdings", "watchlist")).toBe(false);
   });
 });
