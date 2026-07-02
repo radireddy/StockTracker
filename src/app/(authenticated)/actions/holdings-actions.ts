@@ -4,6 +4,7 @@ import { getAuthUser } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { createLogger } from "@/lib/logger";
 import { holdingSchema } from "@/lib/validations";
+import { combineHoldingLots } from "@/lib/holdings";
 import type { Holding } from "@/types/database";
 
 const log = createLogger({ service: "holdings-actions" });
@@ -25,8 +26,11 @@ export async function getHoldingsForCompany(companyId: string): Promise<Holding[
 }
 
 /**
- * Manually add (or overwrite) a holding for a stock in a specific account.
- * Always account-scoped. Creates the company research stub if missing.
+ * Manually add a holding (a buy) for a stock in a specific account. If the
+ * account already holds this stock, the new lot is accumulated — quantities
+ * add up and the average buy price becomes the cost-weighted average — rather
+ * than overwriting the existing position. Always account-scoped. Creates the
+ * company research stub if missing.
  */
 export async function addHolding(
   portfolioId: string,
@@ -65,6 +69,20 @@ export async function addHolding(
     companyId = created!.id;
   }
 
+  // Accumulate onto any existing lot for this account+company (a new buy),
+  // rather than replacing it.
+  const { data: current } = await supabase
+    .from("holdings")
+    .select("quantity, avg_buy_price")
+    .eq("portfolio_id", portfolioId)
+    .eq("account_id", input.account_id)
+    .eq("company_id", companyId)
+    .maybeSingle();
+
+  const combined = current
+    ? combineHoldingLots(current, { quantity: input.quantity, avg_buy_price: input.avg_buy_price })
+    : { quantity: input.quantity, avg_buy_price: input.avg_buy_price };
+
   const { error } = await supabase.from("holdings").upsert(
     {
       user_id: user.id,
@@ -72,8 +90,8 @@ export async function addHolding(
       account_id: input.account_id,
       company_id: companyId,
       isin: input.isin,
-      quantity: input.quantity,
-      avg_buy_price: input.avg_buy_price,
+      quantity: combined.quantity,
+      avg_buy_price: combined.avg_buy_price,
       source: "manual",
       import_holding_id: null,
     },
