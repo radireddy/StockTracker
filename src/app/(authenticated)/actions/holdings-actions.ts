@@ -3,7 +3,8 @@
 import { getAuthUser } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { createLogger } from "@/lib/logger";
-import { holdingSchema } from "@/lib/validations";
+import { holdingSchema, companyWithHoldingSchema } from "@/lib/validations";
+import { fetchStockPrice } from "@/app/(authenticated)/actions/price-actions";
 import { combineHoldingLots } from "@/lib/holdings";
 import type { Holding } from "@/types/database";
 
@@ -139,4 +140,105 @@ export async function deleteHolding(id: string): Promise<void> {
     throw new Error(error.message);
   }
   revalidatePath("/");
+}
+
+/**
+ * Add a company to a portfolio, optionally with a holding position.
+ * Research-only, position-only, and both are all valid. When a `+New`
+ * account label is given, the account is created first. Duplicate stocks
+ * in the same portfolio are rejected before anything is created.
+ */
+export async function createCompanyWithHolding(formData: FormData): Promise<string> {
+  const { supabase, user } = await getAuthUser();
+
+  const num = (k: string) => (formData.get(k) ? Number(formData.get(k)) : undefined);
+  const str = (k: string) => (formData.get(k) as string) || undefined;
+
+  const parsed = companyWithHoldingSchema.safeParse({
+    portfolio_id: formData.get("portfolio_id"),
+    isin: formData.get("isin"),
+    strategy: str("strategy"),
+    investment_horizon_years: num("investment_horizon_years"),
+    star_rating: num("star_rating"),
+    buy_price: num("buy_price"),
+    account_id: str("account_id"),
+    new_account_label: str("new_account_label"),
+    quantity: num("quantity"),
+    avg_buy_price: num("avg_buy_price"),
+  });
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  const d = parsed.data;
+
+  // 1. Reject duplicate stock in this portfolio.
+  const { data: existing } = await supabase
+    .from("companies")
+    .select("id")
+    .eq("portfolio_id", d.portfolio_id)
+    .eq("isin", d.isin)
+    .maybeSingle();
+  if (existing) throw new Error("This stock is already in this portfolio.");
+
+  const hasPosition = Boolean(d.account_id || d.new_account_label);
+
+  // 2. Resolve the account (create it if a new label was given).
+  let accountId = d.account_id ?? null;
+  if (hasPosition && d.new_account_label) {
+    const label = d.new_account_label.trim();
+    const { data: acct, error: acctErr } = await supabase
+      .from("accounts")
+      .insert({ user_id: user.id, label, broker: "manual" })
+      .select("id")
+      .single();
+    if (acctErr) {
+      throw new Error(
+        acctErr.code === "23505"
+          ? `An account named "${label}" already exists`
+          : acctErr.message
+      );
+    }
+    accountId = acct!.id;
+  }
+
+  // 3. Insert the company (research stub; defaults applied).
+  const { data: company, error: compErr } = await supabase
+    .from("companies")
+    .insert({
+      user_id: user.id,
+      portfolio_id: d.portfolio_id,
+      isin: d.isin,
+      buy_price: d.buy_price ?? null,
+      star_rating: d.star_rating ?? 2,
+      strategy: (d.strategy as "core" | "satellite" | null) ?? null,
+      investment_horizon_years: d.investment_horizon_years ?? 0,
+    })
+    .select("id")
+    .single();
+  if (compErr || !company) {
+    throw new Error(
+      compErr?.code === "23503"
+        ? "That stock is not in the database yet. Import a statement containing it first."
+        : compErr?.message ?? "Failed to create company"
+    );
+  }
+
+  // 4. Insert the holding when a position was provided.
+  if (hasPosition && accountId) {
+    const { error: holdErr } = await supabase.from("holdings").insert({
+      user_id: user.id,
+      portfolio_id: d.portfolio_id,
+      account_id: accountId,
+      company_id: company.id,
+      isin: d.isin,
+      quantity: d.quantity!,
+      avg_buy_price: d.avg_buy_price!,
+      source: "manual",
+      import_holding_id: null,
+    });
+    if (holdErr) throw new Error(holdErr.message);
+  }
+
+  await fetchStockPrice(d.isin);
+  revalidatePath("/");
+  log.info("Company created with holding", { isin: d.isin, hasPosition });
+  return company.id;
 }
