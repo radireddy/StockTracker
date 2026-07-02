@@ -12,7 +12,7 @@ import {
 } from "@/app/(authenticated)/actions/holdings-actions";
 import { getAccounts, createAccount } from "@/app/(authenticated)/actions/account-actions";
 import type { Holding, Account } from "@/types/database";
-import { Pencil, Trash2, Check, X, Plus, Loader2 } from "lucide-react";
+import { Pencil, Trash2, Check, X, Plus, Loader2, Info } from "lucide-react";
 import { AccountSelect, NEW_ACCOUNT } from "@/components/account/account-select";
 import { toast } from "sonner";
 
@@ -68,6 +68,13 @@ export function HoldingsTab({
   const totalQty = holdings.reduce((s, h) => s + h.quantity, 0);
   const totalCost = holdings.reduce((s, h) => s + h.quantity * h.avg_buy_price, 0);
   const weightedAvg = totalQty > 0 ? totalCost / totalQty : 0;
+
+  // A holding this account already has for this stock. Adding to it merges the
+  // new lot in (quantity summed, avg buy price recalculated as a weighted avg).
+  const existingLot =
+    addAccountId && addAccountId !== NEW_ACCOUNT
+      ? holdings.find((h) => h.account_id === addAccountId) ?? null
+      : null;
 
   const handleUpdate = async (id: string) => {
     const qty = parseFloat(editQty);
@@ -274,7 +281,7 @@ export function HoldingsTab({
               <p className="text-sm font-medium">Add holding to an account</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Account</label>
+                  <label className="text-xs text-muted-foreground">Account <span className="text-destructive">*</span></label>
                   <AccountSelect
                     accounts={accounts}
                     value={addAccountId}
@@ -284,14 +291,26 @@ export function HoldingsTab({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Quantity</label>
+                  <label className="text-xs text-muted-foreground">Quantity <span className="text-destructive">*</span></label>
                   <Input value={addQty} onChange={(e) => setAddQty(e.target.value)} inputMode="decimal" className="h-9" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Avg buy price</label>
+                  <label className="text-xs text-muted-foreground">Avg buy price <span className="text-destructive">*</span></label>
                   <Input value={addPrice} onChange={(e) => setAddPrice(e.target.value)} inputMode="decimal" className="h-9" />
                 </div>
               </div>
+              {existingLot && (
+                <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-300">
+                  <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>
+                    This account already holds{" "}
+                    <span className="font-medium tabular-nums">{fmt(existingLot.quantity)}</span>{" "}
+                    @ <span className="font-medium tabular-nums">₹{fmt(existingLot.avg_buy_price)}</span>.
+                    Adding merges into the existing lot — the quantity is summed and the
+                    average buy price is recalculated as a weighted average.
+                  </span>
+                </div>
+              )}
               <div className="flex gap-2">
                 <Button size="sm" disabled={busy} onClick={handleAdd}>
                   {busy && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}

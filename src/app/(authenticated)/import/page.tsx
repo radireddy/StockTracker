@@ -191,7 +191,7 @@ export default function ImportPage() {
         <CardContent className="space-y-5">
           {/* Portfolio selector */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Portfolio</label>
+            <label className="text-sm font-medium">Portfolio <span className="text-destructive">*</span></label>
             {holdingsPortfolios.length === 0 ? (
               <p className="text-sm text-destructive">
                 No holdings portfolios found. Create a holdings portfolio first.
@@ -215,7 +215,7 @@ export default function ImportPage() {
 
           {/* File upload */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Zerodha Holdings Statement</label>
+            <label className="text-sm font-medium">Zerodha Holdings Statement <span className="text-destructive">*</span></label>
             <p className="text-xs text-muted-foreground">
               Zerodha Console &rarr; Reports &rarr; Holdings &rarr; Download as Excel.
               The account is detected automatically from the statement. You can select

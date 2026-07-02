@@ -184,7 +184,7 @@ export function CompanyForm() {
         {/* Stock Search */}
         <Card className="border-primary/10 shadow-sm overflow-visible">
           <CardContent className="pt-5 pb-5">
-            <Label className="text-sm font-medium mb-2 block">Stock *</Label>
+            <Label className="text-sm font-medium mb-2 block">Stock <span className="text-destructive">*</span></Label>
             <StockSearch
               onSelect={setSelectedStock}
               selected={selectedStock}
@@ -213,7 +213,7 @@ export function CompanyForm() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-sm">Account *</Label>
+                  <Label className="text-sm">Account <span className="text-destructive">*</span></Label>
                   <AccountSelect
                     accounts={accounts}
                     value={accountId}

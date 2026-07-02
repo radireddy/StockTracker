@@ -89,7 +89,7 @@ export function EditCompanyDialog({ company }: { company: Company }) {
               />
             </div>
             <div>
-              <Label htmlFor="edit-star_rating">Star Rating *</Label>
+              <Label htmlFor="edit-star_rating">Star Rating <span className="text-destructive">*</span></Label>
               <Select
                 name="star_rating"
                 defaultValue={String(company.star_rating ?? 2)}
