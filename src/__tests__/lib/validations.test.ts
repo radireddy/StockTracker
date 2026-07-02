@@ -36,6 +36,17 @@ describe("companyWithHoldingSchema", () => {
   it("rejects a partial position (account only)", () => {
     const r = companyWithHoldingSchema.safeParse({ portfolio_id: PID, isin: ISIN, account_id: AID });
     expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues[0].message).toBe("Enter account, quantity and avg price together");
+    }
+  });
+
+  it("rejects a partial position (price only)", () => {
+    const r = companyWithHoldingSchema.safeParse({ portfolio_id: PID, isin: ISIN, avg_buy_price: 100 });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues[0].message).toBe("Enter account, quantity and avg price together");
+    }
   });
 
   it("rejects a bad ISIN", () => {

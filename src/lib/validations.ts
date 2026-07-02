@@ -35,7 +35,7 @@ export const companyWithHoldingSchema = z
     star_rating: z.number().int().min(1).max(5).optional(),
     buy_price: z.number().nonnegative().optional().nullable(),
     // position (all-or-nothing)
-    account_id: uuidSchema.optional().nullable(),
+    account_id: uuidSchema.optional(),
     new_account_label: z.string().min(1).max(100).optional(),
     quantity: z.number().positive().optional(),
     avg_buy_price: z.number().nonnegative().optional(),
