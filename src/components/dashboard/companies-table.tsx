@@ -8,7 +8,9 @@ import {
 import { useRouter } from "next/navigation";
 import { marginOfSafety, isBuySignal, effectiveBuyPrice, computeLiveIrr, fmtPriceShort, fmtAmountShort, fmtPctShort, fmtIrr, fmtNum, getEffectiveRanges, getRangeForStar, getAllocationStatus, getAllocationDelta } from "@/lib/utils/calculations";
 import type { AllocationStatus } from "@/lib/utils/calculations";
-import { FileText, X, Loader2, ArrowRightLeft, Trash2, MoreVertical } from "lucide-react";
+import { FileText, X, Loader2, ArrowRightLeft, Trash2, MoreVertical, Upload, Plus } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { getCompanyHighlights, deleteCompany } from "@/app/(authenticated)/actions/company-actions";
 import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
 import { MoveStockDialog } from "@/components/portfolio/move-stock-dialog";
@@ -104,6 +106,71 @@ const STATUS_LABEL: Record<AllocationStatus, string> = {
 
 function fmtRupee(n: number): string {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Math.abs(n));
+}
+
+/**
+ * Empty state rendered inside the table body.
+ * - When the portfolio has no companies at all (`hasCompanies` false), show
+ *   inline actions to import a statement (holdings only) or add a company.
+ * - When companies exist but filters/search matched nothing, show a simpler
+ *   "no matches" message.
+ */
+function EmptyState({
+  hasCompanies,
+  isHoldings,
+}: {
+  hasCompanies: boolean;
+  isHoldings: boolean;
+}) {
+  if (hasCompanies) {
+    return (
+      <tr>
+        <td colSpan={99} className="text-center py-8 text-sm text-muted-foreground">
+          No companies match your filters.
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr>
+      <td colSpan={99} className="px-4 py-12">
+        <div className="mx-auto flex max-w-sm flex-col items-center text-center">
+          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            {isHoldings ? <Upload size={20} /> : <Plus size={20} />}
+          </div>
+          <p className="text-sm font-medium text-foreground">
+            {isHoldings ? "No holdings yet" : "No companies yet"}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isHoldings
+              ? "Import a broker statement or add a company manually to get started."
+              : "Add a company to start tracking it."}
+          </p>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            {isHoldings && (
+              <Link href="/import">
+                <Button size="sm" className="h-8 text-sm">
+                  <Upload size={14} className="mr-1.5" />
+                  Import statement
+                </Button>
+              </Link>
+            )}
+            <Link href="/company/new">
+              <Button
+                size="sm"
+                variant={isHoldings ? "outline" : "default"}
+                className="h-8 text-sm"
+              >
+                <Plus size={14} className="mr-1.5" />
+                Add company
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </td>
+    </tr>
+  );
 }
 
 export function CompaniesTable({
@@ -443,6 +510,7 @@ export function CompaniesTable({
             thRight={thRight}
             thCenter={thCenter}
             router={router}
+            hasCompanies={companies.length > 0}
           />
         ) : (
           <table className="text-sm border-collapse w-full lg:table-fixed" role="table" aria-label="Companies portfolio table">
@@ -876,11 +944,7 @@ export function CompaniesTable({
                 );
               })}
               {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={99} className="text-center py-8 text-sm text-muted-foreground">
-                    No companies found.
-                  </td>
-                </tr>
+                <EmptyState hasCompanies={companies.length > 0} isHoldings={isHoldings} />
               )}
             </tbody>
           </table>
@@ -993,6 +1057,7 @@ function AllocationTable({
   thRight,
   thCenter,
   router,
+  hasCompanies,
 }: {
   filtered: CompanyWithProjections[];
   getAllocationData: (c: CompanyWithProjections) => {
@@ -1013,6 +1078,7 @@ function AllocationTable({
   thRight: string;
   thCenter: string;
   router: ReturnType<typeof useRouter>;
+  hasCompanies: boolean;
 }) {
   const basisLabel = allocationBasis === "invested" ? "Invested" : "Current";
   return (
@@ -1243,11 +1309,7 @@ function AllocationTable({
           );
         })}
         {filtered.length === 0 && (
-          <tr>
-            <td colSpan={99} className="text-center py-8 text-sm text-muted-foreground">
-              No companies found.
-            </td>
-          </tr>
+          <EmptyState hasCompanies={hasCompanies} isHoldings={true} />
         )}
       </tbody>
     </table>
