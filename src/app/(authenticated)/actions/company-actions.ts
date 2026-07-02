@@ -143,9 +143,6 @@ export async function moveCompany(
   companyId: string,
   targetPortfolioId: string,
   additionalData?: {
-    quantity?: number;
-    avg_buy_price?: number;
-    buy_date?: string;
     notes?: string;
   }
 ) {
@@ -181,7 +178,7 @@ export async function moveCompany(
     throw new Error("This stock already exists in the target portfolio.");
   }
 
-  // 4. Insert new company in target (copy common fields)
+  // 4. Insert new company in target (research fields only; positions live in `holdings`)
   const isWatchlist = targetPortfolio.type === "watchlist";
 
   const { data: newCompany, error: insertError } = await supabase
@@ -197,11 +194,6 @@ export async function moveCompany(
       expected_returns: source.expected_returns,
       thesis: source.thesis,
       highlights: source.highlights,
-      quantity: isWatchlist ? null : (additionalData?.quantity ?? null),
-      avg_buy_price: isWatchlist
-        ? null
-        : (additionalData?.avg_buy_price ?? null),
-      buy_date: isWatchlist ? null : (additionalData?.buy_date ?? null),
       notes: additionalData?.notes ?? null,
     })
     .select("id")
@@ -210,6 +202,16 @@ export async function moveCompany(
   if (insertError || !newCompany) {
     log.error("Failed to insert company in target portfolio", { error: insertError?.message });
     throw insertError ?? new Error("Failed to move company");
+  }
+
+  // 4b. Move holdings to the target portfolio/company (drop them for a watchlist target).
+  if (isWatchlist) {
+    await supabase.from("holdings").delete().eq("company_id", companyId);
+  } else {
+    await supabase
+      .from("holdings")
+      .update({ company_id: newCompany.id, portfolio_id: targetPortfolioId })
+      .eq("company_id", companyId);
   }
 
   // 5. Copy child records: projection_models, financial_years, valuation_scenarios

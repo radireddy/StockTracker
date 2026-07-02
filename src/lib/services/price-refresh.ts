@@ -48,93 +48,19 @@ export async function ensureMissingStocks(
     isins: orphanIsins,
   });
 
-  let created = 0;
-  const unresolved: string[] = [];
-
-  for (const isin of orphanIsins) {
-    // Try to resolve symbol from the most recent transaction for any company with this ISIN
-    const { data: txn } = await adminClient
-      .from("transactions")
-      .select("trade_id, exchange, company_id")
-      .eq("company_id", (
-        await adminClient
-          .from("companies")
-          .select("id")
-          .eq("isin", isin)
-          .limit(1)
-          .single()
-      ).data?.id ?? "")
-      .order("date", { ascending: false })
-      .limit(1)
-      .single();
-
-    // Extract symbol from trade_id (Zerodha format: "{symbol}-{date}-{index}")
-    // or from the company's known NSE symbol patterns
-    let symbol: string | null = null;
-    let exchange: string = "NSE";
-
-    if (txn?.trade_id) {
-      // Zerodha trade_id format: "SYMBOL-YYYYMMDD-N"
-      const parts = txn.trade_id.split("-");
-      if (parts.length >= 2) {
-        symbol = parts[0];
-      }
-      if (txn.exchange) {
-        exchange = txn.exchange;
-      }
-    }
-
-    if (!symbol) {
-      log.warn("Cannot resolve symbol for orphan ISIN — no transaction data", { isin });
-      unresolved.push(isin);
-      continue;
-    }
-
-    const stockRow = {
-      isin,
-      name: symbol, // Best we have; will be overwritten if stock is later found in catalog
-      nse_symbol: exchange === "NSE" || exchange === "BOTH" ? symbol : null,
-      bse_code: exchange === "BSE" ? symbol : null,
-      exchange: exchange === "BSE" ? ("BSE" as const) : ("NSE" as const),
-    };
-
-    let { error: insertErr } = await adminClient
-      .from("indian_stocks")
-      .upsert(stockRow, { onConflict: "isin", ignoreDuplicates: true });
-
-    if (insertErr) {
-      // Retry without symbol columns in case of unique constraint conflict
-      log.warn("Stock insert failed, retrying without symbol columns", {
-        isin, symbol, error: insertErr.message,
-      });
-      const { error: retryErr } = await adminClient
-        .from("indian_stocks")
-        .upsert(
-          { isin, name: symbol, exchange: stockRow.exchange },
-          { onConflict: "isin", ignoreDuplicates: true }
-        );
-      insertErr = retryErr;
-    }
-
-    if (insertErr) {
-      log.error("Failed to auto-create missing stock in indian_stocks", {
-        isin, symbol, error: insertErr.message,
-      });
-      unresolved.push(isin);
-    } else {
-      log.info("Auto-created missing stock in indian_stocks", { isin, symbol, exchange });
-      created++;
-    }
-  }
-
+  // Holdings import always registers the stock (with symbol) in `indian_stocks`,
+  // and manual "Add Company" only allows picking existing catalog stocks — so
+  // orphan companies are not expected. We can no longer derive a symbol for a
+  // truly orphaned ISIN (there is no trade history), so just report them.
+  const unresolved = orphanIsins;
   if (unresolved.length > 0) {
-    log.error("Stocks still missing from indian_stocks after auto-create attempt", {
+    log.warn("Orphan companies with no indian_stocks entry", {
       count: unresolved.length,
       isins: unresolved,
     });
   }
 
-  return { created, unresolved };
+  return { created: 0, unresolved };
 }
 
 export async function refreshPrices(

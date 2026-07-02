@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { usePortfolioContext } from "@/hooks/use-portfolio-context";
 import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
+import { AccountsManager } from "@/components/account/accounts-manager";
 import { toast } from "sonner";
 import {
   Upload,
@@ -22,31 +23,46 @@ import {
   Loader2,
   ArrowRight,
   Clock,
-  SkipForward,
   Plus,
   RefreshCw,
-  ChevronDown,
-  ChevronRight,
-  Check,
+  RotateCcw,
   Trash2,
 } from "lucide-react";
-import { OwnerPicker } from "@/components/owner/owner-picker";
-import type { ImportJob } from "@/types/database";
 
-type ImportPhase = "select" | "uploading" | "processing" | "done";
-
-/** Tracks per-file result when processing multiple files */
-type FileResult = {
-  file: File;
-  job: ImportJob | null;
-  error: string | null;
+/** Result returned synchronously by POST /api/import. */
+type ImportResponse = {
+  import_id: string;
+  broker_name: string;
+  status: "completed" | "failed";
+  is_reimport: boolean;
+  account_id: string;
+  account_label: string;
+  imported_count: number;
+  skipped_count: number;
+  companies_count: number;
+  new_companies_created: string[];
+  symbols_imported: string[];
+  symbols_skipped: string[];
+  statement_date: string | null;
+  client_id: string | null;
+  errors: { symbol?: string; message: string }[];
 };
 
-/** Lightweight job from the list endpoint (no summary/errors) */
-type ImportJobSummaryRow = Omit<ImportJob, "summary" | "errors"> & {
-  summary?: ImportJob["summary"];
-  errors?: ImportJob["errors"];
+type FileResult = { file: File; result: ImportResponse | null; error: string | null };
+
+type HistoryRow = {
+  id: string;
+  file_name: string | null;
+  statement_date: string | null;
+  status: string;
+  is_reimport: boolean;
+  companies_count: number;
+  imported_count: number;
+  created_at: string;
+  accounts?: { label: string; broker: string } | null;
 };
+
+type Phase = "select" | "importing" | "done";
 
 export default function ImportPage() {
   const { portfolios, selectedId } = usePortfolioContext();
@@ -54,226 +70,122 @@ export default function ImportPage() {
   const holdingsPortfolios = portfolios.filter((p) => p.type === "holdings");
 
   const [portfolioId, setPortfolioId] = useState(
-    holdingsPortfolios.some((p) => p.id === selectedId)
-      ? selectedId
-      : holdingsPortfolios[0]?.id ?? ""
+    holdingsPortfolios.some((p) => p.id === selectedId) ? selectedId : holdingsPortfolios[0]?.id ?? ""
   );
-  const [ownerId, setOwnerId] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [phase, setPhase] = useState<ImportPhase>("select");
-  const [job, setJob] = useState<ImportJob | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [recentJobs, setRecentJobs] = useState<ImportJobSummaryRow[]>([]);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [phase, setPhase] = useState<Phase>("select");
+  const [results, setResults] = useState<FileResult[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [history, setHistory] = useState<HistoryRow[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // Multi-file tracking
-  const [fileResults, setFileResults] = useState<FileResult[]>([]);
-  const [currentFileIndex, setCurrentFileIndex] = useState(0);
-  const abortRef = useRef(false);
 
-  useEffect(() => {
-    fetchRecentJobs();
-  }, []);
-
-  const fetchRecentJobs = async () => {
+  const fetchHistory = useCallback(async () => {
     try {
       const res = await fetch("/api/import");
-      if (res.ok) setRecentJobs(await res.json());
+      if (res.ok) setHistory(await res.json());
     } catch {
       /* silent */
     }
-  };
-
-  const handleDeleteJob = async (jobId: string) => {
-    try {
-      const res = await fetch(`/api/import?job_id=${jobId}`, { method: "DELETE" });
-      if (res.ok) {
-        setRecentJobs((prev) => prev.filter((j) => j.id !== jobId));
-        toast.success("Import record deleted");
-      } else {
-        toast.error("Failed to delete record");
-      }
-    } catch {
-      toast.error("Failed to delete record");
-    }
-  };
-
-  const handleClearAllJobs = async () => {
-    try {
-      const res = await fetch("/api/import", { method: "DELETE" });
-      if (res.ok) {
-        setRecentJobs([]);
-        toast.success("Import history cleared");
-      } else {
-        toast.error("Failed to clear history");
-      }
-    } catch {
-      toast.error("Failed to clear history");
-    }
-  };
-
-  /** Poll a single job until it completes/fails, then resolve with final job */
-  const waitForJob = useCallback((jobId: string): Promise<ImportJob> => {
-    return new Promise((resolve) => {
-      if (pollRef.current) clearInterval(pollRef.current);
-
-      pollRef.current = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/import?job_id=${jobId}`);
-          if (!res.ok) return;
-          const updatedJob: ImportJob = await res.json();
-          setJob(updatedJob);
-
-          if (
-            updatedJob.status === "completed" ||
-            updatedJob.status === "failed"
-          ) {
-            if (pollRef.current) clearInterval(pollRef.current);
-            pollRef.current = null;
-            resolve(updatedJob);
-          }
-        } catch {
-          /* continue polling */
-        }
-      }, 1500);
-    });
   }, []);
 
   useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, []);
+    fetchHistory();
+  }, [fetchHistory]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files;
-    if (!selected || selected.length === 0) {
-      setFiles([]);
-    } else {
-      setFiles(Array.from(selected));
-    }
-    setUploadError(null);
+    setFiles(selected && selected.length > 0 ? Array.from(selected) : []);
   };
 
   const removeFile = (index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
-    // Reset the input so the same files can be re-selected
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  /** Upload and process a single file, return the result */
-  const processOneFile = async (file: File): Promise<FileResult> => {
+  const importOne = async (file: File): Promise<FileResult> => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("portfolio_id", portfolioId);
-    formData.append("owner_id", ownerId);
     formData.append("broker", "zerodha");
-
     try {
       const res = await fetch("/api/import", { method: "POST", body: formData });
-      const result = await res.json();
-
-      if (!res.ok) {
-        return { file, job: null, error: result.error };
-      }
-
-      setPhase("processing");
-      const initialJob = {
-        id: result.job_id,
-        status: "processing",
-        total_rows: result.total_trades,
-        processed_rows: 0,
-        imported_count: 0,
-        skipped_count: 0,
-        failed_count: 0,
-        file_name: file.name,
-        source: result.broker,
-      } as ImportJob;
-      setJob(initialJob);
-
-      const finalJob = await waitForJob(result.job_id);
-      return { file, job: finalJob, error: null };
+      const body = await res.json();
+      if (!res.ok) return { file, result: null, error: body.error ?? "Import failed" };
+      return { file, result: body as ImportResponse, error: null };
     } catch {
-      return { file, job: null, error: "Network error. Please try again." };
+      return { file, result: null, error: "Network error. Please try again." };
     }
   };
 
   const handleImport = async () => {
-    if (files.length === 0 || !portfolioId || !ownerId) return;
-    setPhase("uploading");
-    setUploadError(null);
-    setFileResults([]);
-    setCurrentFileIndex(0);
-    abortRef.current = false;
+    if (files.length === 0 || !portfolioId) return;
+    setPhase("importing");
+    setResults([]);
+    setCurrentIndex(0);
 
-    const results: FileResult[] = [];
-
+    const collected: FileResult[] = [];
     for (let i = 0; i < files.length; i++) {
-      if (abortRef.current) break;
-      setCurrentFileIndex(i);
-      setPhase("uploading");
+      setCurrentIndex(i);
+      const r = await importOne(files[i]);
+      collected.push(r);
+      setResults([...collected]);
 
-      const result = await processOneFile(files[i]);
-      results.push(result);
-      setFileResults([...results]);
-
-      // Show per-file toast
-      if (result.error) {
-        toast.error(`Failed: ${files[i].name}`, { description: result.error });
-      } else if (result.job?.status === "completed") {
-        const j = result.job;
-        if (j.failed_count > 0) {
-          toast.warning(`${files[i].name}: partial`, {
-            description: `${j.imported_count} imported, ${j.failed_count} failed`,
-          });
-        } else if (j.imported_count === 0 && j.skipped_count > 0) {
-          toast.info(`${files[i].name}: all skipped`, {
-            description: `${j.skipped_count} already imported`,
-          });
-        } else {
-          toast.success(`${files[i].name}: done`, {
-            description: `${j.imported_count} imported`,
-          });
-        }
-      } else if (result.job?.status === "failed") {
-        toast.error(`Failed: ${files[i].name}`);
+      if (r.error) {
+        toast.error(`Failed: ${files[i].name}`, { description: r.error });
+      } else if (r.result) {
+        const verb = r.result.is_reimport ? "Replaced" : "Imported";
+        toast.success(`${files[i].name}: ${r.result.account_label}`, {
+          description: `${verb} ${r.result.companies_count} stock(s)`,
+        });
       }
     }
 
     setPhase("done");
     invalidateDashboard();
-    fetchRecentJobs();
+    fetchHistory();
   };
 
   const handleReset = () => {
     setFiles([]);
     setPhase("select");
-    setJob(null);
-    setUploadError(null);
-    setFileResults([]);
-    setCurrentFileIndex(0);
-    abortRef.current = false;
-    // Keep ownerId for convenience (likely re-importing for same person)
+    setResults([]);
+    setCurrentIndex(0);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const selectedPortfolioName =
-    holdingsPortfolios.find((p) => p.id === portfolioId)?.name ?? "—";
+  const handleDeleteHistory = async (id: string) => {
+    const res = await fetch(`/api/import?id=${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setHistory((prev) => prev.filter((h) => h.id !== id));
+      toast.success("Import record deleted");
+    } else {
+      toast.error("Failed to delete record");
+    }
+  };
 
-  const isMultiFile = files.length > 1;
+  const handleClearHistory = async () => {
+    const res = await fetch("/api/import", { method: "DELETE" });
+    if (res.ok) {
+      setHistory([]);
+      toast.success("Import history cleared");
+    } else {
+      toast.error("Failed to clear history");
+    }
+  };
+
+  const selectedPortfolioName = holdingsPortfolios.find((p) => p.id === portfolioId)?.name ?? "—";
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {/* Main Import Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
-            Import Trades
+            Import Holdings
           </CardTitle>
           <CardDescription>
-            Import your tradebook from Zerodha to automatically track
-            transactions, holdings, and CAGR returns.
+            Import a Zerodha holdings statement. Each statement is a snapshot for one
+            account; re-importing an account replaces its existing holdings.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -301,19 +213,13 @@ export default function ImportPage() {
             )}
           </div>
 
-          {/* Owner picker */}
-          <OwnerPicker
-            value={ownerId}
-            onChange={setOwnerId}
-            disabled={phase !== "select"}
-          />
-
           {/* File upload */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Zerodha Tradebook</label>
+            <label className="text-sm font-medium">Zerodha Holdings Statement</label>
             <p className="text-xs text-muted-foreground">
-              Download from Zerodha Console &rarr; Reports &rarr; Tradebook
-              &rarr; Download as Excel. You can select multiple files at once.
+              Zerodha Console &rarr; Reports &rarr; Holdings &rarr; Download as Excel.
+              The account is detected automatically from the statement. You can select
+              multiple files (e.g. one per account).
             </p>
             <div
               className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
@@ -321,9 +227,7 @@ export default function ImportPage() {
                   ? "border-primary/50 bg-primary/5"
                   : "border-muted-foreground/25 hover:border-muted-foreground/50"
               } ${phase !== "select" ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}
-              onClick={() =>
-                phase === "select" && fileInputRef.current?.click()
-              }
+              onClick={() => phase === "select" && fileInputRef.current?.click()}
             >
               <input
                 ref={fileInputRef}
@@ -337,19 +241,12 @@ export default function ImportPage() {
               {files.length > 0 ? (
                 <div className="space-y-2">
                   {files.map((f, i) => (
-                    <div
-                      key={`${f.name}-${i}`}
-                      className="flex items-center justify-between gap-3 text-left"
-                    >
+                    <div key={`${f.name}-${i}`} className="flex items-center justify-between gap-3 text-left">
                       <div className="flex items-center gap-3 min-w-0">
                         <FileSpreadsheet className="h-5 w-5 text-primary shrink-0" />
                         <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">
-                            {f.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {(f.size / 1024).toFixed(1)} KB
-                          </p>
+                          <p className="text-sm font-medium truncate">{f.name}</p>
+                          <p className="text-xs text-muted-foreground">{(f.size / 1024).toFixed(1)} KB</p>
                         </div>
                       </div>
                       {phase === "select" && (
@@ -366,136 +263,59 @@ export default function ImportPage() {
                       )}
                     </div>
                   ))}
-                  {phase === "select" && (
-                    <p className="text-xs text-muted-foreground pt-1">
-                      {files.length} file{files.length > 1 ? "s" : ""} selected
-                      — click to change
-                    </p>
-                  )}
                 </div>
               ) : (
                 <div className="space-y-2">
                   <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">
-                    Click to select tradebook files (.xlsx) — multiple allowed
+                    Click to select holdings statement(s) (.xlsx)
                   </p>
                 </div>
               )}
             </div>
           </div>
 
-          {uploadError && (
-            <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/10 text-destructive text-sm">
-              <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
-              <p>{uploadError}</p>
-            </div>
-          )}
-
           {phase === "select" && (
             <Button
               onClick={handleImport}
-              disabled={files.length === 0 || !portfolioId || !ownerId}
+              disabled={files.length === 0 || !portfolioId}
               className="w-full"
             >
-              Import {files.length > 1 ? `${files.length} files` : ""} into{" "}
-              {selectedPortfolioName}
+              Import {files.length > 1 ? `${files.length} files` : ""} into {selectedPortfolioName}
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           )}
 
-          {(phase === "uploading" || phase === "processing") && (
-            <div className="space-y-3">
-              {/* Multi-file overall progress */}
-              {isMultiFile && (
-                <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
-                  <span>
-                    File {currentFileIndex + 1} of {files.length}:{" "}
-                    <span className="text-foreground font-medium">
-                      {files[currentFileIndex]?.name}
-                    </span>
-                  </span>
-                  <span className="tabular-nums">
-                    {fileResults.length}/{files.length} done
-                  </span>
-                </div>
-              )}
-              {job && <ProcessingStatus job={job} />}
-              {/* Already-completed files in this batch */}
-              {fileResults.length > 0 && (
-                <div className="space-y-1">
-                  {fileResults.map((r, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2 text-xs px-1"
-                    >
-                      {r.error ? (
-                        <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
-                      ) : r.job?.status === "completed" ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
-                      ) : (
-                        <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
-                      )}
-                      <span className="truncate">{r.file.name}</span>
-                      {r.job && (
-                        <span className="text-muted-foreground ml-auto shrink-0">
-                          +{r.job.imported_count} / {r.job.skipped_count} skip
-                        </span>
-                      )}
-                      {r.error && (
-                        <span className="text-destructive ml-auto shrink-0 truncate max-w-[200px]">
-                          {r.error}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+          {phase === "importing" && (
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-blue-500/10">
+              <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+              <p className="text-sm font-medium">
+                Importing {files[currentIndex]?.name} ({currentIndex + 1}/{files.length})…
+              </p>
             </div>
           )}
 
-          {phase === "done" && fileResults.length > 0 && (
-            <MultiFileResultCard results={fileResults} onReset={handleReset} />
-          )}
-          {phase === "done" && fileResults.length === 0 && job && (
-            <ImportResultCard job={job} onReset={handleReset} />
-          )}
+          {phase === "done" && <ResultList results={results} onReset={handleReset} />}
 
           {/* Info box */}
           <div className="rounded-md bg-muted/50 p-3 space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground">
-              How import works:
-            </p>
+            <p className="text-xs font-medium text-muted-foreground">How import works:</p>
             <ul className="text-xs text-muted-foreground space-y-0.5 list-disc pl-4">
-              <li>
-                Trades at the same price, on the same day, for the same stock
-                are grouped into a single transaction
-              </li>
-              <li>
-                Re-importing the same file is safe — duplicate trades are
-                automatically skipped
-              </li>
-              <li>
-                You can select multiple files at once — they are processed
-                sequentially in order
-              </li>
-              <li>
-                Import files in any order — chronological sorting is handled
-                automatically
-              </li>
-              <li>
-                New stocks are added to your portfolio automatically
-              </li>
-              <li>
-                Holdings (quantity, avg price) are recalculated after every
-                import
-              </li>
+              <li>The account is auto-detected from the statement&rsquo;s Client ID.</li>
+              <li>Re-importing an account&rsquo;s statement replaces its holdings (including manual edits).</li>
+              <li>Consolidated view sums positions across all accounts; filter by account on the dashboard.</li>
+              <li>New stocks are added to your portfolio automatically.</li>
+              <li>Statements are limited to 100 stocks for now.</li>
             </ul>
           </div>
         </CardContent>
       </Card>
 
-      {/* Import History — collapsible with lazy-loaded details */}
-      {recentJobs.length > 0 && (
+      {/* Accounts management */}
+      <AccountsManager onChanged={() => { fetchHistory(); invalidateDashboard(); }} />
+
+      {/* Import history */}
+      {history.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -507,7 +327,7 @@ export default function ImportPage() {
                 variant="ghost"
                 size="sm"
                 className="text-xs text-muted-foreground hover:text-destructive"
-                onClick={handleClearAllJobs}
+                onClick={handleClearHistory}
               >
                 <Trash2 className="h-3.5 w-3.5 mr-1" />
                 Clear All
@@ -516,8 +336,52 @@ export default function ImportPage() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-border">
-              {recentJobs.map((j) => (
-                <ImportHistoryRow key={j.id} job={j} onDelete={handleDeleteJob} />
+              {history.map((h) => (
+                <div key={h.id} className="flex items-center gap-3 px-4 py-3">
+                  <FileSpreadsheet className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm truncate">
+                      {h.accounts?.label ?? "Account"}
+                      {h.is_reimport && (
+                        <RotateCcw className="inline h-3 w-3 ml-1.5 text-muted-foreground" aria-label="reimport" />
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {h.file_name ?? "statement"}
+                      {h.statement_date ? ` · as on ${h.statement_date}` : ""}
+                      {" · "}
+                      {new Date(h.created_at).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {h.companies_count} stocks
+                    </span>
+                    <Badge
+                      variant="secondary"
+                      className={
+                        h.status === "failed"
+                          ? "bg-destructive/10 text-destructive"
+                          : "bg-green-500/10 text-green-700"
+                      }
+                    >
+                      {h.status === "failed" ? "Failed" : h.is_reimport ? "Replaced" : "Imported"}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                      onClick={() => handleDeleteHistory(h.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
               ))}
             </div>
           </CardContent>
@@ -527,622 +391,93 @@ export default function ImportPage() {
   );
 }
 
-/* ── Processing progress bar ────────────────────────────────────────── */
+/* ── Result list after import ───────────────────────────────────────── */
 
-function ProcessingStatus({ job }: { job: ImportJob }) {
-  const progress =
-    job.total_rows > 0
-      ? Math.round((job.processed_rows / job.total_rows) * 100)
-      : 0;
-
-  return (
-    <div className="space-y-3 p-4 rounded-lg bg-muted/50">
-      <div className="flex items-center gap-3">
-        <Loader2 className="h-5 w-5 animate-spin text-primary" />
-        <div className="flex-1">
-          <p className="text-sm font-medium">
-            Processing {job.file_name ?? "tradebook"}...
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {job.processed_rows} / {job.total_rows} trades processed
-          </p>
-        </div>
-        <span className="text-sm font-medium tabular-nums">{progress}%</span>
-      </div>
-      <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-        <div
-          className="h-full bg-primary rounded-full transition-all duration-500"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-      {(job.imported_count > 0 || job.skipped_count > 0) && (
-        <div className="flex gap-4 text-xs text-muted-foreground">
-          {job.imported_count > 0 && (
-            <span className="flex items-center gap-1">
-              <Plus className="h-3 w-3 text-green-600" />
-              {job.imported_count} imported
-            </span>
-          )}
-          {job.skipped_count > 0 && (
-            <span className="flex items-center gap-1">
-              <SkipForward className="h-3 w-3" />
-              {job.skipped_count} skipped
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── Result card after an import completes ──────────────────────────── */
-
-function ImportResultCard({
-  job,
-  onReset,
-}: {
-  job: ImportJob;
-  onReset: () => void;
-}) {
-  const isSuccess = job.status === "completed";
-  const hasFailures = job.failed_count > 0;
-  const allSkipped = job.imported_count === 0 && job.skipped_count > 0;
+function ResultList({ results, onReset }: { results: FileResult[]; onReset: () => void }) {
+  const totalStocks = results.reduce((s, r) => s + (r.result?.companies_count ?? 0), 0);
+  const anyError = results.some((r) => r.error || r.result?.status === "failed");
 
   return (
     <div className="space-y-4">
-      <StatusBanner job={job} />
-
-      <div className="grid grid-cols-3 gap-3">
-        <StatCard
-          label="Imported"
-          value={job.imported_count}
-          icon={<Plus className="h-3.5 w-3.5" />}
-          color="text-green-600"
-        />
-        <StatCard
-          label="Skipped"
-          value={job.skipped_count}
-          icon={<SkipForward className="h-3.5 w-3.5" />}
-          color="text-muted-foreground"
-        />
-        <StatCard
-          label="Failed"
-          value={job.failed_count}
-          icon={<XCircle className="h-3.5 w-3.5" />}
-          color="text-destructive"
-        />
-      </div>
-
-      <JobDetails job={job} />
-
-      <div className="flex gap-2">
-        <Button onClick={onReset} variant="outline" className="flex-1">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Import Another File
-        </Button>
-        <Button
-          onClick={() => (window.location.href = "/")}
-          className="flex-1"
-        >
-          Go to Dashboard
-          <ArrowRight className="h-4 w-4 ml-2" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/* ── Shared status banner ───────────────────────────────────────────── */
-
-function StatusBanner({ job }: { job: ImportJob }) {
-  const { label, bg, icon } = getJobVisual(job);
-
-  return (
-    <div className={`flex items-center gap-3 p-4 rounded-lg ${bg}`}>
-      {icon}
-      <div className="flex-1">
-        <p className="text-sm font-medium">{label}</p>
-        <p className="text-xs text-muted-foreground">
-          {job.total_rows} trades in file
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/* ── Shared detail breakdown (symbols, errors) ──────────────────────── */
-
-function JobDetails({ job }: { job: ImportJob }) {
-  return (
-    <>
-      {job.summary?.new_companies_created &&
-        job.summary.new_companies_created.length > 0 && (
-          <div className="text-sm">
-            <p className="font-medium mb-1">New stocks added:</p>
-            <div className="flex flex-wrap gap-1.5">
-              {job.summary.new_companies_created.map((s) => (
-                <Badge key={s} variant="secondary">
-                  {s}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
-
-      {job.summary?.symbols_imported &&
-        job.summary.symbols_imported.length > 0 && (
-          <div className="text-sm">
-            <p className="font-medium mb-1">
-              Stocks updated ({job.summary.symbols_imported.length}):
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {job.summary.symbols_imported.map((s) => (
-                <Badge key={s} variant="outline">
-                  {s}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
-
-      {/* Incomplete history warning */}
-      {job.summary?.symbols_incomplete_history &&
-        job.summary.symbols_incomplete_history.length > 0 && (
-          <div className="flex items-start gap-2 p-3 rounded-md bg-yellow-500/10 text-sm">
-            <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 shrink-0" />
-            <div>
-              <p className="font-medium text-yellow-800 dark:text-yellow-400">
-                Incomplete trade history
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                These stocks have more sells than buys in the imported data.
-                Import older tradebooks to get correct holdings and avg buy
-                price.
-              </p>
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {job.summary.symbols_incomplete_history.map((s) => (
-                  <Badge key={s} variant="outline" className="border-yellow-500/50 text-yellow-700 dark:text-yellow-400">
-                    {s}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-      {job.errors && job.errors.length > 0 && (
-        <div className="text-sm">
-          <p className="font-medium mb-1 text-destructive">
-            Issues ({job.errors.length}):
-          </p>
-          <div className="max-h-40 overflow-y-auto space-y-1 rounded-md bg-muted/50 p-2">
-            {job.errors.map((e, i) => (
-              <p key={i} className="text-xs text-muted-foreground">
-                {e.symbol && (
-                  <span className="font-medium text-foreground">
-                    {e.symbol}:{" "}
-                  </span>
-                )}
-                {e.message}
-              </p>
-            ))}
-          </div>
-          {job.failed_count > 0 && (
-            <p className="text-xs text-muted-foreground mt-2">
-              Failed trades were not imported. You can fix the issues and
-              re-import — only new trades will be added.
-            </p>
-          )}
-        </div>
-      )}
-    </>
-  );
-}
-
-/* ── Import history row — collapsible, lazy-loads details on expand ── */
-
-function ImportHistoryRow({ job, onDelete }: { job: ImportJobSummaryRow; onDelete: (id: string) => void }) {
-  const [expanded, setExpanded] = useState(false);
-  const [detail, setDetail] = useState<ImportJob | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const { badge, badgeClass } = getJobBadge(job);
-
-  const handleToggle = async () => {
-    if (expanded) {
-      setExpanded(false);
-      return;
-    }
-
-    setExpanded(true);
-
-    // Only fetch if we haven't already
-    if (!detail) {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/import?job_id=${job.id}`);
-        if (res.ok) {
-          setDetail(await res.json());
-        }
-      } catch {
-        /* silent */
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  return (
-    <div>
-      {/* Collapsed row header */}
-      <button
-        type="button"
-        onClick={handleToggle}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors cursor-pointer"
-      >
-        {expanded ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-        ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-        )}
-        <FileSpreadsheet className="h-4 w-4 text-muted-foreground shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm truncate">
-            {job.file_name ?? "Tradebook"}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {new Date(job.created_at).toLocaleDateString("en-IN", {
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </p>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {/* Mini stats */}
-          <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
-            {job.imported_count > 0 && (
-              <span className="text-green-600">+{job.imported_count}</span>
-            )}
-            {job.skipped_count > 0 && (
-              <span>{job.skipped_count} skip</span>
-            )}
-            {job.failed_count > 0 && (
-              <span className="text-destructive">
-                {job.failed_count} fail
-              </span>
-            )}
-          </div>
-          <Badge variant="secondary" className={badgeClass}>
-            {badge}
-          </Badge>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(job.id);
-            }}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </button>
-
-      {/* Expanded detail panel */}
-      {expanded && (
-        <div className="px-4 pb-4 pt-1 ml-7 border-l-2 border-muted ml-[1.625rem]">
-          {loading ? (
-            <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading details...
-            </div>
-          ) : detail ? (
-            <div className="space-y-3">
-              {/* Stats row */}
-              <div className="grid grid-cols-3 gap-2">
-                <MiniStat
-                  label="Imported"
-                  value={detail.imported_count}
-                  color="text-green-600"
-                />
-                <MiniStat
-                  label="Skipped"
-                  value={detail.skipped_count}
-                  color="text-muted-foreground"
-                />
-                <MiniStat
-                  label="Failed"
-                  value={detail.failed_count}
-                  color="text-destructive"
-                />
-              </div>
-
-              {/* Source info */}
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                <span>
-                  Source: <span className="text-foreground capitalize">{detail.source}</span>
-                </span>
-                <span>
-                  Total trades: <span className="text-foreground">{detail.total_rows}</span>
-                </span>
-                {detail.summary?.client_id && (
-                  <span>
-                    Account: <span className="text-foreground">{detail.summary.client_id}</span>
-                  </span>
-                )}
-              </div>
-
-              <JobDetails job={detail} />
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground py-2">
-              Failed to load details.
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── Multi-file result card ─────────────────────────────────────────── */
-
-function MultiFileResultCard({
-  results,
-  onReset,
-}: {
-  results: FileResult[];
-  onReset: () => void;
-}) {
-  const totals = results.reduce(
-    (acc, r) => {
-      if (r.job) {
-        acc.imported += r.job.imported_count;
-        acc.skipped += r.job.skipped_count;
-        acc.failed += r.job.failed_count;
-        if (r.job.status === "completed") acc.succeeded++;
-        else acc.jobFailed++;
-      } else {
-        acc.uploadFailed++;
-      }
-      return acc;
-    },
-    { imported: 0, skipped: 0, failed: 0, succeeded: 0, jobFailed: 0, uploadFailed: 0 }
-  );
-
-  const allGood = totals.jobFailed === 0 && totals.uploadFailed === 0 && totals.failed === 0;
-
-  return (
-    <div className="space-y-4">
-      {/* Overall banner */}
-      <div
-        className={`flex items-center gap-3 p-4 rounded-lg ${
-          allGood ? "bg-green-500/10" : "bg-yellow-500/10"
-        }`}
-      >
-        {allGood ? (
-          <CheckCircle2 className="h-5 w-5 text-green-600" />
-        ) : (
+      <div className={`flex items-center gap-3 p-4 rounded-lg ${anyError ? "bg-yellow-500/10" : "bg-green-500/10"}`}>
+        {anyError ? (
           <AlertTriangle className="h-5 w-5 text-yellow-600" />
+        ) : (
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
         )}
         <div className="flex-1">
           <p className="text-sm font-medium">
-            {results.length} file{results.length > 1 ? "s" : ""} processed
+            {results.length} statement{results.length > 1 ? "s" : ""} processed
           </p>
-          <p className="text-xs text-muted-foreground">
-            {totals.imported} trades imported, {totals.skipped} skipped
-            {totals.failed > 0 ? `, ${totals.failed} failed` : ""}
-          </p>
+          <p className="text-xs text-muted-foreground">{totalStocks} stock position(s) recorded</p>
         </div>
       </div>
 
-      {/* Aggregate stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <StatCard
-          label="Imported"
-          value={totals.imported}
-          icon={<Plus className="h-3.5 w-3.5" />}
-          color="text-green-600"
-        />
-        <StatCard
-          label="Skipped"
-          value={totals.skipped}
-          icon={<SkipForward className="h-3.5 w-3.5" />}
-          color="text-muted-foreground"
-        />
-        <StatCard
-          label="Failed"
-          value={totals.failed}
-          icon={<XCircle className="h-3.5 w-3.5" />}
-          color="text-destructive"
-        />
-      </div>
-
-      {/* Per-file breakdown */}
-      <div className="space-y-1.5">
-        <p className="text-sm font-medium">Per-file results:</p>
-        <div className="rounded-md bg-muted/50 divide-y divide-border">
-          {results.map((r, i) => (
-            <div key={i} className="flex items-center gap-2 px-3 py-2 text-sm">
+      <div className="space-y-3">
+        {results.map((r, i) => (
+          <div key={i} className="rounded-md border border-border/60 p-3 space-y-2">
+            <div className="flex items-center gap-2">
               {r.error ? (
                 <XCircle className="h-4 w-4 text-destructive shrink-0" />
-              ) : r.job?.status === "completed" && r.job.failed_count === 0 ? (
-                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-              ) : r.job?.status === "completed" ? (
-                <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0" />
               ) : (
-                <XCircle className="h-4 w-4 text-destructive shrink-0" />
+                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
               )}
-              <span className="truncate min-w-0 flex-1">{r.file.name}</span>
-              {r.job && (
-                <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
-                  +{r.job.imported_count} / {r.job.skipped_count} skip
-                  {r.job.failed_count > 0
-                    ? ` / ${r.job.failed_count} fail`
-                    : ""}
-                </span>
-              )}
-              {r.error && (
-                <span className="text-xs text-destructive shrink-0 truncate max-w-[200px]">
-                  {r.error}
-                </span>
+              <span className="text-sm font-medium truncate">{r.file.name}</span>
+              {r.result && (
+                <Badge variant="outline" className="ml-auto">
+                  {r.result.is_reimport ? "Replaced" : "New"} · {r.result.account_label}
+                </Badge>
               )}
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* Show details from the last successful job (incomplete history etc) */}
-      {results
-        .filter((r) => r.job?.status === "completed")
-        .map((r, i) => {
-          const j = r.job!;
-          const hasDetails =
-            (j.summary?.symbols_incomplete_history?.length ?? 0) > 0 ||
-            (j.errors && j.errors.length > 0);
-          if (!hasDetails) return null;
-          return (
-            <div key={i} className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                Details for {r.file.name}:
-              </p>
-              <JobDetails job={j} />
-            </div>
-          );
-        })}
+            {r.error && <p className="text-xs text-destructive">{r.error}</p>}
+
+            {r.result && (
+              <>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Plus className="h-3 w-3 text-green-600" />
+                    {r.result.companies_count} stocks
+                  </span>
+                  {r.result.statement_date && <span>as on {r.result.statement_date}</span>}
+                  {r.result.client_id && <span>Client {r.result.client_id}</span>}
+                </div>
+
+                {r.result.new_companies_created.length > 0 && (
+                  <div className="text-xs">
+                    <span className="font-medium">New stocks added: </span>
+                    <span className="text-muted-foreground">
+                      {r.result.new_companies_created.join(", ")}
+                    </span>
+                  </div>
+                )}
+
+                {r.result.errors.length > 0 && (
+                  <div className="max-h-28 overflow-y-auto space-y-0.5 rounded bg-muted/50 p-2">
+                    {r.result.errors.map((e, j) => (
+                      <p key={j} className="text-xs text-muted-foreground">
+                        {e.symbol && <span className="font-medium text-foreground">{e.symbol}: </span>}
+                        {e.message}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        ))}
+      </div>
 
       <div className="flex gap-2">
         <Button onClick={onReset} variant="outline" className="flex-1">
           <RefreshCw className="h-4 w-4 mr-2" />
-          Import More Files
+          Import More
         </Button>
-        <Button
-          onClick={() => (window.location.href = "/")}
-          className="flex-1"
-        >
+        <Button onClick={() => (window.location.href = "/")} className="flex-1">
           Go to Dashboard
           <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
       </div>
     </div>
   );
-}
-
-/* ── Small helper components ────────────────────────────────────────── */
-
-function StatCard({
-  label,
-  value,
-  icon,
-  color,
-}: {
-  label: string;
-  value: number;
-  icon: React.ReactNode;
-  color: string;
-}) {
-  return (
-    <div className="text-center p-3 rounded-md bg-muted/50">
-      <div className={`flex items-center justify-center gap-1 ${color}`}>
-        {icon}
-        <span className="text-lg font-semibold tabular-nums">{value}</span>
-      </div>
-      <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
-    </div>
-  );
-}
-
-function MiniStat({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: string;
-}) {
-  return (
-    <div className="text-center py-1.5 px-2 rounded bg-muted/50">
-      <span className={`text-sm font-semibold tabular-nums ${color}`}>
-        {value}
-      </span>
-      <p className="text-[10px] text-muted-foreground">{label}</p>
-    </div>
-  );
-}
-
-/* ── Visual helpers for job status ──────────────────────────────────── */
-
-type JobLike = {
-  status: string;
-  imported_count: number;
-  skipped_count: number;
-  failed_count: number;
-};
-
-function getJobVisual(job: JobLike) {
-  if (job.status === "failed") {
-    return {
-      label: "Import failed",
-      bg: "bg-destructive/10",
-      icon: <XCircle className="h-5 w-5 text-destructive" />,
-    };
-  }
-  if (job.status === "processing" || job.status === "pending") {
-    return {
-      label: "Processing...",
-      bg: "bg-blue-500/10",
-      icon: <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />,
-    };
-  }
-  // completed
-  if (job.failed_count > 0) {
-    return {
-      label: "Partial success",
-      bg: "bg-yellow-500/10",
-      icon: <AlertTriangle className="h-5 w-5 text-yellow-600" />,
-    };
-  }
-  if (job.imported_count === 0 && job.skipped_count > 0) {
-    return {
-      label: "All trades already imported",
-      bg: "bg-muted/50",
-      icon: <SkipForward className="h-5 w-5 text-muted-foreground" />,
-    };
-  }
-  return {
-    label: "Import successful",
-    bg: "bg-green-500/10",
-    icon: <CheckCircle2 className="h-5 w-5 text-green-600" />,
-  };
-}
-
-function getJobBadge(job: JobLike): { badge: string; badgeClass: string } {
-  if (job.status === "failed") {
-    return { badge: "Failed", badgeClass: "bg-destructive/10 text-destructive" };
-  }
-  if (job.status === "processing" || job.status === "pending") {
-    return { badge: "Processing", badgeClass: "bg-blue-500/10 text-blue-700" };
-  }
-  // completed
-  if (job.failed_count > 0) {
-    return {
-      badge: "Partial",
-      badgeClass: "bg-yellow-500/10 text-yellow-700",
-    };
-  }
-  if (job.imported_count === 0 && job.skipped_count > 0) {
-    return {
-      badge: "Skipped",
-      badgeClass: "bg-muted text-muted-foreground",
-    };
-  }
-  return {
-    badge: "Success",
-    badgeClass: "bg-green-500/10 text-green-700",
-  };
 }

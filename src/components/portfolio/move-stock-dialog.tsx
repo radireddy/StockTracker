@@ -9,7 +9,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Check } from "lucide-react";
 import { moveCompany } from "@/app/(authenticated)/actions/company-actions";
@@ -36,8 +35,6 @@ export function MoveStockDialog({
   onMoved?: () => void;
 }) {
   const [targetId, setTargetId] = useState<string>("");
-  const [quantity, setQuantity] = useState("");
-  const [avgBuyPrice, setAvgBuyPrice] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const invalidate = useInvalidateDashboard();
@@ -52,10 +49,7 @@ export function MoveStockDialog({
     setError(null);
 
     try {
-      await moveCompany(companyId, targetId, {
-        quantity: quantity ? Number(quantity) : undefined,
-        avg_buy_price: avgBuyPrice ? Number(avgBuyPrice) : undefined,
-      });
+      await moveCompany(companyId, targetId);
       invalidate();
       onOpenChange(false);
       onMoved?.();
@@ -105,33 +99,13 @@ export function MoveStockDialog({
             </div>
           </div>
 
-          {isTargetHoldings && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="move-qty">Quantity (optional)</Label>
-                <Input
-                  id="move-qty"
-                  type="number"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  placeholder="Number of shares"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="move-avg">Avg Buy Price (optional)</Label>
-                <Input
-                  id="move-avg"
-                  type="number"
-                  value={avgBuyPrice}
-                  onChange={(e) => setAvgBuyPrice(e.target.value)}
-                  placeholder="Average purchase price"
-                />
-              </div>
-            </>
-          )}
-
           <div className="text-xs text-muted-foreground space-y-1">
             <p>Research data (financials, valuations, timeline) will be copied.</p>
+            {isTargetHoldings ? (
+              <p>Existing holdings (across accounts) move with the stock.</p>
+            ) : (
+              <p>Holdings will be discarded when moving to a watchlist.</p>
+            )}
             <p>The stock will be removed from the current portfolio.</p>
           </div>
 

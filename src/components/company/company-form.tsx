@@ -10,13 +10,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { createCompany } from "@/app/(authenticated)/actions/company-actions";
-import { addTransaction } from "@/app/(authenticated)/actions/transaction-actions";
-import { getDefaultOwnerId } from "@/app/(authenticated)/actions/owner-actions";
 import { StockSearch } from "@/components/company/stock-search";
 import { roundPrice } from "@/lib/utils/calculations";
 import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
 import type { IndianStock } from "@/types/database";
-import { Building2, TrendingUp, ShoppingCart, Star } from "lucide-react";
+import { Building2, TrendingUp, Star } from "lucide-react";
 
 export function CompanyForm({
   portfolioId,
@@ -41,22 +39,7 @@ export function CompanyForm({
     // Round financial values before saving
     const bp = formData.get("buy_price");
     if (bp) formData.set("buy_price", String(roundPrice(Number(bp))));
-    const companyId = await createCompany(formData);
-
-    // Optionally create first transaction for holdings
-    const txQty = formData.get("tx_quantity");
-    const txPrice = formData.get("tx_price");
-    const txDate = formData.get("tx_date");
-    if (isHoldings && txQty && txPrice && Number(txQty) > 0) {
-      const defaultOwnerId = await getDefaultOwnerId();
-      await addTransaction(companyId, {
-        type: "BUY",
-        quantity: Number(txQty),
-        price: Number(txPrice),
-        date: (txDate as string) || new Date().toISOString().split("T")[0],
-        owner_id: defaultOwnerId,
-      });
-    }
+    await createCompany(formData);
 
     setPending(false);
     invalidate();
@@ -167,53 +150,11 @@ export function CompanyForm({
           </CardContent>
         </Card>
 
-        {/* First Transaction (Holdings only) */}
         {isHoldings && (
-          <Card className="shadow-sm border-dashed">
-            <CardContent className="pt-5 pb-5 space-y-4">
-              <div className="flex items-center gap-2 mb-1">
-                <ShoppingCart className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">First Transaction</span>
-                <span className="text-xs text-muted-foreground">(optional)</span>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="tx_quantity" className="text-sm">Quantity</Label>
-                  <Input
-                    id="tx_quantity"
-                    name="tx_quantity"
-                    type="number"
-                    min="0"
-                    step="any"
-                    placeholder="0"
-                    className="bg-background"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="tx_price" className="text-sm">Price (₹)</Label>
-                  <Input
-                    id="tx_price"
-                    name="tx_price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    className="bg-background"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="tx_date" className="text-sm">Date</Label>
-                  <Input
-                    id="tx_date"
-                    name="tx_date"
-                    type="date"
-                    defaultValue={new Date().toISOString().split("T")[0]}
-                    className="bg-background"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <p className="text-xs text-muted-foreground px-1">
+            Positions are added by importing a holdings statement or from the
+            Holdings tab on the company page (per account).
+          </p>
         )}
 
         {/* Actions */}
