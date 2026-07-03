@@ -1,7 +1,7 @@
 /**
  * Content-Security-Policy construction.
  *
- * The policy is nonce-based: middleware mints a fresh nonce per request, Next.js
+ * The policy is nonce-based: the proxy mints a fresh nonce per request, Next.js
  * stamps it onto every framework `<script>`, and our own inline script reads it
  * back from the `x-nonce` header. In production `'strict-dynamic'` lets those
  * nonce'd scripts load the chunk graph while host-based script sources are

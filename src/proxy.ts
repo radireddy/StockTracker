@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { withAxiom } from "next-axiom";
 
-export const middleware = withAxiom(async function middleware(request: NextRequest) {
+export const proxy = withAxiom(async function proxy(request: NextRequest) {
   return await updateSession(request);
 });
 
