@@ -3,6 +3,7 @@
 import { getAuthUser } from "@/lib/supabase/server";
 import type { IndianStock } from "@/types/database";
 import { createLogger } from "@/lib/logger";
+import { sanitizePostgrestSearch } from "@/lib/postgrest-filter";
 const log = createLogger({ service: "stock-actions" });
 
 export async function searchStocks(query: string): Promise<IndianStock[]> {
@@ -10,7 +11,11 @@ export async function searchStocks(query: string): Promise<IndianStock[]> {
 
   if (!query || query.length < 2) return [];
 
-  const q = query.trim();
+  // Strip PostgREST/LIKE metacharacters so user input cannot break out of the
+  // .or() filter value and inject extra conditions. Re-check length afterwards
+  // in case the term was made up entirely of stripped characters.
+  const q = sanitizePostgrestSearch(query);
+  if (q.length < 2) return [];
 
   const { data, error } = await supabase
     .from("indian_stocks")
