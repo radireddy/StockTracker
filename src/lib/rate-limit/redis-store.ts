@@ -20,6 +20,9 @@ export class RedisStore implements RateLimitStore {
   async consume(key: string, limit: number, windowMs: number): Promise<RateLimitResult> {
     try {
       const limiter = this.getLimiter(limit, windowMs);
+      // The rate-limit write is awaited inside .limit(); the returned `pending`
+      // promise is a no-op with single-region Redis + analytics:false, so there
+      // is nothing to waitUntil. (Revisit if multi-region/analytics are enabled.)
       const { success, remaining, reset } = await limiter.limit(key);
       return { success, limit, remaining, reset };
     } catch (err) {
