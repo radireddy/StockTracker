@@ -10,9 +10,12 @@ const log = createLogger({ service: "holdings-import-engine" });
  * Semantics (replace-on-account, idempotent):
  *  1. Auto-create any unknown stocks in `indian_stocks`.
  *  2. Auto-create `companies (portfolio_id, isin)` rows for new ISINs (research stubs).
- *  3. DELETE all `holdings` for (portfolio_id, account_id) — wipes the previous statement
- *     AND any manual edits for that account.
- *  4. Bulk INSERT the fresh position rows.
+ *  3. Build the fresh position rows (skipping any whose company could not be resolved).
+ *  4. Atomically replace `holdings` for (portfolio_id, account_id) via the
+ *     `replace_account_holdings` RPC (delete+insert in one transaction). This wipes the
+ *     previous statement AND any manual edits for that account — but only when there are
+ *     rows to insert. If every row was skipped, the replace is skipped and existing
+ *     holdings are preserved, so an incomplete import can never lose data.
  *  5. Record the outcome on the `import_holdings` row.
  *
  * Re-importing the same file yields the same end state.
@@ -104,18 +107,7 @@ export async function executeHoldingsImport(
     }
   }
 
-  // 3. Replace holdings for this account ---------------------------------------
-  const { error: delErr } = await userSupabase
-    .from("holdings")
-    .delete()
-    .eq("portfolio_id", portfolioId)
-    .eq("account_id", accountId);
-  if (delErr) {
-    log.error("Failed to clear previous holdings", { error: delErr.message, portfolioId, accountId });
-    throw new Error(`Failed to clear previous holdings: ${delErr.message}`);
-  }
-
-  // 4. Bulk insert the fresh snapshot ------------------------------------------
+  // 3. Build the fresh snapshot rows -------------------------------------------
   const symbolsImported: string[] = [];
   const symbolsSkipped: string[] = [];
   const rows = holdings
@@ -140,14 +132,27 @@ export async function executeHoldingsImport(
       };
     });
 
+  // 4. Atomically replace this account's holdings ------------------------------
+  // The delete+insert run inside a single Postgres transaction (see
+  // `replace_account_holdings`), so a failed insert can never leave the account
+  // wiped. When there is nothing to insert (every row was skipped), we skip the
+  // replace entirely — existing holdings must never be lost on an incomplete import.
   if (rows.length > 0) {
-    const { error: insErr } = await userSupabase
-      .from("holdings")
-      .upsert(rows, { onConflict: "portfolio_id,account_id,company_id" });
-    if (insErr) {
-      log.error("Failed to insert holdings", { error: insErr.message, portfolioId, accountId });
-      throw new Error(`Failed to insert holdings: ${insErr.message}`);
+    const { error: rpcErr } = await userSupabase.rpc("replace_account_holdings", {
+      p_portfolio_id: portfolioId,
+      p_account_id: accountId,
+      p_rows: rows,
+    });
+    if (rpcErr) {
+      log.error("Failed to replace holdings", { error: rpcErr.message, portfolioId, accountId });
+      throw new Error(`Failed to replace holdings: ${rpcErr.message}`);
     }
+  } else {
+    log.warn("Skipping holdings replace — no importable rows; existing holdings preserved", {
+      portfolioId,
+      accountId,
+      skipped: symbolsSkipped.length,
+    });
   }
 
   const result: ImportResult = {

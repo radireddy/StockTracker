@@ -33,7 +33,8 @@ type Op = {
   in?: [string, unknown[]];
 };
 type Resolver = (op: Op) => { data?: unknown; error?: unknown };
-type MockClient = { from: (table: string) => unknown };
+type RpcResolver = (fn: string, args: Record<string, unknown>) => { data?: unknown; error?: unknown };
+type MockClient = { from: (table: string) => unknown; rpc?: (fn: string, args: Record<string, unknown>) => Promise<unknown> };
 
 function makeBuilder(resolver: Resolver) {
   const op: Op = {};
@@ -53,10 +54,13 @@ function makeBuilder(resolver: Resolver) {
   return builder;
 }
 
-function makeClient(handlers: Record<string, Resolver>): MockClient {
+function makeClient(handlers: Record<string, Resolver>, rpcResolver?: RpcResolver): MockClient {
   return {
     from: vi.fn((table: string) =>
       makeBuilder((op) => handlers[table]?.(op) ?? { data: null, error: null })
+    ),
+    rpc: vi.fn((fn: string, args: Record<string, unknown>) =>
+      Promise.resolve(rpcResolver?.(fn, args) ?? { data: null, error: null })
     ),
   };
 }
@@ -96,8 +100,7 @@ function makeParseResult(
 function setup(opts: {
   existingStockIsins?: string[];
   existingCompanies?: Array<{ id: string; isin: string }>;
-  deleteError?: string;
-  upsertError?: string;
+  rpcError?: string;
   stockUpsertError?: string;
   companyInsertError?: string;
   raceExisting?: { id: string } | null;
@@ -107,7 +110,8 @@ function setup(opts: {
     importUpdate: Record<string, unknown> | null;
     companyInserts: unknown[];
     stockUpserts: unknown[];
-  } = { insertedHoldings: [], importUpdate: null, companyInserts: [], stockUpserts: [] };
+    rpcCalls: Array<{ fn: string; args: Record<string, unknown> }>;
+  } = { insertedHoldings: [], importUpdate: null, companyInserts: [], stockUpserts: [], rpcCalls: [] };
 
   const knownStocks = new Set(opts.existingStockIsins ?? []);
   let companySeq = 0;
@@ -124,34 +128,36 @@ function setup(opts: {
     },
   });
 
-  const userSupabase = makeClient({
-    companies: (op) => {
-      if (op.insert) {
-        captured.companyInserts.push(op.insert);
-        if (opts.companyInsertError) return { data: null, error: { message: opts.companyInsertError } };
-        companySeq += 1;
-        return { data: { id: `new-company-${companySeq}` }, error: null };
-      }
-      if (op.single) {
-        // race re-read after an insert conflict
-        return { data: opts.raceExisting ?? null, error: null };
-      }
-      // initial listing: select("id, isin").eq(...).in("isin", ...)
-      return { data: opts.existingCompanies ?? [] };
+  const userSupabase = makeClient(
+    {
+      companies: (op) => {
+        if (op.insert) {
+          captured.companyInserts.push(op.insert);
+          if (opts.companyInsertError) return { data: null, error: { message: opts.companyInsertError } };
+          companySeq += 1;
+          return { data: { id: `new-company-${companySeq}` }, error: null };
+        }
+        if (op.single) {
+          // race re-read after an insert conflict
+          return { data: opts.raceExisting ?? null, error: null };
+        }
+        // initial listing: select("id, isin").eq(...).in("isin", ...)
+        return { data: opts.existingCompanies ?? [] };
+      },
+      import_holdings: (op) => {
+        if (op.update) captured.importUpdate = op.update as Record<string, unknown>;
+        return { data: null, error: null };
+      },
     },
-    holdings: (op) => {
-      if (op.delete) return { error: opts.deleteError ? { message: opts.deleteError } : null };
-      if (op.upsert) {
-        captured.insertedHoldings = op.upsert as unknown[];
-        return { error: opts.upsertError ? { message: opts.upsertError } : null };
+    (fn, args) => {
+      captured.rpcCalls.push({ fn, args });
+      if (fn === "replace_account_holdings") {
+        captured.insertedHoldings = (args.p_rows as unknown[]) ?? [];
+        return { error: opts.rpcError ? { message: opts.rpcError } : null };
       }
       return { data: null, error: null };
-    },
-    import_holdings: (op) => {
-      if (op.update) captured.importUpdate = op.update as Record<string, unknown>;
-      return { data: null, error: null };
-    },
-  });
+    }
+  );
 
   return { userSupabase, captured };
 }
@@ -277,24 +283,49 @@ describe("executeHoldingsImport", () => {
     expect(captured.insertedHoldings).toHaveLength(0);
   });
 
-  it("throws when clearing previous holdings fails", async () => {
-    const { userSupabase } = setup({
+  it("replaces holdings atomically via the replace_account_holdings RPC", async () => {
+    const { userSupabase, captured } = setup({
       existingStockIsins: ["INE002A01018"],
       existingCompanies: [{ id: "company-1", isin: "INE002A01018" }],
-      deleteError: "delete boom",
     });
 
-    await expect(run(makeParseResult(), userSupabase)).rejects.toThrow(/delete boom/);
+    await run(makeParseResult(), userSupabase);
+
+    expect(captured.rpcCalls).toHaveLength(1);
+    expect(captured.rpcCalls[0].fn).toBe("replace_account_holdings");
+    expect(captured.rpcCalls[0].args).toMatchObject({
+      p_portfolio_id: "portfolio-1",
+      p_account_id: "account-1",
+    });
+    expect(captured.rpcCalls[0].args.p_rows).toHaveLength(1);
   });
 
-  it("throws when inserting the fresh snapshot fails", async () => {
-    const { userSupabase } = setup({
+  it("throws when the atomic replace fails (transaction rolls back, existing holdings untouched)", async () => {
+    const { userSupabase, captured } = setup({
       existingStockIsins: ["INE002A01018"],
       existingCompanies: [{ id: "company-1", isin: "INE002A01018" }],
-      upsertError: "insert boom",
+      rpcError: "replace boom",
     });
 
-    await expect(run(makeParseResult(), userSupabase)).rejects.toThrow(/insert boom/);
+    await expect(run(makeParseResult(), userSupabase)).rejects.toThrow(/replace boom/);
+    expect(captured.rpcCalls).toHaveLength(1);
+  });
+
+  it("skips the destructive replace when no rows would be inserted (preserves existing holdings)", async () => {
+    // Stock exists but the company can't be created → the only holding is skipped → 0 rows.
+    const { userSupabase, captured } = setup({
+      existingStockIsins: ["INE002A01018"],
+      existingCompanies: [],
+      companyInsertError: "cannot create company",
+      raceExisting: null,
+    });
+
+    const result = await run(makeParseResult(), userSupabase);
+
+    expect(captured.rpcCalls).toHaveLength(0); // never wiped the account
+    expect(result.status).toBe("failed");
+    expect(result.imported_count).toBe(0);
+    expect(result.skipped_count).toBe(1);
   });
 
   it("recovers a company id via race re-read when the insert conflicts", async () => {
