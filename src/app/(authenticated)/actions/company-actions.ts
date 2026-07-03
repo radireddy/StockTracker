@@ -5,8 +5,7 @@ import { fetchStockPrice } from "@/app/(authenticated)/actions/price-actions";
 import { revalidatePath } from "next/cache";
 import DOMPurify from "isomorphic-dompurify";
 import { createLogger } from "@/lib/logger";
-import { companyCreateSchema, moveToHoldingsSchema } from "@/lib/validations";
-import { resolveAccountId } from "@/lib/accounts";
+import { companyCreateSchema } from "@/lib/validations";
 
 const log = createLogger({ service: "company-actions" });
 
@@ -153,243 +152,30 @@ export async function moveCompany(
     };
   }
 ) {
-  const { supabase, user } = await getAuthUser();
+  const { supabase } = await getAuthUser();
 
-  // 1. Fetch source company
-  const { data: source, error: fetchError } = await supabase
-    .from("companies")
-    .select("*")
-    .eq("id", companyId)
-    .single();
+  // The whole move — insert the target company, reconcile holdings (creating the
+  // account if needed), deep-copy every research child record, then delete the
+  // source — runs inside a single `move_company` Postgres transaction. Either it
+  // all commits or it all rolls back, so a mid-way failure can no longer leave a
+  // half-copied company alongside a deleted original. The RPC also owns the
+  // account-required and duplicate-stock checks, surfacing them as errors.
+  const p = additionalData?.position;
+  const { data: newCompanyId, error } = await supabase.rpc("move_company", {
+    p_company_id: companyId,
+    p_target_portfolio_id: targetPortfolioId,
+    p_notes: additionalData?.notes ?? null,
+    p_account_id: p?.account_id ?? null,
+    p_new_account_label: p?.new_account_label ?? null,
+    p_quantity: p?.quantity ?? null,
+    p_avg_buy_price: p?.avg_buy_price ?? null,
+  });
 
-  if (fetchError || !source) throw new Error("Company not found");
-
-  // 2. Get target portfolio type
-  const { data: targetPortfolio } = await supabase
-    .from("portfolios")
-    .select("type")
-    .eq("id", targetPortfolioId)
-    .single();
-
-  if (!targetPortfolio) throw new Error("Target portfolio not found");
-
-  // 3. Check for duplicate in target portfolio
-  const { data: existing } = await supabase
-    .from("companies")
-    .select("id")
-    .eq("portfolio_id", targetPortfolioId)
-    .eq("isin", source.isin)
-    .maybeSingle();
-
-  if (existing) {
-    throw new Error("This stock already exists in the target portfolio.");
+  if (error) {
+    log.error("moveCompany failed", { error: error.message, companyId, targetPortfolioId });
+    throw new Error(error.message);
   }
-
-  // 4. Insert new company in target (research fields only; positions live in `holdings`)
-  const isWatchlist = targetPortfolio.type === "watchlist";
-
-  const { data: newCompany, error: insertError } = await supabase
-    .from("companies")
-    .insert({
-      portfolio_id: targetPortfolioId,
-      user_id: user.id,
-      isin: source.isin,
-      buy_price: source.buy_price,
-      star_rating: source.star_rating,
-      strategy: source.strategy,
-      investment_horizon_years: source.investment_horizon_years,
-      expected_returns: source.expected_returns,
-      thesis: source.thesis,
-      highlights: source.highlights,
-      notes: additionalData?.notes ?? null,
-    })
-    .select("id")
-    .single();
-
-  if (insertError || !newCompany) {
-    log.error("Failed to insert company in target portfolio", { error: insertError?.message });
-    throw insertError ?? new Error("Failed to move company");
-  }
-
-  // 4b. Reconcile holdings for the move.
-  const { data: sourceHoldings } = await supabase
-    .from("holdings")
-    .select("id")
-    .eq("company_id", companyId);
-  const carriesHoldings = (sourceHoldings?.length ?? 0) > 0;
-
-  if (isWatchlist) {
-    // Moving out of holdings — unlink by dropping every position.
-    await supabase.from("holdings").delete().eq("company_id", companyId);
-  } else if (carriesHoldings) {
-    // Existing positions move with the stock, keeping their own accounts.
-    await supabase
-      .from("holdings")
-      .update({ company_id: newCompany.id, portfolio_id: targetPortfolioId })
-      .eq("company_id", companyId);
-  } else {
-    // No position to carry — an account is required to create the initial
-    // (possibly zero-qty) holding so the company belongs to an account.
-    const parsed = moveToHoldingsSchema.safeParse(additionalData?.position ?? {});
-    if (!parsed.success) {
-      throw new Error("Select an account to move this stock into holdings.");
-    }
-    const p = parsed.data;
-    const accountId = await resolveAccountId(supabase, user.id, {
-      account_id: p.account_id,
-      new_account_label: p.new_account_label,
-    });
-    const { error: holdErr } = await supabase.from("holdings").insert({
-      user_id: user.id,
-      portfolio_id: targetPortfolioId,
-      account_id: accountId,
-      company_id: newCompany.id,
-      isin: source.isin,
-      quantity: p.quantity ?? 0,
-      avg_buy_price: p.avg_buy_price ?? 0,
-      source: "manual",
-      import_holding_id: null,
-    });
-    if (holdErr) throw new Error(holdErr.message);
-  }
-
-  // 5. Copy child records: projection_models, financial_years, valuation_scenarios
-  const { data: sourceModels } = await supabase
-    .from("projection_models")
-    .select("*, financial_years(*), valuation_scenarios(*)")
-    .eq("company_id", companyId);
-
-  for (const model of sourceModels ?? []) {
-    const { data: newModel } = await supabase
-      .from("projection_models")
-      .insert({
-        company_id: newCompany.id,
-        user_id: user.id,
-        projection_type: model.projection_type,
-        name: model.name,
-        is_default: model.is_default,
-        sort_order: model.sort_order,
-      })
-      .select("id")
-      .single();
-
-    if (!newModel) continue;
-
-    if (model.financial_years?.length) {
-      await supabase.from("financial_years").insert(
-        model.financial_years.map((fy: Record<string, unknown>) => ({
-          company_id: newCompany.id,
-          projection_model_id: newModel.id,
-          user_id: user.id,
-          year: fy.year,
-          is_estimate: fy.is_estimate,
-          revenue: fy.revenue,
-          revenue_growth_pct: fy.revenue_growth_pct,
-          ebitda: fy.ebitda,
-          ebitda_margin_pct: fy.ebitda_margin_pct,
-          ebitda_growth_pct: fy.ebitda_growth_pct,
-          depreciation: fy.depreciation,
-          finance_cost: fy.finance_cost,
-          other_income: fy.other_income,
-          exceptional_items: fy.exceptional_items,
-          pbt: fy.pbt,
-          tax_pct: fy.tax_pct,
-          pat: fy.pat,
-          pat_growth_pct: fy.pat_growth_pct,
-          pat_margin_pct: fy.pat_margin_pct,
-          minority_interest: fy.minority_interest,
-          pat_for_shareholders: fy.pat_for_shareholders,
-          pe: fy.pe,
-          peg: fy.peg,
-          net_debt: fy.net_debt,
-          lease_liability: fy.lease_liability,
-          total_debt: fy.total_debt,
-          ev_ebitda_ratio: fy.ev_ebitda_ratio,
-          sort_order: fy.sort_order,
-        }))
-      );
-    }
-
-    if (model.valuation_scenarios?.length) {
-      await supabase.from("valuation_scenarios").insert(
-        model.valuation_scenarios.map((vs: Record<string, unknown>) => ({
-          company_id: newCompany.id,
-          projection_model_id: newModel.id,
-          user_id: user.id,
-          scenario_type: vs.scenario_type,
-          target_pe: vs.target_pe,
-          target_market_cap: vs.target_market_cap,
-          irr: vs.irr,
-          buying_market_cap: vs.buying_market_cap,
-          buy_price: vs.buy_price,
-          target_ev_ebitda_ratio: vs.target_ev_ebitda_ratio,
-          expected_ev: vs.expected_ev,
-          net_debt_terminal: vs.net_debt_terminal,
-        }))
-      );
-    }
-  }
-
-  // Copy timeline entries
-  const { data: timelineEntries } = await supabase
-    .from("timeline_entries")
-    .select("*")
-    .eq("company_id", companyId);
-
-  if (timelineEntries?.length) {
-    await supabase.from("timeline_entries").insert(
-      timelineEntries.map((te: Record<string, unknown>) => ({
-        company_id: newCompany.id,
-        user_id: user.id,
-        quarter: te.quarter,
-        entry_date: te.entry_date,
-        content: te.content,
-        sort_order: te.sort_order,
-      }))
-    );
-  }
-
-  // Copy segment valuations
-  const { data: segments } = await supabase
-    .from("segment_valuations")
-    .select("*")
-    .eq("company_id", companyId);
-
-  if (segments?.length) {
-    await supabase.from("segment_valuations").insert(
-      segments.map((s: Record<string, unknown>) => ({
-        company_id: newCompany.id,
-        user_id: user.id,
-        segment_name: s.segment_name,
-        management_signal: s.management_signal,
-        metrics: s.metrics,
-        multiple: s.multiple,
-        estimated_value: s.estimated_value,
-        sort_order: s.sort_order,
-      }))
-    );
-  }
-
-  // Copy market perceptions
-  const { data: perceptions } = await supabase
-    .from("market_perceptions")
-    .select("*")
-    .eq("company_id", companyId);
-
-  if (perceptions?.length) {
-    await supabase.from("market_perceptions").insert(
-      perceptions.map((mp: Record<string, unknown>) => ({
-        company_id: newCompany.id,
-        user_id: user.id,
-        perception: mp.perception,
-        own_view: mp.own_view,
-        sort_order: mp.sort_order,
-      }))
-    );
-  }
-
-  // 6. Delete source company (CASCADE handles children + transactions)
-  await supabase.from("companies").delete().eq("id", companyId);
 
   revalidatePath("/");
+  return newCompanyId as string;
 }

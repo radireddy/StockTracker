@@ -4,58 +4,22 @@ const USER = { id: "user-1" };
 const SRC_CO = "co-src";
 const TARGET_PID = "550e8400-e29b-41d4-a716-446655440000";
 const AID = "550e8400-e29b-41d4-a716-446655440001";
-const ISIN = "INE002A01018";
 
-type Op = {
-  table: string;
-  insert?: Record<string, unknown>;
-  update?: Record<string, unknown>;
-  delete?: boolean;
-  eq: Array<[string, unknown]>;
-};
+type RpcCall = { fn: string; params: Record<string, unknown> };
 
-let targetType: "holdings" | "watchlist";
-let existingHoldings: number;
-let captured: { holdingInserts: Op[]; holdingDeletes: Op[]; holdingUpdates: Op[]; accountInserts: Op[] };
+let rpcResult: { data?: unknown; error?: unknown };
+let captured: { rpcCalls: RpcCall[] };
 
 function makeClient() {
   return {
-    from(table: string) {
-      const op: Op = { table, eq: [] };
-      const b: Record<string, unknown> = {
-        select() { return b; },
-        insert(v: Record<string, unknown>) { op.insert = v; return b; },
-        update(v: Record<string, unknown>) { op.update = v; return b; },
-        delete() { op.delete = true; return b; },
-        eq(c: string, v: unknown) { op.eq.push([c, v]); return b; },
-        maybeSingle() { return resolve(); },
-        single() { return resolve(); },
-        then(f: (x: unknown) => unknown, r?: (e: unknown) => unknown) {
-          return Promise.resolve(resolve()).then(f, r);
-        },
-      };
-      function resolve(): { data?: unknown; error?: unknown } {
-        if (table === "companies") {
-          // source fetch (.single after select.eq), duplicate check (.maybeSingle),
-          // and target insert (.single) all land here.
-          if (op.insert) return { data: { id: "co-new" }, error: null };
-          const isDup = op.eq.some(([c]) => c === "portfolio_id");
-          if (isDup) return { data: null }; // no duplicate in target
-          return { data: { id: SRC_CO, isin: ISIN, buy_price: null, star_rating: 2 } };
-        }
-        if (table === "portfolios") return { data: { type: targetType } };
-        if (table === "holdings") {
-          if (op.insert) { captured.holdingInserts.push(op); return { error: null }; }
-          if (op.delete) { captured.holdingDeletes.push(op); return { error: null }; }
-          if (op.update) { captured.holdingUpdates.push(op); return { error: null }; }
-          // select of source holdings
-          return { data: Array.from({ length: existingHoldings }, (_, i) => ({ id: `h${i}` })) };
-        }
-        if (table === "accounts") { captured.accountInserts.push(op); return { data: { id: "new-acc" }, error: null }; }
-        // research child tables copied by moveCompany
-        return { data: [] };
-      }
-      return b;
+    rpc(fn: string, params: Record<string, unknown>) {
+      captured.rpcCalls.push({ fn, params });
+      return Promise.resolve(rpcResult);
+    },
+    // moveCompany must not touch tables directly anymore — the whole move is one
+    // atomic RPC. If it does, surface it loudly.
+    from(table: string): never {
+      throw new Error(`moveCompany must not call .from(${table}); use the move_company RPC`);
     },
   };
 }
@@ -71,53 +35,70 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import { moveCompany } from "@/app/(authenticated)/actions/company-actions";
 
 beforeEach(() => {
-  targetType = "holdings";
-  existingHoldings = 0;
-  captured = { holdingInserts: [], holdingDeletes: [], holdingUpdates: [], accountInserts: [] };
+  rpcResult = { data: "co-new", error: null };
+  captured = { rpcCalls: [] };
 });
 
-describe("moveCompany — into holdings", () => {
-  it("creates a zero-qty holding under the chosen account when none carry over", async () => {
-    await moveCompany(SRC_CO, TARGET_PID, { position: { account_id: AID } });
-    expect(captured.holdingInserts).toHaveLength(1);
-    const row = captured.holdingInserts[0].insert!;
-    expect(row.account_id).toBe(AID);
-    expect(row.company_id).toBe("co-new");
-    expect(row.quantity).toBe(0);
-    expect(row.avg_buy_price).toBe(0);
-    expect(row.source).toBe("manual");
+describe("moveCompany — atomic RPC", () => {
+  it("performs the whole move through a single move_company RPC call", async () => {
+    await moveCompany(SRC_CO, TARGET_PID);
+    expect(captured.rpcCalls).toHaveLength(1);
+    expect(captured.rpcCalls[0].fn).toBe("move_company");
+    expect(captured.rpcCalls[0].params).toMatchObject({
+      p_company_id: SRC_CO,
+      p_target_portfolio_id: TARGET_PID,
+    });
   });
 
-  it("creates a holding with the provided qty and price", async () => {
-    await moveCompany(SRC_CO, TARGET_PID, { position: { account_id: AID, quantity: 10, avg_buy_price: 245.5 } });
-    const row = captured.holdingInserts[0].insert!;
-    expect(row.quantity).toBe(10);
-    expect(row.avg_buy_price).toBe(245.5);
+  it("forwards notes and a null position when no position is supplied", async () => {
+    await moveCompany(SRC_CO, TARGET_PID, { notes: "moved from watchlist" });
+    expect(captured.rpcCalls[0].params).toMatchObject({
+      p_notes: "moved from watchlist",
+      p_account_id: null,
+      p_new_account_label: null,
+      p_quantity: null,
+      p_avg_buy_price: null,
+    });
   });
 
-  it("rejects when no account is supplied and nothing carries over", async () => {
-    await expect(moveCompany(SRC_CO, TARGET_PID, {})).rejects.toThrow(
+  it("forwards a manual position with the chosen account, qty and price", async () => {
+    await moveCompany(SRC_CO, TARGET_PID, {
+      position: { account_id: AID, quantity: 10, avg_buy_price: 245.5 },
+    });
+    expect(captured.rpcCalls[0].params).toMatchObject({
+      p_account_id: AID,
+      p_new_account_label: null,
+      p_quantity: 10,
+      p_avg_buy_price: 245.5,
+    });
+  });
+
+  it("forwards a new account label for account creation", async () => {
+    await moveCompany(SRC_CO, TARGET_PID, {
+      position: { new_account_label: "Wife – Groww" },
+    });
+    expect(captured.rpcCalls[0].params).toMatchObject({
+      p_account_id: null,
+      p_new_account_label: "Wife – Groww",
+    });
+  });
+
+  it("returns the new company id from the RPC", async () => {
+    const id = await moveCompany(SRC_CO, TARGET_PID);
+    expect(id).toBe("co-new");
+  });
+
+  it("surfaces the RPC error message (e.g. duplicate in target)", async () => {
+    rpcResult = { data: null, error: { message: "This stock already exists in the target portfolio." } };
+    await expect(moveCompany(SRC_CO, TARGET_PID)).rejects.toThrow(
+      "This stock already exists in the target portfolio."
+    );
+  });
+
+  it("surfaces the account-required error raised by the RPC", async () => {
+    rpcResult = { data: null, error: { message: "Select an account to move this stock into holdings." } };
+    await expect(moveCompany(SRC_CO, TARGET_PID)).rejects.toThrow(
       "Select an account to move this stock into holdings."
     );
-    expect(captured.holdingInserts).toHaveLength(0);
-  });
-
-  it("carries existing positions over without prompting for an account", async () => {
-    existingHoldings = 2;
-    await moveCompany(SRC_CO, TARGET_PID, {});
-    expect(captured.holdingUpdates).toHaveLength(1);
-    expect(captured.holdingUpdates[0].update).toMatchObject({ company_id: "co-new", portfolio_id: TARGET_PID });
-    expect(captured.holdingInserts).toHaveLength(0);
-  });
-});
-
-describe("moveCompany — out of holdings", () => {
-  it("deletes holdings (unlinks the account) when target is a watchlist", async () => {
-    targetType = "watchlist";
-    existingHoldings = 3;
-    await moveCompany(SRC_CO, TARGET_PID, {});
-    expect(captured.holdingDeletes).toHaveLength(1);
-    expect(captured.holdingDeletes[0].eq).toContainEqual(["company_id", SRC_CO]);
-    expect(captured.holdingInserts).toHaveLength(0);
   });
 });
