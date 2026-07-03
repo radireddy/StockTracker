@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Combined Initial Schema
--- Consolidated from migrations 001–014
+-- Consolidated from migrations 001–014 + holdings redesign + allocation ranges
 -- ============================================================================
 
 -- Enable extensions
@@ -29,6 +29,9 @@ CREATE TABLE profiles (
   avatar_url TEXT,
   plan TEXT DEFAULT 'free' CHECK (plan IN ('free', 'basic', 'pro', 'premium')),
   plan_limits JSONB DEFAULT '{"max_companies": 50, "max_portfolios": 5, "alerts_enabled": true}',
+  -- Per-star-rating target allocation ranges. NULL = app applies defaults:
+  -- { "1": { "min": 0, "max": 2 }, "2": { "min": 2, "max": 4 }, "3": { "min": 4, "max": 6 }, "4": { "min": 6, "max": 8 } }
+  allocation_ranges JSONB DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -41,36 +44,8 @@ CREATE POLICY "Users can insert own profile" ON profiles FOR INSERT WITH CHECK (
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================================================
--- Portfolio Owners: family members / demat accounts managed by a single user
--- (from 012)
--- ============================================================================
-
-CREATE TABLE portfolio_owners (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  pan_number TEXT,
-  mobile TEXT,
-  is_default BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(user_id, name)
-);
-
-ALTER TABLE portfolio_owners ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage own portfolio owners"
-  ON portfolio_owners FOR ALL USING (auth.uid() = user_id);
-
-CREATE TRIGGER set_updated_at_portfolio_owners
-  BEFORE UPDATE ON portfolio_owners
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
--- Ensure only one default owner per user
-CREATE UNIQUE INDEX idx_portfolio_owners_user_default
-  ON portfolio_owners (user_id) WHERE is_default = true;
-
--- ============================================================================
--- Auto-create profile + default owner on signup (from 012, replaces 001)
+-- Auto-create profile on signup
+-- (The first account is created on first import or first manual add.)
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -82,13 +57,6 @@ BEGIN
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
     NEW.raw_user_meta_data->>'avatar_url'
-  );
-  -- Auto-create default portfolio owner
-  INSERT INTO public.portfolio_owners (user_id, name, is_default)
-  VALUES (
-    NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
-    true
   );
   RETURN NEW;
 END;
@@ -175,8 +143,10 @@ CREATE POLICY "Authenticated users can read indian stocks"
   USING (true);
 
 -- ============================================================================
--- Companies (from 001 + 004/005 normalize + 009 holdings fields)
--- Note: name/symbol/sector/market_cap/current_price removed in 005
+-- Companies — research/recommendation data only (positions live in `holdings`)
+-- (from 001 + 004/005 normalize)
+-- Note: name/symbol/sector/market_cap/current_price removed in 005;
+--       quantity/avg_buy_price/buy_date removed in holdings redesign.
 -- ============================================================================
 
 CREATE TABLE companies (
@@ -191,9 +161,6 @@ CREATE TABLE companies (
   expected_returns NUMERIC,
   thesis TEXT,
   highlights TEXT,
-  quantity NUMERIC,
-  avg_buy_price NUMERIC,
-  buy_date DATE,
   notes TEXT,
   sort_order INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT now(),
@@ -393,156 +360,102 @@ CREATE TRIGGER set_updated_at BEFORE UPDATE ON market_perceptions FOR EACH ROW E
 CREATE INDEX idx_market_perceptions_company ON market_perceptions(company_id);
 
 -- ============================================================================
--- Transactions (from 010 + 011 + 012 + 014)
+-- Holdings model — direct import of broker HOLDINGS statements
+-- (replaces the trade-import → FIFO → derived-holdings pipeline)
+--
+--   accounts        : broker demat accounts (flat; replaced portfolio_owners)
+--   import_holdings : one row per statement import (replaced import_jobs)
+--   holdings        : per-account per-company position snapshot (replaced owner_holdings)
 -- ============================================================================
 
-CREATE TABLE transactions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES auth.users(id),
-  owner_id UUID NOT NULL REFERENCES portfolio_owners(id),
-  type TEXT NOT NULL CHECK (type IN ('BUY', 'SELL')),
-  quantity NUMERIC NOT NULL CHECK (quantity > 0),
-  price NUMERIC NOT NULL CHECK (price >= 0),
-  fees NUMERIC DEFAULT 0 CHECK (fees >= 0),
-  date DATE NOT NULL,
-  notes TEXT,
-  source TEXT DEFAULT 'manual',
-  trade_id TEXT,
-  trade_ids JSONB DEFAULT '[]',
-  order_id TEXT,
-  exchange TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE INDEX idx_transactions_company_date ON transactions (company_id, date);
-CREATE INDEX idx_transactions_user ON transactions (user_id);
-CREATE INDEX idx_transactions_owner ON transactions(owner_id);
-
--- Unique constraint on trade_id per owner for idempotency
-CREATE UNIQUE INDEX idx_transactions_owner_trade_id
-  ON transactions (owner_id, trade_id)
-  WHERE trade_id IS NOT NULL;
-
--- GIN index on trade_ids for fast containment checks
-CREATE INDEX idx_transactions_trade_ids
-  ON transactions USING GIN (trade_ids);
-
-ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can only access own transactions"
-  ON transactions FOR ALL
-  USING (auth.uid() = user_id);
-
-CREATE TRIGGER set_updated_at
-  BEFORE UPDATE ON transactions
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
--- ============================================================================
--- Owner Holdings: per-owner per-company cached state (from 012)
--- ============================================================================
-
-CREATE TABLE owner_holdings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  owner_id UUID NOT NULL REFERENCES portfolio_owners(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  quantity NUMERIC DEFAULT 0,
-  avg_buy_price NUMERIC,
-  buy_date DATE,
+-- ----------------------------------------------------------------------------
+-- accounts — one row per broker demat account (user-scoped, shared across portfolios)
+-- ----------------------------------------------------------------------------
+CREATE TABLE accounts (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  label      TEXT NOT NULL,                     -- "Wife – Groww", user-editable, shown in filter chips
+  broker     TEXT NOT NULL DEFAULT 'zerodha',   -- 'zerodha' | 'manual' | (future: 'groww', ...)
+  client_id  TEXT,                              -- broker demat id (e.g. 'XD6134'); NULL for manual-only accounts
+  pan_number TEXT,
+  mobile     TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(company_id, owner_id)
+  UNIQUE (user_id, label)
 );
 
-ALTER TABLE owner_holdings ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage own owner holdings"
-  ON owner_holdings FOR ALL USING (auth.uid() = user_id);
+-- Reimport-detection key: match an incoming statement to an existing account.
+CREATE UNIQUE INDEX idx_accounts_user_broker_client
+  ON accounts (user_id, broker, client_id) WHERE client_id IS NOT NULL;
+CREATE INDEX idx_accounts_user ON accounts(user_id);
 
-CREATE INDEX idx_owner_holdings_company ON owner_holdings(company_id);
-CREATE INDEX idx_owner_holdings_owner ON owner_holdings(owner_id);
+ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage own accounts"
+  ON accounts FOR ALL USING (auth.uid() = user_id);
 
-CREATE TRIGGER set_updated_at_owner_holdings
-  BEFORE UPDATE ON owner_holdings
+CREATE TRIGGER set_updated_at_accounts
+  BEFORE UPDATE ON accounts
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- ============================================================================
--- Import Jobs (from 011 + 012 + 014)
--- ============================================================================
-
-CREATE TABLE import_jobs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id),
-  portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
-  owner_id UUID NOT NULL REFERENCES portfolio_owners(id),
-  source TEXT NOT NULL DEFAULT 'zerodha',
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
-  file_name TEXT,
-  total_rows INTEGER DEFAULT 0,
-  processed_rows INTEGER DEFAULT 0,
-  imported_count INTEGER DEFAULT 0,
-  skipped_count INTEGER DEFAULT 0,
-  failed_count INTEGER DEFAULT 0,
-  summary JSONB DEFAULT '{}',
-  errors JSONB DEFAULT '[]',
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
+-- ----------------------------------------------------------------------------
+-- import_holdings — one row per statement import (synchronous; no polling)
+-- ----------------------------------------------------------------------------
+CREATE TABLE import_holdings (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  portfolio_id    UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+  account_id      UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  broker          TEXT NOT NULL DEFAULT 'zerodha',
+  client_id       TEXT,
+  statement_date  DATE,                          -- parsed from "…as on 2025-03-31"
+  file_name       TEXT,
+  status          TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('completed','failed')),
+  is_reimport     BOOLEAN DEFAULT false,
+  companies_count INTEGER DEFAULT 0,
+  imported_count  INTEGER DEFAULT 0,
+  skipped_count   INTEGER DEFAULT 0,
+  summary         JSONB DEFAULT '{}',
+  errors          JSONB DEFAULT '[]',
+  created_at      TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_import_jobs_user ON import_jobs (user_id);
-CREATE INDEX idx_import_jobs_status ON import_jobs (user_id, status);
+CREATE INDEX idx_import_holdings_user ON import_holdings(user_id);
+CREATE INDEX idx_import_holdings_portfolio ON import_holdings(portfolio_id);
 
-ALTER TABLE import_jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE import_holdings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage own import_holdings"
+  ON import_holdings FOR ALL USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can only access own import jobs"
-  ON import_jobs FOR ALL
-  USING (auth.uid() = user_id);
-
-CREATE TRIGGER set_updated_at_import_jobs
-  BEFORE UPDATE ON import_jobs
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
--- ============================================================================
--- Corporate Actions (from 013)
--- ============================================================================
-
-CREATE TABLE corporate_actions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
-  symbol TEXT NOT NULL,
-  isin TEXT NOT NULL,
-  action_type TEXT NOT NULL CHECK (action_type IN (
-    'STOCK_SPLIT', 'BONUS', 'DEMERGER', 'MERGER', 'SYMBOL_RENAME'
-  )),
-  ex_date DATE NOT NULL,
-  ratio_from INTEGER,
-  ratio_to INTEGER,
-  new_symbol TEXT,
-  new_isin TEXT,
-  parent_cost_pct NUMERIC,
-  old_symbol TEXT,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'dismissed')),
-  source TEXT NOT NULL DEFAULT 'auto_detected' CHECK (source IN ('auto_detected', 'manual', 'api')),
-  notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
+-- ----------------------------------------------------------------------------
+-- holdings — per-account per-company position snapshot (direct import, not FIFO)
+-- ----------------------------------------------------------------------------
+CREATE TABLE holdings (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id           UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  portfolio_id      UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+  account_id        UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  company_id        UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  isin              TEXT NOT NULL,                       -- denormalized: consolidation GROUP BY needs no join
+  quantity          NUMERIC NOT NULL CHECK (quantity >= 0),
+  avg_buy_price     NUMERIC NOT NULL CHECK (avg_buy_price >= 0),
+  sector            TEXT,                                -- from statement, optional
+  source            TEXT NOT NULL DEFAULT 'zerodha',     -- 'zerodha' | 'manual'
+  import_holding_id UUID REFERENCES import_holdings(id) ON DELETE SET NULL,
+  created_at        TIMESTAMPTZ DEFAULT now(),
+  updated_at        TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (portfolio_id, account_id, company_id)          -- one row per stock per account per portfolio
 );
 
-CREATE INDEX idx_corporate_actions_user ON corporate_actions(user_id);
-CREATE INDEX idx_corporate_actions_portfolio ON corporate_actions(portfolio_id);
-CREATE INDEX idx_corporate_actions_isin ON corporate_actions(isin);
-CREATE INDEX idx_corporate_actions_status ON corporate_actions(user_id, status);
+CREATE INDEX idx_holdings_portfolio         ON holdings(portfolio_id);
+CREATE INDEX idx_holdings_account           ON holdings(account_id);
+CREATE INDEX idx_holdings_portfolio_company ON holdings(portfolio_id, company_id);
 
-ALTER TABLE corporate_actions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE holdings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage own holdings"
+  ON holdings FOR ALL USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can manage own corporate actions"
-  ON corporate_actions FOR ALL
-  USING (auth.uid() = user_id);
-
-CREATE TRIGGER set_updated_at_corporate_actions
-  BEFORE UPDATE ON corporate_actions
+CREATE TRIGGER set_updated_at_holdings
+  BEFORE UPDATE ON holdings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================================================
