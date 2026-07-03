@@ -87,7 +87,7 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
               )}
             </div>
             <div>
-              <Label htmlFor="edit-star_rating">Star Rating *</Label>
+              <Label htmlFor="edit-star_rating">Star Rating <span className="text-destructive">*</span></Label>
               <Select
                 value={starRating}
                 onValueChange={(v) => setStarRating(v ?? "2")}

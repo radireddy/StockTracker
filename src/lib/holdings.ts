@@ -1,176 +1,32 @@
-import { createLogger } from "@/lib/logger";
-
-const log = createLogger({ service: "holdings" });
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SupabaseClient = any;
+/**
+ * Combine an existing holding lot with an additional purchase in the same
+ * account. Quantities add up and the average buy price becomes the
+ * cost-weighted average of both lots — mirroring how a broker aggregates
+ * multiple buys of the same stock into a single position.
+ */
+export function combineHoldingLots(
+  existing: { quantity: number; avg_buy_price: number },
+  added: { quantity: number; avg_buy_price: number }
+): { quantity: number; avg_buy_price: number } {
+  const quantity = existing.quantity + added.quantity;
+  if (quantity <= 0) {
+    return { quantity, avg_buy_price: added.avg_buy_price };
+  }
+  const cost =
+    existing.quantity * existing.avg_buy_price + added.quantity * added.avg_buy_price;
+  return { quantity, avg_buy_price: cost / quantity };
+}
 
 /**
- * Recompute holdings for a company using FIFO:
- * 1. Per-owner FIFO → upsert owner_holdings
- * 2. Delete stale owner_holdings for owners with no transactions
- * 3. Aggregate across owners → update companies.quantity/avg_buy_price
- *
- * Returns true if the company has incomplete history (more sells than buys).
+ * Whether moving a company into `targetType` from `currentType` must prompt for
+ * an account. Only the watchlist -> holdings move needs one: there is no
+ * position to carry, so an account is required to create the initial holdings
+ * row. Holdings -> holdings carries existing positions (with their own
+ * accounts), and watchlist targets hold no positions at all.
  */
-export async function recomputeHoldings(
-  companyId: string,
-  supabase: SupabaseClient
-): Promise<boolean> {
-  const { data: transactions, error } = await supabase
-    .from("transactions")
-    .select("type, quantity, price, date, owner_id, user_id")
-    .eq("company_id", companyId)
-    .order("date")
-    .order("created_at");
-
-  if (error) {
-    log.error("recomputeHoldings: failed to fetch transactions", {
-      error: error.message,
-      companyId,
-    });
-    throw new Error(error.message);
-  }
-
-  if (!transactions || transactions.length === 0) {
-    await supabase
-      .from("companies")
-      .update({ quantity: null, avg_buy_price: null, buy_date: null })
-      .eq("id", companyId);
-    await supabase
-      .from("owner_holdings")
-      .delete()
-      .eq("company_id", companyId);
-    return false;
-  }
-
-  // Group transactions by owner
-  const byOwner = new Map<
-    string,
-    Array<{
-      type: string;
-      quantity: number;
-      price: number;
-      date: string;
-      owner_id: string;
-      user_id: string;
-    }>
-  >();
-  for (const txn of transactions) {
-    const existing = byOwner.get(txn.owner_id);
-    if (existing) {
-      existing.push(txn);
-    } else {
-      byOwner.set(txn.owner_id, [txn]);
-    }
-  }
-
-  let totalQtyAll = 0;
-  let totalCostAll = 0;
-  let earliestBuyDateAll: string | null = null;
-  let incompleteHistory = false;
-
-  // Process each owner separately with FIFO
-  for (const [ownerId, ownerTxns] of byOwner) {
-    let hasBuys = false;
-    let hasSells = false;
-    const lots: { qty: number; price: number }[] = [];
-
-    for (const txn of ownerTxns) {
-      if (txn.type === "BUY") {
-        lots.push({ qty: txn.quantity, price: txn.price });
-        hasBuys = true;
-      } else if (txn.type === "SELL") {
-        let remaining = txn.quantity;
-        while (remaining > 0 && lots.length > 0) {
-          if (lots[0].qty <= remaining) {
-            remaining -= lots[0].qty;
-            lots.shift();
-          } else {
-            lots[0].qty -= remaining;
-            remaining = 0;
-          }
-        }
-        hasSells = true;
-      }
-    }
-
-    const ownerQty = lots.reduce((s, l) => s + l.qty, 0);
-    const ownerCost = lots.reduce((s, l) => s + l.qty * l.price, 0);
-    const ownerIncomplete = ownerQty < 0 || (hasSells && !hasBuys);
-    if (ownerIncomplete) incompleteHistory = true;
-
-    const ownerAvgPrice =
-      ownerQty > 0
-        ? Math.round((ownerCost / ownerQty) * 100) / 100
-        : null;
-    const earliestBuy = ownerTxns.find((t) => t.type === "BUY");
-    const buyDate = earliestBuy ? earliestBuy.date : null;
-
-    // Upsert owner_holdings
-    const { error: upsertErr } = await supabase
-      .from("owner_holdings")
-      .upsert(
-        {
-          company_id: companyId,
-          owner_id: ownerId,
-          user_id: ownerTxns[0].user_id,
-          quantity: ownerQty > 0 ? ownerQty : 0,
-          avg_buy_price: ownerAvgPrice,
-          buy_date: buyDate,
-        },
-        { onConflict: "company_id,owner_id" }
-      );
-
-    if (upsertErr) {
-      log.error("recomputeHoldings: failed to upsert owner_holdings", {
-        error: upsertErr.message,
-        companyId,
-        ownerId,
-      });
-    }
-
-    // Aggregate
-    if (ownerQty > 0) {
-      totalQtyAll += ownerQty;
-      totalCostAll += ownerCost;
-      if (!earliestBuyDateAll || (buyDate && buyDate < earliestBuyDateAll)) {
-        earliestBuyDateAll = buyDate;
-      }
-    }
-  }
-
-  // Delete stale owner_holdings for owners who no longer have transactions
-  const ownerIdsWithTxns = [...byOwner.keys()];
-  if (ownerIdsWithTxns.length > 0) {
-    await supabase
-      .from("owner_holdings")
-      .delete()
-      .eq("company_id", companyId)
-      .not("owner_id", "in", `(${ownerIdsWithTxns.join(",")})`);
-  }
-
-  // Update company-level aggregate
-  const aggAvgPrice =
-    totalQtyAll > 0
-      ? Math.round((totalCostAll / totalQtyAll) * 100) / 100
-      : null;
-  const { error: updateError } = await supabase
-    .from("companies")
-    .update({
-      quantity: totalQtyAll > 0 ? totalQtyAll : 0,
-      avg_buy_price: aggAvgPrice,
-      buy_date: earliestBuyDateAll,
-    })
-    .eq("id", companyId);
-
-  if (updateError) {
-    log.error("recomputeHoldings: failed to update company", {
-      error: updateError.message,
-      companyId,
-    });
-    throw new Error(updateError.message);
-  }
-
-  return incompleteHistory;
+export function requiresAccountForMove(
+  currentType: "holdings" | "watchlist",
+  targetType: "holdings" | "watchlist"
+): boolean {
+  return currentType === "watchlist" && targetType === "holdings";
 }

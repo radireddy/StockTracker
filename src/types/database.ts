@@ -1,5 +1,15 @@
 export type ProjectionType = 'pe_earnings' | 'ev_ebitda';
 
+export type AllocationRange = { min: number; max: number };
+export type AllocationRanges = Record<string, AllocationRange>;
+
+export const DEFAULT_ALLOCATION_RANGES: AllocationRanges = {
+  "1": { min: 0, max: 2 },
+  "2": { min: 2, max: 4 },
+  "3": { min: 4, max: 6 },
+  "4": { min: 6, max: 8 },
+};
+
 export interface Profile {
   id: string;
   email: string;
@@ -11,6 +21,7 @@ export interface Profile {
     max_portfolios: number;
     alerts_enabled: boolean;
   };
+  allocation_ranges: AllocationRanges | null;
   created_at: string;
   updated_at: string;
 }
@@ -59,9 +70,6 @@ export interface Company {
   expected_returns: number | null;
   thesis: string | null;
   highlights: string | null;
-  quantity: number | null;
-  avg_buy_price: number | null;
-  buy_date: string | null;
   notes: string | null;
   sort_order: number;
   created_at: string;
@@ -174,83 +182,70 @@ export interface MarketPerception {
   updated_at: string;
 }
 
-export interface PortfolioOwner {
+/** A broker demat account (flat model). One account = broker + client_id + label. */
+export interface Account {
   id: string;
   user_id: string;
-  name: string;
+  label: string;
+  broker: string;           // 'zerodha' | 'manual' | (future brokers)
+  client_id: string | null; // broker demat id; null for manual-only accounts
   pan_number: string | null;
   mobile: string | null;
-  is_default: boolean;
   created_at: string;
   updated_at: string;
 }
 
-export interface OwnerHolding {
-  id: string;
-  company_id: string;
-  owner_id: string;
-  user_id: string;
-  quantity: number;
-  avg_buy_price: number | null;
-  buy_date: string | null;
-  created_at: string;
-  updated_at: string;
-  // Joined
-  portfolio_owners?: PortfolioOwner;
-}
-
-export type Transaction = {
-  id: string;
-  company_id: string;
-  user_id: string;
-  owner_id: string;
-  type: 'BUY' | 'SELL';
-  quantity: number;
-  price: number;
-  fees: number;
-  date: string;
-  notes: string | null;
-  source: string;
-  trade_id: string | null;
-  trade_ids: string[];
-  order_id: string | null;
-  exchange: string | null;
-  created_at: string;
-  updated_at: string;
-  // Joined
-  portfolio_owners?: PortfolioOwner;
-};
-
-export type ImportJob = {
+/** Per-account per-company position snapshot (imported directly, not derived). */
+export interface Holding {
   id: string;
   user_id: string;
   portfolio_id: string;
-  owner_id: string | null;
-  source: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  file_name: string | null;
-  total_rows: number;
-  processed_rows: number;
-  imported_count: number;
-  skipped_count: number;
-  failed_count: number;
-  summary: ImportJobSummary;
-  errors: ImportJobError[];
+  account_id: string;
+  company_id: string;
+  isin: string;
+  quantity: number;
+  avg_buy_price: number;
+  sector: string | null;
+  source: string;           // 'zerodha' | 'manual'
+  import_holding_id: string | null;
   created_at: string;
   updated_at: string;
+  // Joined
+  accounts?: Account;
+}
+
+/** One statement import (synchronous; replaces the old async import_jobs). */
+export type ImportHolding = {
+  id: string;
+  user_id: string;
+  portfolio_id: string;
+  account_id: string;
+  broker: string;
+  client_id: string | null;
+  statement_date: string | null;
+  file_name: string | null;
+  status: 'completed' | 'failed';
+  is_reimport: boolean;
+  companies_count: number;
+  imported_count: number;
+  skipped_count: number;
+  summary: ImportHoldingSummary;
+  errors: ImportHoldingError[];
+  created_at: string;
+  // Joined
+  accounts?: Account;
 };
 
-export type ImportJobSummary = {
+export type ImportHoldingSummary = {
   symbols_imported?: string[];
   symbols_skipped?: string[];
-  symbols_failed?: string[];
-  symbols_incomplete_history?: string[];
   new_companies_created?: string[];
-  date_range?: string;
+  statement_date?: string;
   client_id?: string;
+  account_label?: string;
 };
 
-export type ImportJobError = {
+export type ImportHoldingError = {
   symbol?: string;
   message: string;
   row?: number;

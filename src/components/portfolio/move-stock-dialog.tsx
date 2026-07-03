@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,12 +9,15 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Check } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { AccountSelect, NEW_ACCOUNT } from "@/components/account/account-select";
+import { getAccounts } from "@/app/(authenticated)/actions/account-actions";
+import { requiresAccountForMove } from "@/lib/holdings";
 import { moveCompany } from "@/app/(authenticated)/actions/company-actions";
 import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
-import type { Portfolio } from "@/types/database";
+import type { Account, Portfolio } from "@/types/database";
 
 type PortfolioWithCount = Portfolio & { company_count: number };
 
@@ -36,32 +39,70 @@ export function MoveStockDialog({
   onMoved?: () => void;
 }) {
   const [targetId, setTargetId] = useState<string>("");
-  const [quantity, setQuantity] = useState("");
-  const [avgBuyPrice, setAvgBuyPrice] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountId, setAccountId] = useState<string>("");
+  const [newAccountLabel, setNewAccountLabel] = useState<string>("");
+  const [quantity, setQuantity] = useState<string>("");
+  const [avgPrice, setAvgPrice] = useState<string>("");
   const invalidate = useInvalidateDashboard();
 
   const targets = portfolios.filter((p) => p.id !== currentPortfolioId);
   const targetPortfolio = targets.find((p) => p.id === targetId);
   const isTargetHoldings = targetPortfolio?.type === "holdings";
+  const currentType = portfolios.find((p) => p.id === currentPortfolioId)?.type ?? "watchlist";
+  const needsAccount =
+    !!targetPortfolio && requiresAccountForMove(currentType, targetPortfolio.type);
+
+  useEffect(() => {
+    if (open && needsAccount && accounts.length === 0) {
+      getAccounts().then(setAccounts).catch(() => {});
+    }
+  }, [open, needsAccount, accounts.length]);
 
   async function handleMove() {
     if (!targetId) return;
+
+    let position:
+      | { account_id?: string; new_account_label?: string; quantity?: number; avg_buy_price?: number }
+      | undefined;
+
+    if (needsAccount) {
+      const accountOk =
+        (accountId && accountId !== NEW_ACCOUNT) ||
+        (accountId === NEW_ACCOUNT && newAccountLabel.trim());
+      if (!accountOk) {
+        setError("Account is required");
+        return;
+      }
+      if (quantity && !(Number(quantity) > 0)) {
+        setError("Quantity must be positive");
+        return;
+      }
+      if (avgPrice && Number(avgPrice) < 0) {
+        setError("Average price cannot be negative");
+        return;
+      }
+      position = {
+        ...(accountId === NEW_ACCOUNT
+          ? { new_account_label: newAccountLabel.trim() }
+          : { account_id: accountId }),
+        ...(quantity ? { quantity: Number(quantity) } : {}),
+        ...(avgPrice ? { avg_buy_price: Number(avgPrice) } : {}),
+      };
+    }
+
     setPending(true);
     setError(null);
 
     try {
-      await moveCompany(companyId, targetId, {
-        quantity: quantity ? Number(quantity) : undefined,
-        avg_buy_price: avgBuyPrice ? Number(avgBuyPrice) : undefined,
-      });
+      await moveCompany(companyId, targetId, position ? { position } : undefined);
       invalidate();
       onOpenChange(false);
       onMoved?.();
     } catch (e: unknown) {
-      const message =
-        e instanceof Error ? e.message : "Failed to move company";
+      const message = e instanceof Error ? e.message : "Failed to move company";
       setError(message);
     } finally {
       setPending(false);
@@ -105,33 +146,54 @@ export function MoveStockDialog({
             </div>
           </div>
 
-          {isTargetHoldings && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="move-qty">Quantity (optional)</Label>
-                <Input
-                  id="move-qty"
-                  type="number"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  placeholder="Number of shares"
+          {needsAccount && (
+            <div className="space-y-3 rounded-md border border-border p-3">
+              <div className="text-sm font-medium">
+                Position{" "}
+                <span className="text-xs font-normal text-muted-foreground">
+                  (account required; qty &amp; price can be added later)
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Account <span className="text-destructive">*</span></Label>
+                <AccountSelect
+                  accounts={accounts}
+                  value={accountId}
+                  onChange={setAccountId}
+                  newLabel={newAccountLabel}
+                  onNewLabelChange={setNewAccountLabel}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="move-avg">Avg Buy Price (optional)</Label>
-                <Input
-                  id="move-avg"
-                  type="number"
-                  value={avgBuyPrice}
-                  onChange={(e) => setAvgBuyPrice(e.target.value)}
-                  placeholder="Average purchase price"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Quantity</Label>
+                  <Input
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="e.g. 100"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Avg Buy Price (₹)</Label>
+                  <Input
+                    value={avgPrice}
+                    onChange={(e) => setAvgPrice(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="e.g. 245.50"
+                  />
+                </div>
               </div>
-            </>
+            </div>
           )}
 
           <div className="text-xs text-muted-foreground space-y-1">
             <p>Research data (financials, valuations, timeline) will be copied.</p>
+            {isTargetHoldings ? (
+              <p>Existing holdings (across accounts) move with the stock.</p>
+            ) : (
+              <p>Holdings will be discarded when moving to a watchlist.</p>
+            )}
             <p>The stock will be removed from the current portfolio.</p>
           </div>
 
@@ -142,7 +204,16 @@ export function MoveStockDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleMove} disabled={pending || !targetId}>
+          <Button
+            onClick={handleMove}
+            disabled={
+              pending ||
+              !targetId ||
+              (needsAccount &&
+                (!accountId ||
+                  (accountId === NEW_ACCOUNT && !newAccountLabel.trim())))
+            }
+          >
             {pending ? "Moving..." : "Move Stock"}
           </Button>
         </DialogFooter>

@@ -3,53 +3,34 @@
 import { useMemo, useCallback } from "react";
 import { CompaniesTable } from "@/components/dashboard/companies-table";
 import { PortfolioPnlBar } from "@/components/dashboard/portfolio-pnl-bar";
-import { OwnerFilter } from "@/components/owner/owner-filter";
+import { AllocationSummaryBar } from "@/components/dashboard/allocation-summary-bar";
+import { AccountFilter } from "@/components/account/account-filter";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { usePortfolioContext } from "@/hooks/use-portfolio-context";
-import { useDashboardData, useInvalidateDashboard } from "@/hooks/use-dashboard-data";
-import type { PortfolioOwner } from "@/types/database";
+import { useDashboardData, useInvalidateDashboard, consolidateHoldings } from "@/hooks/use-dashboard-data";
 import { useState } from "react";
 
 export default function DashboardPage() {
   const { selectedId, selectedPortfolio } = usePortfolioContext();
-  const [ownerFilter, setOwnerFilter] = useState<string>("all");
+  const [accountFilter, setAccountFilter] = useState<string>("all");
 
   const portfolioType = selectedPortfolio?.type ?? "holdings";
   const isHoldings = portfolioType === "holdings";
 
-  const { data, isLoading } = useDashboardData(selectedId, portfolioType, ownerFilter);
+  const { data, isLoading } = useDashboardData(selectedId, portfolioType);
   const invalidate = useInvalidateDashboard();
 
-  const owners = (data?.owners ?? []) as PortfolioOwner[];
+  const accounts = data?.accounts ?? [];
+  const allocationRanges = data?.allocationRanges ?? null;
 
   const companies = useMemo(() => {
     if (!data) return [];
-    const { companies: rawCompanies, allHoldings } = data;
-
-    if (ownerFilter !== "all") {
-      const filtered = allHoldings.filter((h) => h.owner_id === ownerFilter);
-      const holdingMap = new Map(filtered.map((h) => [h.company_id, h]));
-      return rawCompanies
-        .map((c) => {
-          const oh = holdingMap.get(c.id);
-          if (!oh) return null;
-          if (oh.quantity === 0) return null;
-          return {
-            ...c,
-            quantity: oh.quantity,
-            avg_buy_price: oh.avg_buy_price,
-            buy_date: oh.buy_date,
-          };
-        })
-        .filter((x): x is NonNullable<typeof x> => x != null);
-    }
-
-    return rawCompanies;
-  }, [data, ownerFilter]);
+    return consolidateHoldings(data.companies, data.allHoldings, accountFilter);
+  }, [data, accountFilter]);
 
   const removeCompany = useCallback(
-    (companyId: string) => {
+    (_companyId: string) => {
       invalidate();
     },
     [invalidate]
@@ -65,11 +46,11 @@ export default function DashboardPage() {
               ({companies.length})
             </span>
           </h1>
-          {isHoldings && (
-            <OwnerFilter
-              owners={owners}
-              value={ownerFilter}
-              onChange={setOwnerFilter}
+          {isHoldings && accounts.length > 0 && (
+            <AccountFilter
+              accounts={accounts}
+              value={accountFilter}
+              onChange={setAccountFilter}
             />
           )}
         </div>
@@ -78,14 +59,22 @@ export default function DashboardPage() {
         </Link>
       </div>
       {isHoldings && !isLoading && (
-        <PortfolioPnlBar companies={companies} />
+        <>
+          <PortfolioPnlBar companies={companies} />
+          <AllocationSummaryBar companies={companies} allocationRanges={allocationRanges} />
+        </>
       )}
       {isLoading ? (
         <div className="text-center py-12 text-sm text-muted-foreground">
           Loading companies...
         </div>
       ) : (
-        <CompaniesTable companies={companies} portfolioType={portfolioType} onRemoveCompany={removeCompany} />
+        <CompaniesTable
+          companies={companies}
+          portfolioType={portfolioType}
+          onRemoveCompany={removeCompany}
+          allocationRanges={allocationRanges}
+        />
       )}
     </div>
   );

@@ -72,7 +72,7 @@ export function CreatePortfolioDialog({
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
+            <Label htmlFor="name">Name <span className="text-destructive">*</span></Label>
             <Input
               id="name"
               value={name}

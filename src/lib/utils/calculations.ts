@@ -1,4 +1,5 @@
-import type { FinancialYear, ProjectionModel } from "@/types/database";
+import type { FinancialYear, ProjectionModel, AllocationRanges, AllocationRange } from "@/types/database";
+import { DEFAULT_ALLOCATION_RANGES } from "@/types/database";
 import type { HorizonPegMetrics } from "@/lib/projections/types";
 
 export function marginOfSafety(
@@ -205,6 +206,12 @@ export function fmtPriceShort(val: number | null): string {
   return roundPrice(val).toLocaleString(IN_LOCALE);
 }
 
+/** Amount without decimals — for totals like Cost, Current Value, P&L */
+export function fmtAmountShort(val: number | null): string {
+  if (val == null) return "-";
+  return Math.round(val).toLocaleString(IN_LOCALE);
+}
+
 /** Percentage from decimal (0.25 → "25.0%"). Guards against absurd values. */
 export function fmtPct(val: number | null): string {
   if (val == null || !isFinite(val)) return "-";
@@ -237,4 +244,33 @@ export function fmtNum(val: number | null | undefined, decimals = 2): string {
 /** Round price to 2 decimal places */
 export function roundPrice(val: number): number {
   return Math.round(val * 100) / 100;
+}
+
+// --- Allocation helpers ---
+
+export type AllocationStatus = "under" | "in_range" | "over";
+
+/** Get the effective allocation ranges (user overrides or defaults) */
+export function getEffectiveRanges(userRanges: AllocationRanges | null): AllocationRanges {
+  return userRanges ?? DEFAULT_ALLOCATION_RANGES;
+}
+
+/** Get allocation range for a star rating */
+export function getRangeForStar(star: number | null, ranges: AllocationRanges): AllocationRange {
+  const key = String(star ?? 1);
+  return ranges[key] ?? { min: 0, max: 2 };
+}
+
+/** Determine allocation status relative to target range */
+export function getAllocationStatus(actualPct: number, range: AllocationRange): AllocationStatus {
+  if (actualPct < range.min) return "under";
+  if (actualPct > range.max) return "over";
+  return "in_range";
+}
+
+/** Delta from nearest range boundary. 0 if in range, negative if under, positive if over. */
+export function getAllocationDelta(actualPct: number, range: AllocationRange): number {
+  if (actualPct < range.min) return actualPct - range.min;
+  if (actualPct > range.max) return actualPct - range.max;
+  return 0;
 }

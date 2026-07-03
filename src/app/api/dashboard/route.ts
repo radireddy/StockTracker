@@ -13,7 +13,7 @@ const STALE_THRESHOLD_MS = 5 * 60 * 1000;
 let refreshInProgress = false;
 
 const DASHBOARD_COMPANY_SELECT = `
-  id, isin, star_rating, strategy, quantity, avg_buy_price, buy_price, investment_horizon_years,
+  id, isin, star_rating, strategy, buy_price, investment_horizon_years,
   indian_stocks(name, nse_symbol, price, market_cap),
   projection_models(is_default, valuation_scenarios(scenario_type, target_market_cap, irr, buy_price))
 `;
@@ -42,36 +42,37 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
   }
 
-  const { portfolioId, portfolioType } = parsed.data;
+  const { portfolioId } = parsed.data;
 
-  let companyQuery = supabase
+  const companyQuery = supabase
     .from("companies")
     .select(DASHBOARD_COMPANY_SELECT)
     .eq("portfolio_id", portfolioId);
 
-  if (portfolioType === "holdings") {
-    companyQuery = companyQuery.or("quantity.is.null,quantity.gt.0");
-  }
-
-  const [companiesResult, ownersResult, holdingsResult] = await Promise.all([
+  const [companiesResult, accountsResult, holdingsResult, profileResult] = await Promise.all([
     companyQuery.order("created_at"),
     supabase
-      .from("portfolio_owners")
-      .select("id, name, is_default")
-      .order("is_default", { ascending: false })
+      .from("accounts")
+      .select("id, label, broker")
       .order("created_at", { ascending: true }),
     supabase
-      .from("owner_holdings")
-      .select("company_id, owner_id, quantity, avg_buy_price, buy_date"),
+      .from("holdings")
+      .select("company_id, account_id, quantity, avg_buy_price")
+      .eq("portfolio_id", portfolioId),
+    supabase
+      .from("profiles")
+      .select("allocation_ranges")
+      .eq("id", user.id)
+      .single(),
   ]);
 
   if (companiesResult.error) {
     log.error("dashboard companies failed", { error: companiesResult.error.message, portfolioId });
     return NextResponse.json({ error: companiesResult.error.message }, { status: 500 });
   }
-  if (ownersResult.error) {
-    log.error("dashboard owners failed", { error: ownersResult.error.message });
-    return NextResponse.json({ error: ownersResult.error.message }, { status: 500 });
+  if (accountsResult.error) {
+    log.error("dashboard accounts failed", { error: accountsResult.error.message });
+    return NextResponse.json({ error: accountsResult.error.message }, { status: 500 });
   }
   if (holdingsResult.error) {
     log.error("dashboard holdings failed", { error: holdingsResult.error.message });
@@ -79,13 +80,12 @@ export async function GET(request: NextRequest) {
   }
 
   const companies = companiesResult.data ?? [];
-  const owners = ownersResult.data ?? [];
+  const accounts = accountsResult.data ?? [];
   const allHoldings = (holdingsResult.data ?? []).map((h) => ({
     company_id: h.company_id as string,
-    owner_id: h.owner_id as string,
+    account_id: h.account_id as string,
     quantity: (h.quantity as number) ?? 0,
     avg_buy_price: h.avg_buy_price as number | null,
-    buy_date: h.buy_date as string | null,
   }));
 
   type DashboardStock = { name: string | null; nse_symbol: string | null; price: number | null; market_cap: number | null };
@@ -100,7 +100,10 @@ export async function GET(request: NextRequest) {
   // Fire-and-forget price refresh if stale
   triggerPriceRefreshIfStale(supabase);
 
-  return NextResponse.json({ companies: normalized, owners, allHoldings });
+  const allocationRanges =
+    (profileResult.data?.allocation_ranges as Record<string, { min: number; max: number }> | null) ?? null;
+
+  return NextResponse.json({ companies: normalized, accounts, allHoldings, allocationRanges });
 }
 
 async function triggerPriceRefreshIfStale(supabase: SupabaseClient) {

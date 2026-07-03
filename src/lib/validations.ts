@@ -3,15 +3,12 @@ import { z } from "zod";
 export const uuidSchema = z.string().uuid();
 export const isinSchema = z.string().regex(/^INE[A-Z0-9]{9}$/, "Invalid ISIN format");
 
-export const transactionSchema = z.object({
-  company_id: uuidSchema,
-  owner_id: uuidSchema,
-  type: z.enum(["BUY", "SELL"]),
-  quantity: z.number().int().positive("Quantity must be positive"),
-  price: z.number().nonnegative("Price cannot be negative"),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
-  fees: z.number().nonnegative().optional(),
-  notes: z.string().max(500).optional(),
+/** Manual holding add/edit — always scoped to an account. */
+export const holdingSchema = z.object({
+  account_id: uuidSchema,
+  isin: isinSchema,
+  quantity: z.number().positive("Quantity must be positive"),
+  avg_buy_price: z.number().nonnegative("Average price cannot be negative"),
 });
 
 export const companyCreateSchema = z.object({
@@ -23,13 +20,58 @@ export const companyCreateSchema = z.object({
   buy_price: z.number().nonnegative().optional().nullable(),
 });
 
+/**
+ * Add a company to a Holdings portfolio. The account is mandatory (provide
+ * either an existing `account_id` or a `new_account_label`); quantity and
+ * avg_buy_price are optional and can be filled in later on the Holdings tab.
+ * Research fields are optional too.
+ */
+export const companyWithHoldingSchema = z
+  .object({
+    portfolio_id: uuidSchema,
+    isin: isinSchema,
+    // research (all optional)
+    strategy: z.string().max(100).optional().nullable(),
+    investment_horizon_years: z.number().int().min(0).max(30).optional(),
+    star_rating: z.number().int().min(1).max(5).optional(),
+    buy_price: z.number().nonnegative().optional().nullable(),
+    // position — account required; quantity & price deferrable
+    account_id: uuidSchema.optional(),
+    new_account_label: z.string().min(1).max(100).optional(),
+    quantity: z.number().positive("Quantity must be positive").optional(),
+    avg_buy_price: z.number().nonnegative("Average price cannot be negative").optional(),
+  })
+  .refine((d) => Boolean(d.account_id || d.new_account_label), {
+    message: "Account is required",
+    path: ["account_id"],
+  });
+
+/**
+ * The position collected when moving a company into a Holdings portfolio.
+ * Account is mandatory (existing `account_id` or a `new_account_label`);
+ * quantity and avg_buy_price are optional and default to 0 when omitted.
+ */
+export const moveToHoldingsSchema = z
+  .object({
+    account_id: uuidSchema.optional(),
+    new_account_label: z.string().min(1).max(100).optional(),
+    quantity: z.number().positive("Quantity must be positive").optional(),
+    avg_buy_price: z.number().nonnegative("Average price cannot be negative").optional(),
+  })
+  .refine((d) => Boolean(d.account_id || d.new_account_label), {
+    message: "Account is required",
+    path: ["account_id"],
+  });
+
 export const portfolioSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   type: z.enum(["holdings", "watchlist"]),
 });
 
-export const ownerSchema = z.object({
-  name: z.string().min(1, "Name is required").max(100),
+export const accountSchema = z.object({
+  label: z.string().min(1, "Label is required").max(100),
+  broker: z.string().max(50).optional(),
+  client_id: z.string().max(50).optional().or(z.literal("")),
   pan_number: z
     .string()
     .regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, "Invalid PAN format")

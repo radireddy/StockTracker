@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PortfolioManager } from "@/components/settings/portfolio-manager";
+import { AllocationRangesEditor } from "@/components/settings/allocation-ranges-editor";
 import { getPortfolios } from "@/app/(authenticated)/actions/portfolio-actions";
+import type { AllocationRanges } from "@/types/database";
 
 export default async function SettingsPage() {
   let supabase, user;
@@ -35,6 +37,16 @@ export default async function SettingsPage() {
             <strong>Plan:</strong>{" "}
             <Badge variant="outline">{profile?.plan ?? "free"}</Badge>
           </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Allocation Ranges</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AllocationRangesEditor
+            initialRanges={(profile?.allocation_ranges as AllocationRanges | null) ?? null}
+          />
         </CardContent>
       </Card>
       <Card>

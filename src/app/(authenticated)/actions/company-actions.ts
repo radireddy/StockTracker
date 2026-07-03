@@ -5,7 +5,8 @@ import { fetchStockPrice } from "@/app/(authenticated)/actions/price-actions";
 import { revalidatePath } from "next/cache";
 import DOMPurify from "isomorphic-dompurify";
 import { createLogger } from "@/lib/logger";
-import { companyCreateSchema } from "@/lib/validations";
+import { companyCreateSchema, moveToHoldingsSchema } from "@/lib/validations";
+import { resolveAccountId } from "@/lib/accounts";
 
 const log = createLogger({ service: "company-actions" });
 
@@ -143,10 +144,13 @@ export async function moveCompany(
   companyId: string,
   targetPortfolioId: string,
   additionalData?: {
-    quantity?: number;
-    avg_buy_price?: number;
-    buy_date?: string;
     notes?: string;
+    position?: {
+      account_id?: string;
+      new_account_label?: string;
+      quantity?: number;
+      avg_buy_price?: number;
+    };
   }
 ) {
   const { supabase, user } = await getAuthUser();
@@ -181,7 +185,7 @@ export async function moveCompany(
     throw new Error("This stock already exists in the target portfolio.");
   }
 
-  // 4. Insert new company in target (copy common fields)
+  // 4. Insert new company in target (research fields only; positions live in `holdings`)
   const isWatchlist = targetPortfolio.type === "watchlist";
 
   const { data: newCompany, error: insertError } = await supabase
@@ -197,11 +201,6 @@ export async function moveCompany(
       expected_returns: source.expected_returns,
       thesis: source.thesis,
       highlights: source.highlights,
-      quantity: isWatchlist ? null : (additionalData?.quantity ?? null),
-      avg_buy_price: isWatchlist
-        ? null
-        : (additionalData?.avg_buy_price ?? null),
-      buy_date: isWatchlist ? null : (additionalData?.buy_date ?? null),
       notes: additionalData?.notes ?? null,
     })
     .select("id")
@@ -210,6 +209,48 @@ export async function moveCompany(
   if (insertError || !newCompany) {
     log.error("Failed to insert company in target portfolio", { error: insertError?.message });
     throw insertError ?? new Error("Failed to move company");
+  }
+
+  // 4b. Reconcile holdings for the move.
+  const { data: sourceHoldings } = await supabase
+    .from("holdings")
+    .select("id")
+    .eq("company_id", companyId);
+  const carriesHoldings = (sourceHoldings?.length ?? 0) > 0;
+
+  if (isWatchlist) {
+    // Moving out of holdings — unlink by dropping every position.
+    await supabase.from("holdings").delete().eq("company_id", companyId);
+  } else if (carriesHoldings) {
+    // Existing positions move with the stock, keeping their own accounts.
+    await supabase
+      .from("holdings")
+      .update({ company_id: newCompany.id, portfolio_id: targetPortfolioId })
+      .eq("company_id", companyId);
+  } else {
+    // No position to carry — an account is required to create the initial
+    // (possibly zero-qty) holding so the company belongs to an account.
+    const parsed = moveToHoldingsSchema.safeParse(additionalData?.position ?? {});
+    if (!parsed.success) {
+      throw new Error("Select an account to move this stock into holdings.");
+    }
+    const p = parsed.data;
+    const accountId = await resolveAccountId(supabase, user.id, {
+      account_id: p.account_id,
+      new_account_label: p.new_account_label,
+    });
+    const { error: holdErr } = await supabase.from("holdings").insert({
+      user_id: user.id,
+      portfolio_id: targetPortfolioId,
+      account_id: accountId,
+      company_id: newCompany.id,
+      isin: source.isin,
+      quantity: p.quantity ?? 0,
+      avg_buy_price: p.avg_buy_price ?? 0,
+      source: "manual",
+      import_holding_id: null,
+    });
+    if (holdErr) throw new Error(holdErr.message);
   }
 
   // 5. Copy child records: projection_models, financial_years, valuation_scenarios

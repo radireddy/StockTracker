@@ -6,7 +6,7 @@ import { ProjectionsValuationTab } from "@/components/company/projections-valuat
 import { TimelineTab } from "@/components/company/timeline-tab";
 import { HighlightsSection } from "@/components/company/highlights-section";
 import { EditCompanyTab } from "@/components/company/edit-company-tab";
-import { TransactionsTab } from "@/components/company/transactions-tab";
+import { HoldingsTab } from "@/components/company/holdings-tab";
 import { getDefaultModelBuyPrice } from "@/lib/utils/calculations";
 import type { Company, ProjectionModel, TimelineEntry } from "@/types/database";
 
@@ -34,7 +34,7 @@ export function CompanyTabs({
       { id: "highlights", label: "Highlights" },
     ];
     if (portfolioType === "holdings") {
-      base.splice(1, 0, { id: "transactions", label: "Transactions" });
+      base.splice(1, 0, { id: "holdings", label: "Holdings" });
     }
     return base;
   }, [portfolioType]);
@@ -69,8 +69,12 @@ export function CompanyTabs({
           />
         </div>
         {portfolioType === "holdings" && (
-          <div className={activeTab === "transactions" ? undefined : "hidden"}>
-            <TransactionsTab companyId={company.id} />
+          <div className={activeTab === "holdings" ? undefined : "hidden"}>
+            <HoldingsTab
+              companyId={company.id}
+              portfolioId={company.portfolio_id}
+              isin={company.isin}
+            />
           </div>
         )}
         <div className={activeTab === "thesis" ? undefined : "hidden"}>

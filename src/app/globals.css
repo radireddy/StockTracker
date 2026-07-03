@@ -32,6 +32,7 @@ html {
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -69,6 +70,7 @@ html {
   --accent: oklch(0.94 0.03 168);
   --accent-foreground: oklch(0.30 0.08 168);
   --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0.01 25);
   --border: oklch(0.90 0.01 220);
   --input: oklch(0.90 0.01 220);
   --ring: oklch(0.55 0.12 168);
@@ -104,6 +106,7 @@ html {
   --accent: oklch(0.28 0.03 168);
   --accent-foreground: oklch(0.90 0.01 200);
   --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0.01 25);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.60 0.14 168);
@@ -131,6 +134,38 @@ html {
   }
   html {
     @apply font-sans;
+  }
+
+  /* Interactive elements get a pointer cursor by default. Covers native
+     controls plus ARIA-role widgets rendered by base-ui (menu items, options,
+     select triggers, etc.). Disabled controls keep the not-allowed cursor. */
+  button,
+  a[href],
+  label[for],
+  summary,
+  select,
+  [role="button"],
+  [role="menuitem"],
+  [role="menuitemcheckbox"],
+  [role="menuitemradio"],
+  [role="option"],
+  [role="tab"],
+  [role="switch"],
+  [role="combobox"],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="file"],
+  input[type="submit"],
+  input[type="reset"] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  input:disabled,
+  [aria-disabled="true"],
+  [data-disabled] {
+    cursor: not-allowed;
   }
 }
 
