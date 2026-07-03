@@ -62,47 +62,49 @@ beforeEach(() => {
 
 describe("createCompanyWithHolding", () => {
   it("creates a company + holding with an account only (qty & price deferred)", async () => {
-    const id = await createCompanyWithHolding(mkForm({ portfolio_id: PID, isin: ISIN, account_id: AID }));
-    expect(id).toBe("co-1");
+    const res = await createCompanyWithHolding(mkForm({ portfolio_id: PID, isin: ISIN, account_id: AID }));
+    expect(res).toEqual({ ok: true, data: "co-1" });
     expect(fromCalls.holdings).toBe(1);
   });
 
-  it("rejects an add with no account (account is mandatory)", async () => {
-    await expect(
-      createCompanyWithHolding(mkForm({ portfolio_id: PID, isin: ISIN, star_rating: "3" }))
-    ).rejects.toThrow(/account is required/i);
+  it("returns a failure with no account (account is mandatory)", async () => {
+    const res = await createCompanyWithHolding(mkForm({ portfolio_id: PID, isin: ISIN, star_rating: "3" }));
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/account is required/i);
   });
 
   it("creates a company + holding with an existing account", async () => {
-    const id = await createCompanyWithHolding(
+    const res = await createCompanyWithHolding(
       mkForm({ portfolio_id: PID, isin: ISIN, account_id: AID, quantity: "10", avg_buy_price: "100" })
     );
-    expect(id).toBe("co-1");
+    expect(res).toEqual({ ok: true, data: "co-1" });
     expect(fromCalls.holdings).toBe(1);
     expect(fromCalls.accounts ?? 0).toBe(0);
   });
 
   it("creates the new account then the company + holding", async () => {
-    const id = await createCompanyWithHolding(
+    const res = await createCompanyWithHolding(
       mkForm({ portfolio_id: PID, isin: ISIN, new_account_label: "Dad – Groww", quantity: "5", avg_buy_price: "50" })
     );
-    expect(id).toBe("co-1");
+    expect(res).toEqual({ ok: true, data: "co-1" });
     expect(fromCalls.accounts).toBe(1);
     expect(fromCalls.holdings).toBe(1);
   });
 
-  it("rejects a duplicate stock in the portfolio", async () => {
+  it("returns a failure for a duplicate stock in the portfolio", async () => {
     handlers.companies = (op) => (op.insert ? { data: { id: "co-1" } } : { data: { id: "existing" } });
-    await expect(
-      createCompanyWithHolding(
-        mkForm({ portfolio_id: PID, isin: ISIN, account_id: AID, quantity: "10", avg_buy_price: "100" })
-      )
-    ).rejects.toThrow(/already in this portfolio/i);
+    const res = await createCompanyWithHolding(
+      mkForm({ portfolio_id: PID, isin: ISIN, account_id: AID, quantity: "10", avg_buy_price: "100" })
+    );
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/already in this portfolio/i);
   });
 
-  it("rejects a missing account", async () => {
-    await expect(
-      createCompanyWithHolding(mkForm({ portfolio_id: PID, isin: ISIN, quantity: "10", avg_buy_price: "100" }))
-    ).rejects.toThrow(/account is required/i);
+  it("returns a failure for a missing account", async () => {
+    const res = await createCompanyWithHolding(
+      mkForm({ portfolio_id: PID, isin: ISIN, quantity: "10", avg_buy_price: "100" })
+    );
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/account is required/i);
   });
 });

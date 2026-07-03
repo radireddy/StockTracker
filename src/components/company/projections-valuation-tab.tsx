@@ -33,6 +33,8 @@ import {
 } from "@/app/(authenticated)/actions/projection-actions";
 import { updateCompany } from "@/app/(authenticated)/actions/company-actions";
 import { marketCapInCrores } from "@/lib/utils/calculations";
+import { toast } from "sonner";
+import { toastError } from "@/lib/toast-error";
 import type { Company, ProjectionModel, FinancialYear, ProjectionType } from "@/types/database";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -350,9 +352,10 @@ export function ProjectionsValuationTab({
 
   const handleAddModel = useCallback(async (type: ProjectionType, label: string) => {
     const isDefault = modelStates.length === 0;
-    const newModel = await createProjectionModel(company.id, type, label, isDefault);
+    const res = await createProjectionModel(company.id, type, label, isDefault);
+    if (!res.ok) return toastError(res);
     const pm: ProjectionModel = {
-      ...newModel,
+      ...(res.data as unknown as ProjectionModel),
       financial_years: [],
       valuation_scenarios: [],
     };
@@ -364,7 +367,8 @@ export function ProjectionsValuationTab({
   // ─── Set default ───────────────────────────────────────────────────────────
 
   const handleSetDefault = useCallback(async (modelId: string) => {
-    await setDefaultProjectionModel(company.id, modelId);
+    const res = await setDefaultProjectionModel(company.id, modelId);
+    if (!res.ok) return toastError(res);
     setModelStates((prev) =>
       prev.map((ms) => ({
         ...ms,
@@ -377,7 +381,8 @@ export function ProjectionsValuationTab({
 
   const handleDeleteModel = useCallback(async () => {
     if (!deleteTarget) return;
-    await deleteProjectionModel(deleteTarget.id, company.id);
+    const res = await deleteProjectionModel(deleteTarget.id, company.id);
+    if (!res.ok) return toastError(res);
     setModelStates((prev) => prev.filter((ms) => ms.model.id !== deleteTarget.id));
     setExpandedIds((prev) => {
       const next = new Set(prev);
@@ -433,12 +438,17 @@ export function ProjectionsValuationTab({
       // Determine expReturns to save (all models share the same value)
       const expReturns = modelStates[0]?.expReturns ?? 25;
 
-      await Promise.all([
+      // saveAllProjections returns a Result; updateCompany still throws (caught below).
+      const [saveRes] = await Promise.all([
         saveAllProjections(company.id, models),
         updateCompany(company.id, { expected_returns: expReturns / 100 }),
       ]);
+      if (!saveRes.ok) return toastError(saveRes);
 
       router.refresh();
+      toast.success("Projections saved");
+    } catch (err) {
+      toastError(err, { message: "Couldn't save your projections." });
     } finally {
       setSaving(false);
     }

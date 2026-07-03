@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -13,6 +13,7 @@ import { getAccounts, createAccount, updateAccount, deleteAccount } from "@/app/
 import type { Account } from "@/types/database";
 import { Users, Plus, Loader2, Pencil, Trash2, Check, X } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toast-error";
 
 /** Manage broker accounts: rename, delete, and create manual accounts. */
 export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
@@ -24,18 +25,29 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
   const [newLabel, setNewLabel] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    getAccounts()
-      .then(setAccounts)
-      .catch(() => setAccounts([]))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const refresh = async () => {
+  const load = useCallback(async function load() {
+    setLoading(true);
     try {
       setAccounts(await getAccounts());
-    } catch {
-      /* silent */
+    } catch (err) {
+      setAccounts([]);
+      toastError(err, { message: "Couldn't load your accounts.", retry: load });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Re-fetch after a successful change (already confirmed to the user). If the
+  // refetch itself fails, warn that the list may be stale and offer a retry.
+  const refresh = async function refresh() {
+    try {
+      setAccounts(await getAccounts());
+    } catch (err) {
+      toastError(err, { message: "The account list may be out of date.", retry: refresh });
     }
     onChanged?.();
   };
@@ -43,46 +55,34 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
   const handleRename = async (id: string) => {
     if (!editLabel.trim()) return;
     setBusy(true);
-    try {
-      await updateAccount(id, { label: editLabel.trim() });
-      setEditingId(null);
-      await refresh();
-      toast.success("Account renamed");
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    const res = await updateAccount(id, { label: editLabel.trim() });
+    setBusy(false);
+    if (!res.ok) return toastError(res);
+    setEditingId(null);
+    await refresh();
+    toast.success("Account renamed");
   };
 
   const handleDelete = async (acct: Account) => {
     if (!confirm(`Delete account "${acct.label}"? This removes its holdings from all portfolios.`)) return;
     setBusy(true);
-    try {
-      await deleteAccount(acct.id);
-      await refresh();
-      toast.success("Account deleted");
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    const res = await deleteAccount(acct.id);
+    setBusy(false);
+    if (!res.ok) return toastError(res);
+    await refresh();
+    toast.success("Account deleted");
   };
 
   const handleCreate = async () => {
     if (!newLabel.trim()) return;
     setBusy(true);
-    try {
-      await createAccount({ label: newLabel.trim(), broker: "manual" });
-      setNewLabel("");
-      setShowCreate(false);
-      await refresh();
-      toast.success("Account created");
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    const res = await createAccount({ label: newLabel.trim(), broker: "manual" });
+    setBusy(false);
+    if (!res.ok) return toastError(res);
+    setNewLabel("");
+    setShowCreate(false);
+    await refresh();
+    toast.success("Account created");
   };
 
   return (

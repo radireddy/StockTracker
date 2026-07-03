@@ -15,6 +15,7 @@ import type { Holding, Account } from "@/types/database";
 import { Pencil, Trash2, Check, X, Plus, Loader2, Info } from "lucide-react";
 import { AccountSelect, NEW_ACCOUNT } from "@/components/account/account-select";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toast-error";
 
 const fmt = (n: number) => new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(n);
 
@@ -47,16 +48,17 @@ export function HoldingsTab({
   const [addQty, setAddQty] = useState("");
   const [addPrice, setAddPrice] = useState("");
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback(function refresh() {
     setLoading(true);
     Promise.all([getHoldingsForCompany(companyId), getAccounts()])
       .then(([h, a]) => {
         setHoldings(h);
         setAccounts(a);
       })
-      .catch(() => {
+      .catch((err) => {
         setHoldings([]);
         setAccounts([]);
+        toastError(err, { message: "Couldn't load holdings for this stock.", retry: refresh });
       })
       .finally(() => setLoading(false));
   }, [companyId]);
@@ -64,7 +66,6 @@ export function HoldingsTab({
   useEffect(() => {
     // On-mount / companyId-change data fetch; setState inside refresh is the
     // intended effect behaviour, not a cascading-render bug.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
   }, [refresh]);
 
@@ -82,71 +83,70 @@ export function HoldingsTab({
   const handleUpdate = async (id: string) => {
     const qty = parseFloat(editQty);
     const price = parseFloat(editPrice);
-    if (isNaN(qty) || isNaN(price)) return;
-    setBusy(true);
-    try {
-      await updateHolding(id, { quantity: qty, avg_buy_price: price });
-      setEditingId(null);
-      refresh();
-      toast.success("Holding updated");
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setBusy(false);
+    if (isNaN(qty) || isNaN(price)) {
+      toast.error("Enter a valid quantity and average price.", {
+        description: "Both fields must be numbers.",
+      });
+      return;
     }
+    setBusy(true);
+    const res = await updateHolding(id, { quantity: qty, avg_buy_price: price });
+    setBusy(false);
+    if (!res.ok) return toastError(res);
+    setEditingId(null);
+    refresh();
+    toast.success("Holding updated");
   };
 
   const handleDelete = async (h: Holding) => {
     if (!confirm(`Remove this stock from ${h.accounts?.label ?? "this account"}?`)) return;
     setBusy(true);
-    try {
-      await deleteHolding(h.id);
-      refresh();
-      toast.success("Holding removed");
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    const res = await deleteHolding(h.id);
+    setBusy(false);
+    if (!res.ok) return toastError(res);
+    refresh();
+    toast.success("Holding removed");
   };
 
   const handleAdd = async () => {
     const qty = parseFloat(addQty);
     const price = parseFloat(addPrice);
     if (isNaN(qty) || isNaN(price)) {
-      toast.error("Enter a valid quantity and average price");
+      toast.error("Enter a valid quantity and average price.", {
+        description: "Both fields must be numbers.",
+      });
       return;
     }
-    setBusy(true);
-    try {
-      let accountId = addAccountId;
-      if (accountId === NEW_ACCOUNT) {
-        if (!newAccountLabel.trim()) {
-          toast.error("Enter a name for the new account");
-          setBusy(false);
-          return;
-        }
-        const created = await createAccount({ label: newAccountLabel.trim(), broker: "manual" });
-        accountId = created.id;
-      }
-      if (!accountId) {
-        toast.error("Select an account");
-        setBusy(false);
-        return;
-      }
-      await addHolding(portfolioId, { account_id: accountId, isin, quantity: qty, avg_buy_price: price });
-      setShowAdd(false);
-      setAddAccountId("");
-      setNewAccountLabel("");
-      setAddQty("");
-      setAddPrice("");
-      refresh();
-      toast.success("Holding added");
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setBusy(false);
+
+    let accountId = addAccountId;
+    if (accountId === NEW_ACCOUNT && !newAccountLabel.trim()) {
+      toast.error("Enter a name for the new account.", { description: "The account needs a label." });
+      return;
     }
+    if (!accountId) {
+      toast.error("Select an account.", { description: "Choose which account this holding belongs to." });
+      return;
+    }
+
+    setBusy(true);
+    if (accountId === NEW_ACCOUNT) {
+      const created = await createAccount({ label: newAccountLabel.trim(), broker: "manual" });
+      if (!created.ok) {
+        setBusy(false);
+        return toastError(created);
+      }
+      accountId = created.data.id;
+    }
+    const res = await addHolding(portfolioId, { account_id: accountId, isin, quantity: qty, avg_buy_price: price });
+    setBusy(false);
+    if (!res.ok) return toastError(res);
+    setShowAdd(false);
+    setAddAccountId("");
+    setNewAccountLabel("");
+    setAddQty("");
+    setAddPrice("");
+    refresh();
+    toast.success("Holding added");
   };
 
   return (

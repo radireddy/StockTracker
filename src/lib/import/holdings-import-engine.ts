@@ -172,7 +172,11 @@ export async function executeHoldingsImport(
   };
 
   // 5. Finalize the import_holdings record -------------------------------------
-  await userSupabase
+  // The holdings themselves are already committed (step 4), so a failure here only
+  // means the history row is stale — never that the import failed. We surface it in
+  // the logs (with a flag) and carry on rather than reporting a successful import
+  // as failed.
+  const { error: finalizeErr } = await userSupabase
     .from("import_holdings")
     .update({
       status: result.status,
@@ -191,6 +195,14 @@ export async function executeHoldingsImport(
       errors: result.errors,
     })
     .eq("id", importHoldingId);
+
+  if (finalizeErr) {
+    log.error("Failed to finalize import_holdings record (holdings were still imported)", {
+      error: finalizeErr.message,
+      importHoldingId,
+      accountId,
+    });
+  }
 
   log.info("Holdings import completed", {
     importHoldingId,

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toast-error";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,9 +40,18 @@ export function CompanyForm() {
   const [quantity, setQuantity] = useState("");
   const [avgPrice, setAvgPrice] = useState("");
 
+  const loadAccounts = useCallback(function loadAccounts() {
+    getAccounts()
+      .then(setAccounts)
+      .catch((err) => {
+        setAccounts([]);
+        toastError(err, { message: "Couldn't load your accounts.", retry: loadAccounts });
+      });
+  }, []);
+
   useEffect(() => {
     if (isHoldings) {
-      getAccounts().then(setAccounts).catch(() => setAccounts([]));
+      loadAccounts();
     } else {
       Promise.resolve().then(() => {
         setAccountId("");
@@ -50,15 +60,15 @@ export function CompanyForm() {
         setAvgPrice("");
       });
     }
-  }, [isHoldings]);
+  }, [isHoldings, loadAccounts]);
 
   const done = () => {
     invalidate();
     toast.success("Company added");
     router.push("/");
   };
-  const fail = (err: unknown) => {
-    toast.error((err as Error).message);
+  const fail = (result: unknown) => {
+    toastError(result);
     setPending(false);
   };
 
@@ -75,12 +85,9 @@ export function CompanyForm() {
 
     if (!isHoldings) {
       setPending(true);
-      try {
-        await createCompany(fd);
-        done();
-      } catch (err) {
-        fail(err);
-      }
+      const res = await createCompany(fd);
+      if (!res.ok) return fail(res);
+      done();
       return;
     }
 
@@ -89,15 +96,15 @@ export function CompanyForm() {
       (accountId && accountId !== NEW_ACCOUNT) ||
       (accountId === NEW_ACCOUNT && newAccountLabel.trim());
     if (!accountOk) {
-      toast.error("Account is required");
+      toast.error("Account is required.", { description: "Choose an account, or add a new one." });
       return;
     }
     if (quantity && !(Number(quantity) > 0)) {
-      toast.error("Quantity must be positive");
+      toast.error("Quantity must be positive.", { description: "Enter a quantity greater than zero." });
       return;
     }
     if (avgPrice && Number(avgPrice) < 0) {
-      toast.error("Average price cannot be negative");
+      toast.error("Average price cannot be negative.", { description: "Enter a price of zero or more." });
       return;
     }
     if (accountId === NEW_ACCOUNT) fd.set("new_account_label", newAccountLabel.trim());
@@ -106,12 +113,9 @@ export function CompanyForm() {
     if (avgPrice) fd.set("avg_buy_price", avgPrice);
 
     setPending(true);
-    try {
-      await createCompanyWithHolding(fd);
-      done();
-    } catch (err) {
-      fail(err);
-    }
+    const res = await createCompanyWithHolding(fd);
+    if (!res.ok) return fail(res);
+    done();
   };
 
   const researchFields = (

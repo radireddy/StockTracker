@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,7 @@ import { getAccounts } from "@/app/(authenticated)/actions/account-actions";
 import { requiresAccountForMove } from "@/lib/holdings";
 import { moveCompany } from "@/app/(authenticated)/actions/company-actions";
 import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
+import { toastError } from "@/lib/toast-error";
 import type { Account, Portfolio } from "@/types/database";
 
 type PortfolioWithCount = Portfolio & { company_count: number };
@@ -55,11 +56,19 @@ export function MoveStockDialog({
   const needsAccount =
     !!targetPortfolio && requiresAccountForMove(currentType, targetPortfolio.type);
 
+  const loadAccounts = useCallback(function loadAccounts() {
+    getAccounts()
+      .then(setAccounts)
+      .catch((err) =>
+        toastError(err, { message: "Couldn't load your accounts.", retry: loadAccounts })
+      );
+  }, []);
+
   useEffect(() => {
     if (open && needsAccount && accounts.length === 0) {
-      getAccounts().then(setAccounts).catch(() => {});
+      loadAccounts();
     }
-  }, [open, needsAccount, accounts.length]);
+  }, [open, needsAccount, accounts.length, loadAccounts]);
 
   async function handleMove() {
     if (!targetId) return;
@@ -96,17 +105,16 @@ export function MoveStockDialog({
     setPending(true);
     setError(null);
 
-    try {
-      await moveCompany(companyId, targetId, position ? { position } : undefined);
-      invalidate();
-      onOpenChange(false);
-      onMoved?.();
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Failed to move company";
-      setError(message);
-    } finally {
-      setPending(false);
+    const res = await moveCompany(companyId, targetId, position ? { position } : undefined);
+    setPending(false);
+    if (!res.ok) {
+      // Show the reason inline in the dialog, and append the suggested next step.
+      setError(res.hint ? `${res.error} ${res.hint}` : res.error);
+      return;
     }
+    invalidate();
+    onOpenChange(false);
+    onMoved?.();
   }
 
   return (

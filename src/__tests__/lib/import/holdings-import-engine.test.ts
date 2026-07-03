@@ -104,6 +104,7 @@ function setup(opts: {
   stockUpsertError?: string;
   companyInsertError?: string;
   raceExisting?: { id: string } | null;
+  finalizeError?: string;
 } = {}) {
   const captured: {
     insertedHoldings: unknown[];
@@ -146,7 +147,7 @@ function setup(opts: {
       },
       import_holdings: (op) => {
         if (op.update) captured.importUpdate = op.update as Record<string, unknown>;
-        return { data: null, error: null };
+        return { data: null, error: opts.finalizeError ? { message: opts.finalizeError } : null };
       },
     },
     (fn, args) => {
@@ -250,6 +251,22 @@ describe("executeHoldingsImport", () => {
     expect(summary.statement_date).toBe("2025-03-31");
     expect(summary.client_id).toBe("YY7859");
     expect(summary.symbols_imported).toEqual(["RELIANCE"]);
+  });
+
+  it("still reports success when finalizing the import_holdings record fails", async () => {
+    // The holdings are already committed by the RPC (step 4), so a failure while
+    // writing the history row must not turn a successful import into a failure —
+    // it is logged and swallowed.
+    const { userSupabase } = setup({
+      existingStockIsins: ["INE002A01018"],
+      existingCompanies: [{ id: "company-1", isin: "INE002A01018" }],
+      finalizeError: "update timed out",
+    });
+
+    const result = await run(makeParseResult(), userSupabase);
+
+    expect(result.status).toBe("completed");
+    expect(result.imported_count).toBe(1);
   });
 
   it("propagates the is_reimport flag and statement metadata into the result", async () => {

@@ -84,21 +84,21 @@ describe("moveCompany — atomic RPC", () => {
   });
 
   it("returns the new company id from the RPC", async () => {
-    const id = await moveCompany(SRC_CO, TARGET_PID);
-    expect(id).toBe("co-new");
+    const res = await moveCompany(SRC_CO, TARGET_PID);
+    expect(res).toEqual({ ok: true, data: "co-new" });
   });
 
   it("surfaces the RPC error message (e.g. duplicate in target)", async () => {
     rpcResult = { data: null, error: { message: "This stock already exists in the target portfolio." } };
-    await expect(moveCompany(SRC_CO, TARGET_PID)).rejects.toThrow(
-      "This stock already exists in the target portfolio."
-    );
+    const res = await moveCompany(SRC_CO, TARGET_PID);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toBe("This stock already exists in the target portfolio.");
   });
 
   it("surfaces the account-required error raised by the RPC", async () => {
     rpcResult = { data: null, error: { message: "Select an account to move this stock into holdings." } };
-    await expect(moveCompany(SRC_CO, TARGET_PID)).rejects.toThrow(
-      "Select an account to move this stock into holdings."
-    );
+    const res = await moveCompany(SRC_CO, TARGET_PID);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toBe("Select an account to move this stock into holdings.");
   });
 });

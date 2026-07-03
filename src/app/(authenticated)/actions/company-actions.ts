@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import DOMPurify from "isomorphic-dompurify";
 import { createLogger } from "@/lib/logger";
 import { companyCreateSchema } from "@/lib/validations";
+import { action, AppError, describeDbError, type ActionResult } from "@/lib/action-result";
 
 const log = createLogger({ service: "company-actions" });
 
@@ -37,42 +38,51 @@ export async function getCompany(id: string) {
   return data;
 }
 
-export async function createCompany(formData: FormData) {
-  const { supabase, user } = await getAuthUser();
+export async function createCompany(formData: FormData): Promise<ActionResult<string>> {
+  return action(async () => {
+    const { supabase, user } = await getAuthUser();
 
-  const parsed = companyCreateSchema.safeParse({
-    portfolio_id: formData.get("portfolio_id"),
-    isin: formData.get("isin"),
-    strategy: formData.get("strategy") || undefined,
-    investment_horizon_years: formData.get("investment_horizon_years") ? Number(formData.get("investment_horizon_years")) : undefined,
-    star_rating: formData.get("star_rating") ? Number(formData.get("star_rating")) : undefined,
-    buy_price: formData.get("buy_price") ? Number(formData.get("buy_price")) : undefined,
+    const parsed = companyCreateSchema.safeParse({
+      portfolio_id: formData.get("portfolio_id"),
+      isin: formData.get("isin"),
+      strategy: formData.get("strategy") || undefined,
+      investment_horizon_years: formData.get("investment_horizon_years") ? Number(formData.get("investment_horizon_years")) : undefined,
+      star_rating: formData.get("star_rating") ? Number(formData.get("star_rating")) : undefined,
+      buy_price: formData.get("buy_price") ? Number(formData.get("buy_price")) : undefined,
+    });
+    if (!parsed.success) {
+      throw new AppError(parsed.error.issues[0].message, "Correct the highlighted fields and try again.");
+    }
+
+    const { data: newCompany, error } = await supabase.from("companies").insert({
+      user_id: user.id,
+      portfolio_id: formData.get("portfolio_id") as string,
+      isin: formData.get("isin") as string,
+      buy_price: formData.get("buy_price") ? Number(formData.get("buy_price")) : null,
+      star_rating: Number(formData.get("star_rating")) || 2,
+      strategy: formData.get("strategy") as "core" | "satellite" | null,
+      investment_horizon_years: formData.get("investment_horizon_years") ? Number(formData.get("investment_horizon_years")) : 0,
+      thesis: sanitizeHtml(formData.get("thesis") as string | null),
+      highlights: sanitizeHtml(formData.get("highlights") as string | null),
+    }).select("id").single();
+
+    if (error) {
+      log.error("createCompany failed", { error: error.message });
+      throw error.code === "23505"
+        ? new AppError(
+            "This stock is already in this portfolio.",
+            "Open the existing entry to edit it, or choose a different portfolio."
+          )
+        : describeDbError(error, "Couldn't add the company.");
+    }
+
+    const isin = formData.get("isin") as string;
+    await fetchStockPrice(isin);
+
+    revalidatePath("/");
+    log.info("Company created", { isin });
+    return newCompany!.id;
   });
-  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
-
-  const { data: newCompany, error } = await supabase.from("companies").insert({
-    user_id: user.id,
-    portfolio_id: formData.get("portfolio_id") as string,
-    isin: formData.get("isin") as string,
-    buy_price: formData.get("buy_price") ? Number(formData.get("buy_price")) : null,
-    star_rating: Number(formData.get("star_rating")) || 2,
-    strategy: formData.get("strategy") as "core" | "satellite" | null,
-    investment_horizon_years: formData.get("investment_horizon_years") ? Number(formData.get("investment_horizon_years")) : 0,
-    thesis: sanitizeHtml(formData.get("thesis") as string | null),
-    highlights: sanitizeHtml(formData.get("highlights") as string | null),
-  }).select("id").single();
-
-  if (error) {
-    log.error("createCompany failed", { error: error.message });
-    throw new Error(error.message);
-  }
-
-  const isin = formData.get("isin") as string;
-  await fetchStockPrice(isin);
-
-  revalidatePath("/");
-  log.info("Company created", { isin });
-  return newCompany!.id;
 }
 
 export async function updateCompany(id: string, data: Record<string, unknown>) {
@@ -151,31 +161,35 @@ export async function moveCompany(
       avg_buy_price?: number;
     };
   }
-) {
-  const { supabase } = await getAuthUser();
+): Promise<ActionResult<string>> {
+  return action(async () => {
+    const { supabase } = await getAuthUser();
 
-  // The whole move — insert the target company, reconcile holdings (creating the
-  // account if needed), deep-copy every research child record, then delete the
-  // source — runs inside a single `move_company` Postgres transaction. Either it
-  // all commits or it all rolls back, so a mid-way failure can no longer leave a
-  // half-copied company alongside a deleted original. The RPC also owns the
-  // account-required and duplicate-stock checks, surfacing them as errors.
-  const p = additionalData?.position;
-  const { data: newCompanyId, error } = await supabase.rpc("move_company", {
-    p_company_id: companyId,
-    p_target_portfolio_id: targetPortfolioId,
-    p_notes: additionalData?.notes ?? null,
-    p_account_id: p?.account_id ?? null,
-    p_new_account_label: p?.new_account_label ?? null,
-    p_quantity: p?.quantity ?? null,
-    p_avg_buy_price: p?.avg_buy_price ?? null,
+    // The whole move — insert the target company, reconcile holdings (creating the
+    // account if needed), deep-copy every research child record, then delete the
+    // source — runs inside a single `move_company` Postgres transaction. Either it
+    // all commits or it all rolls back, so a mid-way failure can no longer leave a
+    // half-copied company alongside a deleted original. The RPC also owns the
+    // account-required and duplicate-stock checks, surfacing them as errors.
+    const p = additionalData?.position;
+    const { data: newCompanyId, error } = await supabase.rpc("move_company", {
+      p_company_id: companyId,
+      p_target_portfolio_id: targetPortfolioId,
+      p_notes: additionalData?.notes ?? null,
+      p_account_id: p?.account_id ?? null,
+      p_new_account_label: p?.new_account_label ?? null,
+      p_quantity: p?.quantity ?? null,
+      p_avg_buy_price: p?.avg_buy_price ?? null,
+    });
+
+    if (error) {
+      log.error("moveCompany failed", { error: error.message, companyId, targetPortfolioId });
+      // The RPC raises its own human-readable messages (duplicate stock, account
+      // required, …), so preserve the message rather than masking it.
+      throw new AppError(error.message, "Check the target portfolio and account, then try again.");
+    }
+
+    revalidatePath("/");
+    return newCompanyId as string;
   });
-
-  if (error) {
-    log.error("moveCompany failed", { error: error.message, companyId, targetPortfolioId });
-    throw new Error(error.message);
-  }
-
-  revalidatePath("/");
-  return newCompanyId as string;
 }
