@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { ManualPriceProvider } from "@/lib/providers/stock-price/manual-provider";
+import { StockPriceError } from "@/lib/providers/stock-price/types";
 
 describe("ManualPriceProvider", () => {
   const provider = new ManualPriceProvider();
@@ -8,10 +9,14 @@ describe("ManualPriceProvider", () => {
     expect(provider.name).toBe("manual");
   });
 
-  it("fetchQuote throws", async () => {
-    await expect(provider.fetchQuote("RELIANCE")).rejects.toThrow(
-      "Manual provider does not fetch prices"
-    );
+  it("fetchQuote throws a provider-neutral StockPriceError", async () => {
+    const err = await provider.fetchQuote("RELIANCE").catch((e) => e);
+    expect(err).toBeInstanceOf(StockPriceError);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.message).toContain("Manual provider does not fetch prices");
+    expect(err.provider).toBe("manual");
+    expect(err.symbol).toBe("RELIANCE");
+    expect(err.timedOut).toBe(false);
   });
 
   it("fetchBulkQuotes returns empty map", async () => {

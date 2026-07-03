@@ -1,5 +1,5 @@
 import YahooFinance from "yahoo-finance2";
-import type { StockPriceProvider, StockQuote } from "./types";
+import { StockPriceError, type StockPriceProvider, type StockQuote } from "./types";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger({ service: "stock-price", provider: "yahoo-finance" });
@@ -39,11 +39,17 @@ export class YahooFinanceProvider implements StockPriceProvider {
         timeoutMs: REQUEST_TIMEOUT_MS,
         error: error instanceof Error ? error.message : String(error),
       });
-      throw error;
+      throw new StockPriceError(
+        error instanceof Error ? error.message : String(error),
+        { provider: this.name, symbol, timedOut, cause: error }
+      );
     }
 
     if (!result || !result.regularMarketPrice) {
-      throw new Error(`No quote returned for ${symbol}`);
+      throw new StockPriceError(`No quote returned for ${symbol}`, {
+        provider: this.name,
+        symbol,
+      });
     }
 
     return this.mapResult(symbol, result);

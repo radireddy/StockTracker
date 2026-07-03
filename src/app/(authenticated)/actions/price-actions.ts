@@ -3,12 +3,12 @@
 import { getAuthUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isIndianTradingHours, ensureMissingStocks } from "@/lib/services/price-refresh";
-import { YahooFinanceProvider } from "@/lib/providers/stock-price/yahoo-finance-provider";
+import { stockPriceRegistry } from "@/lib/providers/stock-price/registry";
 import { revalidatePath } from "next/cache";
 import { createLogger } from "@/lib/logger";
 const log = createLogger({ service: "price-actions" });
 
-const provider = new YahooFinanceProvider();
+const provider = stockPriceRegistry.getActive();
 
 export async function fetchStockPrice(isin: string) {
   const adminClient = createAdminClient();
@@ -74,10 +74,10 @@ async function fetchStockPriceForEntry(
 
     log.info("Fetched initial price for stock", { isin: stock.isin, symbol, price: quote.price });
   } catch (err) {
-    log.error("Failed to fetch initial price from Yahoo Finance", {
+    log.error("Failed to fetch initial price", {
       isin: stock.isin,
       symbol,
-      yahooSymbol: `${symbol}.NS`,
+      provider: provider.name,
       error: err instanceof Error ? err.message : String(err),
     });
   }
@@ -148,7 +148,7 @@ export async function manualRefreshPrices() {
     const quote = quotes.get(symbol);
     const isin = symbolMap.get(symbol)!;
     if (!quote) {
-      log.warn("Manual refresh: Yahoo Finance returned no quote", { symbol, isin });
+      log.warn("Manual refresh: provider returned no quote", { symbol, isin, provider: provider.name });
       failed.push(symbol);
       continue;
     }

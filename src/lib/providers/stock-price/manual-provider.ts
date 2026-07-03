@@ -1,11 +1,12 @@
-import { StockPriceProvider, StockQuote } from "./types";
+import { StockPriceError, StockPriceProvider, StockQuote } from "./types";
 
 export class ManualPriceProvider implements StockPriceProvider {
   name = "manual";
 
   async fetchQuote(symbol: string): Promise<StockQuote> {
-    throw new Error(
-      "Manual provider does not fetch prices. Update prices manually."
+    throw new StockPriceError(
+      "Manual provider does not fetch prices. Update prices manually.",
+      { provider: this.name, symbol }
     );
   }
 

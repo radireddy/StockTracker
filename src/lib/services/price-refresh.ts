@@ -1,10 +1,10 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { YahooFinanceProvider } from "@/lib/providers/stock-price/yahoo-finance-provider";
+import { stockPriceRegistry } from "@/lib/providers/stock-price/registry";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger({ service: "price-refresh" });
 
-const provider = new YahooFinanceProvider();
+const provider = stockPriceRegistry.getActive();
 
 export function isIndianTradingHours(): boolean {
   const now = new Date();
@@ -132,7 +132,7 @@ export async function refreshPrices(
     const quote = quotes.get(symbol);
     const isin = symbolMap.get(symbol)!;
     if (!quote) {
-      log.warn("Yahoo Finance returned no quote", { symbol, isin });
+      log.warn("Provider returned no quote", { symbol, isin, provider: provider.name });
       failed.push(symbol);
       continue;
     }
