@@ -9,7 +9,7 @@ const log = createLogger({ service: "upload" });
 
 export async function POST(request: NextRequest) {
   // 1. Authenticate
-  const { user } = await getAuthUserOrNull();
+  const { supabase, user } = await getAuthUserOrNull();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -33,6 +33,26 @@ export async function POST(request: NextRequest) {
 
   if (!companyId) {
     return NextResponse.json({ error: "No companyId provided" }, { status: 400 });
+  }
+
+  // 2b. Verify the company belongs to the authenticated user (defense-in-depth).
+  // RLS already scopes reads to the user, so an unowned/nonexistent id returns no
+  // row. This also prevents an attacker-supplied companyId from being used as an
+  // arbitrary storage path segment.
+  const { data: company, error: companyError } = await supabase
+    .from("companies")
+    .select("id")
+    .eq("id", companyId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (companyError) {
+    log.error("Company lookup failed", { error: companyError.message, companyId });
+    return NextResponse.json({ error: "Upload failed. Please try again." }, { status: 500 });
+  }
+
+  if (!company) {
+    return NextResponse.json({ error: "Company not found" }, { status: 404 });
   }
 
   // 3. Validate file type
