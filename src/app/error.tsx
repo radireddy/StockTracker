@@ -1,5 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
+
+import { logger } from "@/lib/logger";
+
 export default function Error({
   error,
   reset,
@@ -7,6 +11,15 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    logger.error("Page error boundary caught error", {
+      boundary: "app/error",
+      message: error.message,
+      digest: error.digest,
+      stack: error.stack,
+    });
+  }, [error]);
+
   return (
     <div className="flex min-h-[60vh] items-center justify-center">
       <div className="mx-auto max-w-md rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">

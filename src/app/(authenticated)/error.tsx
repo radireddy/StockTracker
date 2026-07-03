@@ -1,6 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
+
 import { useRouter } from "next/navigation";
+
+import { logger } from "@/lib/logger";
 
 export default function AuthenticatedError({
   error,
@@ -10,6 +14,15 @@ export default function AuthenticatedError({
   reset: () => void;
 }) {
   const router = useRouter();
+
+  useEffect(() => {
+    logger.error("Authenticated error boundary caught error", {
+      boundary: "app/(authenticated)/error",
+      message: error.message,
+      digest: error.digest,
+      stack: error.stack,
+    });
+  }, [error]);
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center">
