@@ -5,8 +5,15 @@ import { createLogger } from "@/lib/logger";
 const log = createLogger({ service: "stock-price", provider: "yahoo-finance" });
 
 const BATCH_SIZE = 8;
+const REQUEST_TIMEOUT_MS = 5000;
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
+
+// Abort the underlying fetch if Yahoo doesn't respond in time so hung
+// requests don't tie up the serverless function until the platform kills it.
+function quoteFetchOptions() {
+  return { fetchOptions: { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) } };
+}
 
 export class YahooFinanceProvider implements StockPriceProvider {
   name = "yahoo-finance";
@@ -19,7 +26,21 @@ export class YahooFinanceProvider implements StockPriceProvider {
 
   async fetchQuote(symbol: string): Promise<StockQuote> {
     const mapped = this.mapSymbol(symbol);
-    const result = await yf.quote(mapped);
+
+    let result;
+    try {
+      result = await yf.quote(mapped, undefined, quoteFetchOptions());
+    } catch (error) {
+      const timedOut = error instanceof Error && error.name === "TimeoutError";
+      log.warn("Quote fetch failed", {
+        symbol,
+        mapped,
+        timedOut,
+        timeoutMs: REQUEST_TIMEOUT_MS,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
 
     if (!result || !result.regularMarketPrice) {
       throw new Error(`No quote returned for ${symbol}`);
@@ -40,7 +61,7 @@ export class YahooFinanceProvider implements StockPriceProvider {
       const mapped = batch.map((s) => this.mapSymbol(s));
 
       try {
-        const quotes = await yf.quote(mapped);
+        const quotes = await yf.quote(mapped, undefined, quoteFetchOptions());
         const quotesArr = Array.isArray(quotes) ? quotes : [quotes];
 
         for (const q of quotesArr) {
@@ -51,7 +72,8 @@ export class YahooFinanceProvider implements StockPriceProvider {
           }
         }
       } catch (error) {
-        log.warn("Batch fetch failed, falling back to individual", { batchSize: batch.length, error: error instanceof Error ? error.message : String(error) });
+        const timedOut = error instanceof Error && error.name === "TimeoutError";
+        log.warn("Batch fetch failed, falling back to individual", { batchSize: batch.length, timedOut, timeoutMs: REQUEST_TIMEOUT_MS, error: error instanceof Error ? error.message : String(error) });
         for (const symbol of batch) {
           try {
             const quote = await this.fetchQuote(symbol);
