@@ -1,8 +1,20 @@
 import { MemoryStore } from "./memory-store";
+import { RedisStore } from "./redis-store";
 import type { RateLimitConfig, RateLimitResult, RateLimitStore } from "./types";
 
-// Swap this line to change backend (e.g. RedisStore):
-const store: RateLimitStore = new MemoryStore();
+/**
+ * Selects the rate limit backend. Uses Upstash Redis when its env vars are
+ * present (e.g. on Vercel); otherwise falls back to the in-memory store so
+ * local dev and tests need no Redis setup.
+ */
+export function createRateLimitStore(): RateLimitStore {
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    return new RedisStore();
+  }
+  return new MemoryStore();
+}
+
+const store: RateLimitStore = createRateLimitStore();
 
 export function rateLimit(key: string, config: RateLimitConfig): Promise<RateLimitResult> {
   const prefixedKey = config.prefix ? `${config.prefix}:${key}` : key;
