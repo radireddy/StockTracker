@@ -274,6 +274,11 @@ describe("computeLiveIrr", () => {
   it("returns null for Infinity result", () => {
     expect(computeLiveIrr(200, -1, 3)).toBeNull();
   });
+
+  it("returns null when the result is not finite (negative target yields NaN)", () => {
+    // Passes the guard (curMC > 0) but a negative target makes Math.pow NaN.
+    expect(computeLiveIrr(-100, 100 * 1e7, 3)).toBeNull();
+  });
 });
 
 // --- computeLiveBuyPrice ---
@@ -314,6 +319,11 @@ describe("computeLiveBuyPrice", () => {
     const result = computeLiveBuyPrice(200, 1e9, 500, 15, 3);
     expect(result).toBe(Math.round(result!));
   });
+
+  it("returns null when the buy price is not finite (-100% return divides by zero)", () => {
+    // expectedReturnsPct = -100 → (1 + -1)^h = 0 → buyingMC = target / 0 = Infinity.
+    expect(computeLiveBuyPrice(200, 1e9, 500, -100, 3)).toBeNull();
+  });
 });
 
 // --- effectiveBuyPrice ---
@@ -353,6 +363,27 @@ describe("getDefaultModelIRR (additional branches)", () => {
   it("returns null when default model has no valuation_scenarios property", () => {
     const models = [{ is_default: true, valuation_scenarios: undefined }] as any;
     expect(getDefaultModelIRR(models)).toBeNull();
+  });
+
+  it("returns null when the default model has scenarios but no base case", () => {
+    const models = [
+      {
+        is_default: true,
+        valuation_scenarios: [{ scenario_type: "bull", target_market_cap: 300, irr: 20 }],
+      },
+    ] as any;
+    expect(getDefaultModelIRR(models, 100 * 1e7, 3)).toBeNull();
+  });
+
+  it("returns null when live IRR cannot be computed and stored base irr is also null", () => {
+    const models = [
+      {
+        is_default: true,
+        valuation_scenarios: [{ scenario_type: "base", target_market_cap: null, irr: null }],
+      },
+    ] as any;
+    // computeLiveIrr → null (target null), base.irr → null → final fallback null.
+    expect(getDefaultModelIRR(models, 100 * 1e7, 3)).toBeNull();
   });
 });
 

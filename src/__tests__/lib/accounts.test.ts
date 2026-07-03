@@ -39,6 +39,23 @@ describe("resolveAccountId", () => {
     ).rejects.toThrow(/already exists/);
   });
 
+  it("surfaces the db message for a non-duplicate error", async () => {
+    const client = clientReturningInsert({
+      data: null,
+      error: { code: "23503", message: "insert violates foreign key" },
+    });
+    await expect(
+      resolveAccountId(client, USER, { new_account_label: "X" })
+    ).rejects.toThrow("insert violates foreign key");
+  });
+
+  it("falls back to a generic message when the error carries no message", async () => {
+    const client = clientReturningInsert({ data: null, error: { code: "500" } });
+    await expect(
+      resolveAccountId(client, USER, { new_account_label: "X" })
+    ).rejects.toThrow("Failed to create account");
+  });
+
   it("throws when neither id nor label is given", async () => {
     const client = { from: vi.fn() } as never;
     await expect(resolveAccountId(client, USER, {})).rejects.toThrow("Account is required");

@@ -360,6 +360,25 @@ describe("executeHoldingsImport", () => {
     expect(captured.insertedHoldings[0]).toMatchObject({ company_id: "raced-company" });
   });
 
+  it("records an error and skips the holding when the stock cannot be registered", async () => {
+    // Both the initial upsert and the fallback retry fail → the ISIN is never
+    // registered, so its holding is skipped.
+    const { userSupabase, captured } = setup({
+      existingStockIsins: [], // stock missing → upsert attempted (and it fails)
+      existingCompanies: [],
+      stockUpsertError: "permission denied for table indian_stocks",
+    });
+
+    const result = await run(makeParseResult(), userSupabase);
+
+    expect(captured.stockUpserts.length).toBeGreaterThanOrEqual(2); // initial + retry
+    expect(captured.companyInserts).toHaveLength(0); // never got to company creation
+    expect(captured.rpcCalls).toHaveLength(0); // nothing to replace
+    expect(result.status).toBe("failed");
+    expect(result.skipped_count).toBe(1);
+    expect(result.errors.some((e) => /Could not register stock/.test(e.message))).toBe(true);
+  });
+
   it("consolidates unique ISINs across duplicate rows", async () => {
     const { userSupabase, captured } = setup({
       existingStockIsins: ["INE002A01018", "INE009A01021"],

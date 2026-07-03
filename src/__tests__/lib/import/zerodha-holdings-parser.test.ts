@@ -95,6 +95,14 @@ describe("zerodhaHoldingsAdapter.canParse", () => {
   it("rejects an invalid buffer", () => {
     expect(zerodhaHoldingsAdapter.canParse(new ArrayBuffer(8))).toBe(false);
   });
+
+  it("returns false when the workbook reader throws on a corrupt file", () => {
+    // A ZIP header (PK\x03\x04) followed by garbage makes XLSX.read throw
+    // ("Unsupported ZIP encryption") rather than return an empty workbook,
+    // exercising the try/catch fallback.
+    const corrupt = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(zerodhaHoldingsAdapter.canParse(corrupt.buffer)).toBe(false);
+  });
 });
 
 describe("zerodhaHoldingsAdapter.parse — metadata", () => {

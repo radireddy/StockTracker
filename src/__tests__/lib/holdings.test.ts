@@ -29,6 +29,16 @@ describe("combineHoldingLots", () => {
     expect(result.quantity).toBe(30);
     expect(result.avg_buy_price).toBe(500);
   });
+
+  it("falls back to the added price when the combined quantity is zero or negative", () => {
+    // A closing lot that nets the position to zero: no weighted average to compute.
+    const result = combineHoldingLots(
+      { quantity: 10, avg_buy_price: 100 },
+      { quantity: -10, avg_buy_price: 250 }
+    );
+    expect(result.quantity).toBe(0);
+    expect(result.avg_buy_price).toBe(250);
+  });
 });
 
 describe("requiresAccountForMove", () => {
