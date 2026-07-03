@@ -8,7 +8,7 @@ import { HighlightsSection } from "@/components/company/highlights-section";
 import { EditCompanyTab } from "@/components/company/edit-company-tab";
 import { HoldingsTab } from "@/components/company/holdings-tab";
 import { getDefaultModelBuyPrice } from "@/lib/utils/calculations";
-import type { Company, ProjectionModel, TimelineEntry } from "@/types/database";
+import type { CompanyWithRelations, ProjectionModel, TimelineEntry } from "@/types/database";
 
 type TabDef = { id: string; label: string };
 
@@ -19,7 +19,7 @@ export function CompanyTabs({
   onBaseIrrChange,
   portfolioType = "holdings",
 }: {
-  company: Company & { segment_valuations: any[]; market_perceptions: any[] };
+  company: CompanyWithRelations;
   projectionModels: ProjectionModel[];
   timelineEntries: TimelineEntry[];
   onBaseIrrChange?: (irr: number | null) => void;

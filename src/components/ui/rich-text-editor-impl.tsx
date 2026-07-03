@@ -19,6 +19,15 @@ import TaskItem from "@tiptap/extension-task-item";
 import { Extension } from "@tiptap/core";
 import { cn } from "@/lib/utils";
 
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    fontSize: {
+      setFontSize: (fontSize: string) => ReturnType;
+      unsetFontSize: () => ReturnType;
+    };
+  }
+}
+
 const FontSize = Extension.create({
   name: "fontSize",
   addOptions() {
@@ -108,9 +117,9 @@ function FontSizeSelect({ editor }: { editor: Editor }) {
       onChange={(e) => {
         const size = e.target.value;
         if (size) {
-          (editor.chain().focus() as any).setFontSize(size).run();
+          editor.chain().focus().setFontSize(size).run();
         } else {
-          (editor.chain().focus() as any).unsetFontSize().run();
+          editor.chain().focus().unsetFontSize().run();
         }
       }}
       title="Font Size"

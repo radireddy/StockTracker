@@ -93,6 +93,17 @@ export interface ProjectionModel {
   valuation_scenarios?: ValuationScenario[];
 }
 
+/**
+ * Company with the nested relations loaded by the company detail query
+ * (see `app/(authenticated)/company/[id]/page.tsx`). Relations are optional
+ * because they depend on the specific Supabase select used.
+ */
+export interface CompanyWithRelations extends Company {
+  projection_models?: ProjectionModel[];
+  segment_valuations?: SegmentValuation[];
+  market_perceptions?: MarketPerception[];
+}
+
 export interface FinancialYear {
   id: string;
   company_id: string;

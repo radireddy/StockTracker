@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { marginOfSafety, isBuySignal, effectiveBuyPrice, fmtPrice, fmtIrr, fmtMarketCap } from "@/lib/utils/calculations";
 import { DeleteCompanyButton } from "@/components/dashboard/delete-company-dialogs";
-import type { Company } from "@/types/database";
+import type { CompanyWithRelations } from "@/types/database";
 
 function MetricItem({ label, value, className, title }: { label: string; value: string; className?: string; title?: string }) {
   return (
@@ -18,14 +18,14 @@ export function CompanyHeader({
   company,
   baseIrr,
 }: {
-  company: Company;
+  company: CompanyWithRelations;
   baseIrr: number | null;
 }) {
   const currentPrice = company.indian_stocks?.price ?? null;
   const marketCap = company.indian_stocks?.market_cap ?? null;
   const scenarios = (() => {
-    const models = (company as any).projection_models ?? [];
-    const defaultModel = models.find((pm: any) => pm.is_default);
+    const models = company.projection_models ?? [];
+    const defaultModel = models.find((pm) => pm.is_default);
     return defaultModel?.valuation_scenarios ?? [];
   })();
   const buyPrice = effectiveBuyPrice(company.buy_price, scenarios);

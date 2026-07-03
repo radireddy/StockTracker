@@ -10,6 +10,17 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { usePortfolioContext } from "@/hooks/use-portfolio-context";
 import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
 import { AccountsManager } from "@/components/account/accounts-manager";
@@ -89,6 +100,9 @@ export default function ImportPage() {
   }, []);
 
   useEffect(() => {
+    // On-mount fetch of import history; setState happens after the awaited
+    // response, not synchronously — this is the intended effect behaviour.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchHistory();
   }, [fetchHistory]);
 
@@ -276,14 +290,36 @@ export default function ImportPage() {
           </div>
 
           {phase === "select" && (
-            <Button
-              onClick={handleImport}
-              disabled={files.length === 0 || !portfolioId}
-              className="w-full"
-            >
-              Import {files.length > 1 ? `${files.length} files` : ""} into {selectedPortfolioName}
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger
+                render={<Button className="w-full" />}
+                disabled={files.length === 0 || !portfolioId}
+              >
+                Import {files.length > 1 ? `${files.length} files` : ""} into {selectedPortfolioName}
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Import holdings?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Re-importing an account <strong>replaces</strong> its existing holdings,
+                    including any manual edits you&rsquo;ve made for that account.
+                    <span className="mt-2 block font-semibold text-destructive">
+                      This can&rsquo;t be undone.
+                    </span>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleImport}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Replace &amp; import
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
 
           {phase === "importing" && (

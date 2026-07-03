@@ -62,6 +62,9 @@ export function HoldingsTab({
   }, [companyId]);
 
   useEffect(() => {
+    // On-mount / companyId-change data fetch; setState inside refresh is the
+    // intended effect behaviour, not a cascading-render bug.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
   }, [refresh]);
 

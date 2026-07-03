@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { CompanyHeader } from "@/components/company/company-header";
 import { CompanyTabs } from "@/components/company/company-tabs";
-import type { Company, ProjectionModel, TimelineEntry } from "@/types/database";
+import type { CompanyWithRelations, ProjectionModel, TimelineEntry } from "@/types/database";
 
 export function CompanyPageClient({
   company,
@@ -12,7 +12,7 @@ export function CompanyPageClient({
   initialBaseIrr,
   portfolioType = "holdings",
 }: {
-  company: Company & { segment_valuations: any[]; market_perceptions: any[] };
+  company: CompanyWithRelations;
   projectionModels: ProjectionModel[];
   timelineEntries: TimelineEntry[];
   initialBaseIrr: number | null;

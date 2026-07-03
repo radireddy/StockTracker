@@ -382,11 +382,6 @@ export function CompaniesTable({
     }
   };
 
-  const SortIcon = ({ field }: { field: string }) => {
-    if (sortField !== field) return null;
-    return <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>;
-  };
-
   // Common th class for holdings headers
   const thBase = "sticky top-0 z-10 bg-muted/30 px-2 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground";
   const thRight = `${thBase} text-right`;
@@ -505,7 +500,8 @@ export function CompaniesTable({
             totalCost={totalCost}
             totalValue={totalValue}
             toggleSort={toggleSort}
-            SortIcon={SortIcon}
+            sortField={sortField}
+            sortDir={sortDir}
             thBase={thBase}
             thRight={thRight}
             thCenter={thCenter}
@@ -535,7 +531,7 @@ export function CompaniesTable({
                   style={{width:"16%"}}
                   onClick={() => toggleSort("name")}
                 >
-                  Company<SortIcon field="name" />
+                  Company<SortIcon field="name" sortField={sortField} sortDir={sortDir} />
                 </th>
                 {isHoldings ? (
                   <>
@@ -544,91 +540,91 @@ export function CompaniesTable({
                       style={{width:"5%"}}
                       onClick={() => toggleSort("star_rating")}
                     >
-                      Star<SortIcon field="star_rating" />
+                      Star<SortIcon field="star_rating" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className={`${thCenter} ${HIDE_MOBILE}`}
                       style={{width:"5%"}}
                       onClick={() => toggleSort("strategy")}
                     >
-                      Type<SortIcon field="strategy" />
+                      Type<SortIcon field="strategy" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className={thRight}
                       style={{width:"5%"}}
                       onClick={() => toggleSort("quantity")}
                     >
-                      Qty<SortIcon field="quantity" />
+                      Qty<SortIcon field="quantity" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className={thRight}
                       style={{width:"6%"}}
                       onClick={() => toggleSort("avg_buy_price")}
                     >
-                      Avg Buy<SortIcon field="avg_buy_price" />
+                      Avg Buy<SortIcon field="avg_buy_price" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className={thRight}
                       style={{width:"6%"}}
                       onClick={() => toggleSort("current_price")}
                     >
-                      CMP<SortIcon field="current_price" />
+                      CMP<SortIcon field="current_price" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className={`${thRight} ${HIDE_MOBILE}`}
                       style={{width:"8%"}}
                       onClick={() => toggleSort("total_cost")}
                     >
-                      Cost<SortIcon field="total_cost" />
+                      Cost<SortIcon field="total_cost" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className={thRight}
                       style={{width:"8%"}}
                       onClick={() => toggleSort("market_value")}
                     >
-                      Cur. Value<SortIcon field="market_value" />
+                      Cur. Value<SortIcon field="market_value" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className={thRight}
                       style={{width:"6%"}}
                       onClick={() => toggleSort("pnl_pct")}
                     >
-                      P&L %<SortIcon field="pnl_pct" />
+                      P&L %<SortIcon field="pnl_pct" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className={`${thRight} ${HIDE_MOBILE}`}
                       style={{width:"7%"}}
                       onClick={() => toggleSort("pnl_amt")}
                     >
-                      P&L ₹<SortIcon field="pnl_amt" />
+                      P&L ₹<SortIcon field="pnl_amt" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className={`${thRight} border-l border-border/40`}
                       style={{width:"6%"}}
                       onClick={() => toggleSort("buy_price")}
                     >
-                      Target Buy<SortIcon field="buy_price" />
+                      Target Buy<SortIcon field="buy_price" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className={thRight}
                       style={{width:"5%"}}
                       onClick={() => toggleSort("mos")}
                     >
-                      MoS%<SortIcon field="mos" />
+                      MoS%<SortIcon field="mos" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className={thRight}
                       style={{width:"6%"}}
                       onClick={() => toggleSort("base_cagr")}
                     >
-                      Base Case<SortIcon field="base_cagr" />
+                      Base Case<SortIcon field="base_cagr" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className={`${thRight} ${HIDE_MOBILE}`}
                       style={{width:"6%"}}
                       onClick={() => toggleSort("bare_cagr")}
                     >
-                      Bare Case<SortIcon field="bare_cagr" />
+                      Bare Case<SortIcon field="bare_cagr" sortField={sortField} sortDir={sortDir} />
                     </th>
                   </>
                 ) : (
@@ -637,49 +633,49 @@ export function CompaniesTable({
                       scope="col" className={`${thCenter} ${HIDE_MOBILE}`}
                       onClick={() => toggleSort("star_rating")}
                     >
-                      Star<SortIcon field="star_rating" />
+                      Star<SortIcon field="star_rating" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className={`${thCenter} ${HIDE_MOBILE}`}
                       onClick={() => toggleSort("strategy")}
                     >
-                      Type<SortIcon field="strategy" />
+                      Type<SortIcon field="strategy" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                       onClick={() => toggleSort("buy_price")}
                     >
-                      Target Buy<SortIcon field="buy_price" />
+                      Target Buy<SortIcon field="buy_price" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                       onClick={() => toggleSort("current_price")}
                     >
-                      CMP<SortIcon field="current_price" />
+                      CMP<SortIcon field="current_price" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                       onClick={() => toggleSort("mos")}
                     >
-                      MoS%<SortIcon field="mos" />
+                      MoS%<SortIcon field="mos" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className="sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                       onClick={() => toggleSort("base_cagr")}
                     >
-                      Base CAGR<SortIcon field="base_cagr" />
+                      Base CAGR<SortIcon field="base_cagr" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className={`sticky top-0 z-10 bg-muted/30 text-right px-3 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground ${HIDE_MOBILE}`}
                       onClick={() => toggleSort("bare_cagr")}
                     >
-                      Bare CAGR<SortIcon field="bare_cagr" />
+                      Bare CAGR<SortIcon field="bare_cagr" sortField={sortField} sortDir={sortDir} />
                     </th>
                     <th
                       scope="col" className="sticky top-0 z-10 bg-muted/30 text-center px-2 py-2.5 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground"
                       onClick={() => toggleSort("signal")}
                     >
-                      Signal<SortIcon field="signal" />
+                      Signal<SortIcon field="signal" sortField={sortField} sortDir={sortDir} />
                     </th>
                   </>
                 )}
@@ -1045,6 +1041,19 @@ function RangeBar({ actual, min, max, status }: { actual: number; min: number; m
   );
 }
 
+function SortIcon({
+  field,
+  sortField,
+  sortDir,
+}: {
+  field: string;
+  sortField: string;
+  sortDir: "asc" | "desc";
+}) {
+  if (sortField !== field) return null;
+  return <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>;
+}
+
 function AllocationTable({
   filtered,
   getAllocationData,
@@ -1052,7 +1061,8 @@ function AllocationTable({
   totalCost,
   totalValue,
   toggleSort,
-  SortIcon,
+  sortField,
+  sortDir,
   thBase,
   thRight,
   thCenter,
@@ -1073,7 +1083,8 @@ function AllocationTable({
   totalCost: number;
   totalValue: number;
   toggleSort: (field: string) => void;
-  SortIcon: React.ComponentType<{ field: string }>;
+  sortField: string;
+  sortDir: "asc" | "desc";
   thBase: string;
   thRight: string;
   thCenter: string;
@@ -1090,42 +1101,42 @@ function AllocationTable({
             style={{ width: "16%" }}
             onClick={() => toggleSort("name")}
           >
-            Company<SortIcon field="name" />
+            Company<SortIcon field="name" sortField={sortField} sortDir={sortDir} />
           </th>
           <th
             scope="col" className={thCenter}
             style={{ width: "5%" }}
             onClick={() => toggleSort("star_rating")}
           >
-            Star<SortIcon field="star_rating" />
+            Star<SortIcon field="star_rating" sortField={sortField} sortDir={sortDir} />
           </th>
           <th
             scope="col" className={thRight}
             style={{ width: "6%" }}
             onClick={() => toggleSort("current_price")}
           >
-            CMP<SortIcon field="current_price" />
+            CMP<SortIcon field="current_price" sortField={sortField} sortDir={sortDir} />
           </th>
           <th
             scope="col" className={`${thRight} ${HIDE_MOBILE}`}
             style={{ width: "6%" }}
             onClick={() => toggleSort("buy_price")}
           >
-            Target Buy<SortIcon field="buy_price" />
+            Target Buy<SortIcon field="buy_price" sortField={sortField} sortDir={sortDir} />
           </th>
           <th
             scope="col" className={thRight}
             style={{ width: "6%" }}
             onClick={() => toggleSort("cost_pct")}
           >
-            Invested %<SortIcon field="cost_pct" />
+            Invested %<SortIcon field="cost_pct" sortField={sortField} sortDir={sortDir} />
           </th>
           <th
             scope="col" className={thRight}
             style={{ width: "6%" }}
             onClick={() => toggleSort("value_pct")}
           >
-            Current %<SortIcon field="value_pct" />
+            Current %<SortIcon field="value_pct" sortField={sortField} sortDir={sortDir} />
           </th>
           <th
             scope="col" className={`${thCenter}`}
@@ -1144,21 +1155,21 @@ function AllocationTable({
             style={{ width: "6%" }}
             onClick={() => toggleSort("alloc_status")}
           >
-            Status<SortIcon field="alloc_status" />
+            Status<SortIcon field="alloc_status" sortField={sortField} sortDir={sortDir} />
           </th>
           <th
             scope="col" className={thRight}
             style={{ width: "6%" }}
             onClick={() => toggleSort("alloc_delta")}
           >
-            Delta<SortIcon field="alloc_delta" />
+            Delta<SortIcon field="alloc_delta" sortField={sortField} sortDir={sortDir} />
           </th>
           <th
             scope="col" className={thRight}
             style={{ width: "5%" }}
             onClick={() => toggleSort("mos")}
           >
-            MoS%<SortIcon field="mos" />
+            MoS%<SortIcon field="mos" sortField={sortField} sortDir={sortDir} />
           </th>
         </tr>
       </thead>

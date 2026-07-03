@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { CompanyPageClient } from "@/components/company/company-page-client";
 import { getDefaultModelIRR } from "@/lib/utils/calculations";
+import type { ProjectionModel, FinancialYear } from "@/types/database";
 
 export default async function CompanyPage({
   params,
@@ -35,12 +36,12 @@ export default async function CompanyPage({
 
   const portfolioType = (portfolio?.type as "holdings" | "watchlist") ?? "holdings";
 
-  const projectionModels = (company.projection_models ?? [])
-    .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-    .map((pm: any) => ({
+  const projectionModels = ((company.projection_models ?? []) as ProjectionModel[])
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map((pm) => ({
       ...pm,
-      financial_years: (pm.financial_years ?? []).sort(
-        (a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
+      financial_years: ((pm.financial_years ?? []) as FinancialYear[]).sort(
+        (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
       ),
     }));
 
