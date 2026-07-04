@@ -2,10 +2,39 @@
 
 import { getAuthUser } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import type { ProjectionType } from "@/types/database";
+import type { ProjectionType, ProjectionModel, FinancialYear } from "@/types/database";
 import { createLogger } from "@/lib/logger";
 import { action, AppError, describeDbError, type ActionResult } from "@/lib/action-result";
 const log = createLogger({ service: "projection-actions" });
+
+/**
+ * Full projection models (financial_years + valuation_scenarios) for the
+ * Projections & Valuations tab, lazy-fetched on first open. This is the heavy
+ * relation deliberately excluded from the initial company-page render.
+ * Models and their financial years are returned sorted by sort_order.
+ */
+export async function getCompanyProjections(companyId: string): Promise<ProjectionModel[]> {
+  const { supabase } = await getAuthUser();
+
+  const { data, error } = await supabase
+    .from("projection_models")
+    .select("*, financial_years(*), valuation_scenarios(*)")
+    .eq("company_id", companyId);
+
+  if (error) {
+    log.error("getCompanyProjections failed", { error: error.message, companyId });
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as ProjectionModel[])
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map((pm) => ({
+      ...pm,
+      financial_years: ((pm.financial_years ?? []) as FinancialYear[]).sort(
+        (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
+      ),
+    }));
+}
 
 export async function createProjectionModel(
   companyId: string,

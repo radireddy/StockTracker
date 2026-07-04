@@ -88,20 +88,25 @@ export default function ImportPage() {
   const [results, setResults] = useState<FileResult[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [history, setHistory] = useState<HistoryRow[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // The upload form renders immediately; import history is lazy-fetched after
+  // paint so it never blocks the page. Also re-run to refresh after an import.
   const fetchHistory = useCallback(async () => {
     try {
       const res = await fetch("/api/import");
       if (res.ok) setHistory(await res.json());
     } catch {
       /* silent */
+    } finally {
+      setHistoryLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    // On-mount fetch of import history; setState happens after the awaited
-    // response, not synchronously — this is the intended effect behaviour.
+    // Deferred on-mount fetch; setState happens after the awaited response,
+    // not synchronously — this is the intended effect behaviour.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchHistory();
   }, [fetchHistory]);
@@ -266,13 +271,14 @@ export default function ImportPage() {
                       {phase === "select" && (
                         <button
                           type="button"
+                          aria-label={`Remove ${f.name}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             removeFile(i);
                           }}
                           className="text-muted-foreground hover:text-destructive shrink-0 p-1"
                         >
-                          <XCircle className="h-4 w-4" />
+                          <XCircle className="h-4 w-4" aria-hidden="true" />
                         </button>
                       )}
                     </div>
@@ -323,8 +329,8 @@ export default function ImportPage() {
           )}
 
           {phase === "importing" && (
-            <div className="flex items-center gap-3 p-4 rounded-lg bg-blue-500/10">
-              <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+            <div role="status" aria-live="polite" className="flex items-center gap-3 p-4 rounded-lg bg-blue-500/10">
+              <Loader2 className="h-5 w-5 animate-spin text-blue-600" aria-hidden="true" />
               <p className="text-sm font-medium">
                 Importing {files[currentIndex]?.name} ({currentIndex + 1}/{files.length})…
               </p>
@@ -347,11 +353,26 @@ export default function ImportPage() {
         </CardContent>
       </Card>
 
-      {/* Accounts management */}
+      {/* Accounts management (self-fetches lazily after the form is shown) */}
       <AccountsManager onChanged={() => { fetchHistory(); invalidateDashboard(); }} />
 
-      {/* Import history */}
-      {history.length > 0 && (
+      {/* Import history — lazy-loaded; show a placeholder until it arrives */}
+      {historyLoading ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Import History
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div role="status" aria-live="polite" className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              Loading import history…
+            </div>
+          </CardContent>
+        </Card>
+      ) : history.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -411,10 +432,11 @@ export default function ImportPage() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      aria-label={`Delete import record for ${h.accounts?.label ?? "account"}`}
                       className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
                       onClick={() => handleDeleteHistory(h.id)}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                     </Button>
                   </div>
                 </div>

@@ -15,27 +15,50 @@ function sanitizeHtml(html: string | null): string | null {
   return DOMPurify.sanitize(html);
 }
 
-export async function getCompany(id: string) {
-  const { supabase, user } = await getAuthUser();
+/**
+ * Lightweight company fetch for the initial company-page render (header +
+ * Details tab). Deliberately excludes heavy columns/relations — thesis &
+ * highlights HTML, timeline_entries, financial_years, segment_valuations,
+ * market_perceptions — which the corresponding tabs lazy-fetch on first open.
+ * Mirrors the dashboard's select (+ sector + portfolio_id/isin/expected_returns)
+ * so the page renders in tens of ms instead of seconds.
+ */
+export async function getCompanyCore(id: string) {
+  const { supabase } = await getAuthUser();
 
   const { data, error } = await supabase
     .from("companies")
     .select(`
-      *,
-      indian_stocks(*),
-      projection_models(*, financial_years(*), valuation_scenarios(*)),
-      timeline_entries(*),
-      segment_valuations(*),
-      market_perceptions(*)
+      id, portfolio_id, isin, buy_price, star_rating, strategy,
+      investment_horizon_years, expected_returns,
+      indian_stocks(name, nse_symbol, price, market_cap, sector),
+      projection_models(id, is_default, valuation_scenarios(scenario_type, target_market_cap, irr, buy_price))
     `)
     .eq("id", id)
     .single();
 
   if (error) {
-    log.error("getCompany failed", { error: error.message, companyId: id });
+    log.error("getCompanyCore failed", { error: error.message, companyId: id });
     throw new Error(error.message);
   }
   return data;
+}
+
+/** Thesis HTML for the Thesis tab (lazy-fetched on first open). */
+export async function getCompanyThesis(id: string): Promise<string | null> {
+  const { supabase } = await getAuthUser();
+
+  const { data, error } = await supabase
+    .from("companies")
+    .select("thesis")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    log.error("getCompanyThesis failed", { error: error.message, companyId: id });
+    throw new Error(error.message);
+  }
+  return data?.thesis ?? null;
 }
 
 export async function createCompany(formData: FormData): Promise<ActionResult<string>> {

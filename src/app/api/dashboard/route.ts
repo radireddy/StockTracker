@@ -4,13 +4,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { refreshPrices, isIndianTradingHours } from "@/lib/services/price-refresh";
 import { createLogger } from "@/lib/logger";
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { acquireRefreshLock, releaseRefreshLock } from "@/lib/services/refresh-lock";
 import { dashboardQuerySchema } from "@/lib/validations";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const log = createLogger({ service: "api-dashboard" });
 
 const STALE_THRESHOLD_MS = 5 * 60 * 1000;
-let refreshInProgress = false;
 
 const DASHBOARD_COMPANY_SELECT = `
   id, isin, star_rating, strategy, buy_price, investment_horizon_years,
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
 }
 
 async function triggerPriceRefreshIfStale(supabase: SupabaseClient) {
-  if (!isIndianTradingHours() || refreshInProgress) return;
+  if (!isIndianTradingHours()) return;
 
   try {
     const { data: staleness } = await supabase
@@ -122,22 +122,25 @@ async function triggerPriceRefreshIfStale(supabase: SupabaseClient) {
       : 0;
     const isStale = Date.now() - lastUpdated > STALE_THRESHOLD_MS;
 
-    if (isStale) {
-      refreshInProgress = true;
-      const adminClient = createAdminClient();
-      refreshPrices(adminClient)
-        .then((result) => {
-          log.info("Auto-refresh completed", result);
-        })
-        .catch((err) => {
-          log.error("Auto-refresh failed", {
-            error: err instanceof Error ? err.message : String(err),
-          });
-        })
-        .finally(() => {
-          refreshInProgress = false;
+    if (!isStale) return;
+
+    // Cross-instance lock: on Vercel each concurrent dashboard load runs on its
+    // own instance, so a module-level flag can't prevent duplicate refreshes.
+    if (!(await acquireRefreshLock())) return;
+
+    const adminClient = createAdminClient();
+    refreshPrices(adminClient)
+      .then((result) => {
+        log.info("Auto-refresh completed", result);
+      })
+      .catch((err) => {
+        log.error("Auto-refresh failed", {
+          error: err instanceof Error ? err.message : String(err),
         });
-    }
+      })
+      .finally(() => {
+        void releaseRefreshLock();
+      });
   } catch {
     // staleness check failed — skip refresh
   }

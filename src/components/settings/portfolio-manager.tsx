@@ -46,7 +46,7 @@ export function PortfolioManager({
   const [deleteTarget, setDeleteTarget] = useState<PortfolioWithCount | null>(null);
   const [deleteSummary, setDeleteSummary] = useState<{
     companies: number;
-    transactions: number;
+    holdings: number;
   } | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [pending, setPending] = useState(false);
@@ -300,7 +300,7 @@ export function PortfolioManager({
             <AlertDialogDescription>
               This will permanently delete{" "}
               <strong>{deleteSummary?.companies ?? 0}</strong> companies and{" "}
-              <strong>{deleteSummary?.transactions ?? 0}</strong> transactions.
+              <strong>{deleteSummary?.holdings ?? 0}</strong> holdings.
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

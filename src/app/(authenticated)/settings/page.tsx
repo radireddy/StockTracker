@@ -6,6 +6,9 @@ import { PortfolioManager } from "@/components/settings/portfolio-manager";
 import { AllocationRangesEditor } from "@/components/settings/allocation-ranges-editor";
 import { getPortfolios } from "@/app/(authenticated)/actions/portfolio-actions";
 import type { AllocationRanges } from "@/types/database";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   let supabase, user;
@@ -24,7 +27,7 @@ export default async function SettingsPage() {
   const portfolios = await getPortfolios();
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">Settings</h1>
       <Card>
         <CardHeader>

@@ -3,18 +3,14 @@
 import { useState, useCallback } from "react";
 import { CompanyHeader } from "@/components/company/company-header";
 import { CompanyTabs } from "@/components/company/company-tabs";
-import type { CompanyWithRelations, ProjectionModel, TimelineEntry } from "@/types/database";
+import type { CompanyWithRelations } from "@/types/database";
 
 export function CompanyPageClient({
   company,
-  projectionModels,
-  timelineEntries,
   initialBaseIrr,
   portfolioType = "holdings",
 }: {
   company: CompanyWithRelations;
-  projectionModels: ProjectionModel[];
-  timelineEntries: TimelineEntry[];
   initialBaseIrr: number | null;
   portfolioType?: "holdings" | "watchlist";
 }) {
@@ -29,8 +25,6 @@ export function CompanyPageClient({
       <CompanyHeader company={company} baseIrr={baseIrr} />
       <CompanyTabs
         company={company}
-        projectionModels={projectionModels}
-        timelineEntries={timelineEntries}
         onBaseIrrChange={handleBaseIrrChange}
         portfolioType={portfolioType}
       />

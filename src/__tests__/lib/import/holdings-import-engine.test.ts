@@ -135,8 +135,15 @@ function setup(opts: {
         if (op.insert) {
           captured.companyInserts.push(op.insert);
           if (opts.companyInsertError) return { data: null, error: { message: opts.companyInsertError } };
-          companySeq += 1;
-          return { data: { id: `new-company-${companySeq}` }, error: null };
+          // Real Supabase: `.insert([...]).select()` → array of rows;
+          // `.insert({...}).select().single()` → one row. Mirror both so the
+          // bulk path and the per-row fallback both work against this mock.
+          const inserts = (Array.isArray(op.insert) ? op.insert : [op.insert]) as Array<{ isin: string }>;
+          const created = inserts.map((row) => {
+            companySeq += 1;
+            return { id: `new-company-${companySeq}`, isin: row.isin };
+          });
+          return { data: Array.isArray(op.insert) ? created : created[0], error: null };
         }
         if (op.single) {
           // race re-read after an insert conflict
@@ -377,6 +384,45 @@ describe("executeHoldingsImport", () => {
     expect(result.status).toBe("failed");
     expect(result.skipped_count).toBe(1);
     expect(result.errors.some((e) => /Could not register stock/.test(e.message))).toBe(true);
+  });
+
+  it("batches company creation into a single insert for multiple new companies", async () => {
+    const { userSupabase, captured } = setup({
+      existingStockIsins: ["INE002A01018", "INE009A01021"], // stocks known
+      existingCompanies: [], // both companies missing
+    });
+
+    const result = await run(
+      makeParseResult([
+        makeHolding({ symbol: "RELIANCE", isin: "INE002A01018" }),
+        makeHolding({ symbol: "INFY", isin: "INE009A01021" }),
+      ]),
+      userSupabase
+    );
+
+    expect(captured.companyInserts).toHaveLength(1); // one bulk call, not one per company
+    expect(captured.companyInserts[0]).toHaveLength(2); // both rows in the single call
+    expect(result.new_companies_created).toEqual(expect.arrayContaining(["RELIANCE", "INFY"]));
+    expect(result.imported_count).toBe(2);
+    expect(captured.insertedHoldings).toHaveLength(2);
+  });
+
+  it("batches stock registration into a single upsert for multiple new stocks", async () => {
+    const { userSupabase, captured } = setup({
+      existingStockIsins: [], // both stocks missing
+      existingCompanies: [],
+    });
+
+    await run(
+      makeParseResult([
+        makeHolding({ symbol: "RELIANCE", isin: "INE002A01018" }),
+        makeHolding({ symbol: "INFY", isin: "INE009A01021" }),
+      ]),
+      userSupabase
+    );
+
+    expect(captured.stockUpserts).toHaveLength(1); // one bulk upsert, not one per stock
+    expect(captured.stockUpserts[0]).toHaveLength(2); // both stocks in the single call
   });
 
   it("consolidates unique ISINs across duplicate rows", async () => {

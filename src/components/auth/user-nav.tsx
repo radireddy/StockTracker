@@ -23,6 +23,7 @@ export function UserNav({ profile }: { profile: Profile }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        aria-label="Account menu"
         className="relative h-8 w-8 rounded-full inline-flex items-center justify-center text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         {profile.display_name?.[0] ?? "U"}

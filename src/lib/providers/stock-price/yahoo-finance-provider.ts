@@ -4,7 +4,7 @@ import { createLogger } from "@/lib/logger";
 
 const log = createLogger({ service: "stock-price", provider: "yahoo-finance" });
 
-const BATCH_SIZE = 8;
+const BATCH_SIZE = 15;
 const REQUEST_TIMEOUT_MS = 5000;
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });

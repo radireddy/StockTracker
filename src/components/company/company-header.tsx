@@ -1,11 +1,12 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { marginOfSafety, isBuySignal, effectiveBuyPrice, fmtPrice, fmtIrr, fmtMarketCap } from "@/lib/utils/calculations";
 import { DeleteCompanyButton } from "@/components/dashboard/delete-company-dialogs";
 import type { CompanyWithRelations } from "@/types/database";
 
-function MetricItem({ label, value, className, title }: { label: string; value: string; className?: string; title?: string }) {
+function MetricItem({ label, value, className, title }: { label: string; value: ReactNode; className?: string; title?: string }) {
   return (
     <div className="flex flex-col" title={title}>
       <span className="text-xs text-muted-foreground uppercase tracking-wide">{label}</span>
@@ -63,7 +64,18 @@ export function CompanyHeader({
         <MetricItem label="Market Cap" value={fmtMarketCap(marketCap)} />
         <MetricItem label="Target Buy Price" value={fmtPrice(buyPrice)} className={isDefaulted ? "text-muted-foreground italic" : ""} title={isDefaulted ? "Base case buy price (no manual override)" : undefined} />
         <MetricItem label="MoS" value={mos != null ? `${(mos * 100).toFixed(1)}%` : "-"} className={mosColor} />
-        <MetricItem label="Star Rating" value={company.star_rating ? "★".repeat(company.star_rating) : "-"} />
+        <MetricItem
+          label="Star Rating"
+          value={
+            company.star_rating ? (
+              <span aria-label={`${company.star_rating} of 4 stars`}>
+                <span aria-hidden="true">{"★".repeat(company.star_rating)}</span>
+              </span>
+            ) : (
+              "-"
+            )
+          }
+        />
         <MetricItem label="Strategy" value={company.strategy ?? "-"} />
         <MetricItem label="Sector" value={company.indian_stocks?.sector ?? "-"} />
         <MetricItem label="Horizon" value={company.investment_horizon_years ? `${company.investment_horizon_years}y` : "0y"} className="cursor-help" title="Auto-calculated from Financial Model estimates" />

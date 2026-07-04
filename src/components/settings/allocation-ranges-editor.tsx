@@ -55,25 +55,27 @@ export function AllocationRangesEditor({
           const range = ranges[String(star)] ?? { min: 0, max: 0 };
           return (
             <div key={star} className="flex items-center gap-3">
-              <span className="w-16 text-sm font-medium text-yellow-500">
-                {"★".repeat(star)}
+              <span className="w-16 text-sm font-medium text-yellow-500" aria-label={`${star} star`}>
+                <span aria-hidden="true">{"★".repeat(star)}</span>
               </span>
               <Input
                 type="number"
                 min={0}
                 max={100}
                 step={0.5}
+                aria-label={`${star} star minimum allocation percent`}
                 value={range.min}
                 onChange={(e) => updateRange(star, "min", e.target.value)}
                 className="w-20 h-8 text-sm text-center"
               />
               <span className="text-muted-foreground">%</span>
-              <span className="text-muted-foreground">—</span>
+              <span className="text-muted-foreground" aria-hidden="true">—</span>
               <Input
                 type="number"
                 min={0}
                 max={100}
                 step={0.5}
+                aria-label={`${star} star maximum allocation percent`}
                 value={range.max}
                 onChange={(e) => updateRange(star, "max", e.target.value)}
                 className="w-20 h-8 text-sm text-center"

@@ -50,24 +50,40 @@ export async function executeHoldingsImport(
   const knownIsins = new Set<string>((stocks ?? []).map((s: { isin: string }) => s.isin));
 
   const missingIsins = uniqueIsins.filter((isin) => !knownIsins.has(isin));
-  for (const isin of missingIsins) {
-    const h = holdings.find((x) => x.isin === isin)!;
-    const { error: insertErr } = await adminClient
+  if (missingIsins.length > 0) {
+    const stockRows = missingIsins.map((isin) => {
+      const h = holdings.find((x) => x.isin === isin)!;
+      return { isin, name: h.symbol, nse_symbol: h.symbol, exchange: "NSE" as const };
+    });
+    // Fast path: register every missing stock in one round-trip.
+    const { error: bulkErr } = await adminClient
       .from("indian_stocks")
-      .upsert(
-        { isin, name: h.symbol, nse_symbol: h.symbol, exchange: "NSE" as const },
-        { onConflict: "isin", ignoreDuplicates: true }
-      );
-    if (insertErr) {
-      const { error: retryErr } = await adminClient
-        .from("indian_stocks")
-        .upsert({ isin, name: h.symbol, exchange: "NSE" as const }, { onConflict: "isin", ignoreDuplicates: true });
-      if (retryErr) {
-        errors.push({ symbol: h.symbol, message: `Could not register stock (ISIN ${isin}): ${retryErr.message}` });
-        continue;
+      .upsert(stockRows, { onConflict: "isin", ignoreDuplicates: true });
+    if (bulkErr) {
+      // Fallback: one bad row shouldn't block the rest, and older schemas may
+      // lack `nse_symbol` (retry without it). Handle each ISIN on its own.
+      for (const isin of missingIsins) {
+        const h = holdings.find((x) => x.isin === isin)!;
+        const { error: insertErr } = await adminClient
+          .from("indian_stocks")
+          .upsert(
+            { isin, name: h.symbol, nse_symbol: h.symbol, exchange: "NSE" as const },
+            { onConflict: "isin", ignoreDuplicates: true }
+          );
+        if (insertErr) {
+          const { error: retryErr } = await adminClient
+            .from("indian_stocks")
+            .upsert({ isin, name: h.symbol, exchange: "NSE" as const }, { onConflict: "isin", ignoreDuplicates: true });
+          if (retryErr) {
+            errors.push({ symbol: h.symbol, message: `Could not register stock (ISIN ${isin}): ${retryErr.message}` });
+            continue;
+          }
+        }
+        knownIsins.add(isin);
       }
+    } else {
+      for (const isin of missingIsins) knownIsins.add(isin);
     }
-    knownIsins.add(isin);
   }
 
   // 2. Ensure companies exist (research stubs) ---------------------------------
@@ -80,30 +96,56 @@ export async function executeHoldingsImport(
     (existingCompanies ?? []).map((c: { id: string; isin: string }) => [c.isin, c.id] as [string, string])
   );
 
-  for (const isin of uniqueIsins) {
-    if (companyMap.has(isin) || !knownIsins.has(isin)) continue;
-    const h = holdings.find((x) => x.isin === isin)!;
-    const { data: created, error: createErr } = await userSupabase
+  const missingCompanyIsins = uniqueIsins.filter(
+    (isin) => !companyMap.has(isin) && knownIsins.has(isin)
+  );
+  if (missingCompanyIsins.length > 0) {
+    const companyRows = missingCompanyIsins.map((isin) => ({
+      user_id: userId,
+      portfolio_id: portfolioId,
+      isin,
+    }));
+    // Fast path: create every missing company stub in one round-trip.
+    const { data: createdRows, error: bulkErr } = await userSupabase
       .from("companies")
-      .insert({ user_id: userId, portfolio_id: portfolioId, isin })
-      .select("id")
-      .single();
-    if (createErr) {
-      // Race: someone created it — re-read.
-      const { data: existing } = await userSupabase
-        .from("companies")
-        .select("id")
-        .eq("portfolio_id", portfolioId)
-        .eq("isin", isin)
-        .single();
-      if (existing) {
-        companyMap.set(isin, existing.id as string);
-      } else {
-        errors.push({ symbol: h.symbol, message: `Could not create company: ${createErr.message}` });
+      .insert(companyRows)
+      .select("id, isin");
+    if (!bulkErr && createdRows) {
+      for (const row of createdRows as Array<{ id: string; isin: string }>) {
+        companyMap.set(row.isin, row.id);
+        const h = holdings.find((x) => x.isin === row.isin);
+        if (h) newCompaniesCreated.push(h.symbol);
       }
     } else {
-      companyMap.set(isin, created.id as string);
-      newCompaniesCreated.push(h.symbol);
+      // Fallback: a bulk insert aborts wholesale if any single row conflicts, so
+      // re-attempt each ISIN individually — inserting the genuinely new ones and
+      // recovering the id of any that lost a create race.
+      for (const isin of missingCompanyIsins) {
+        if (companyMap.has(isin)) continue;
+        const h = holdings.find((x) => x.isin === isin)!;
+        const { data: created, error: createErr } = await userSupabase
+          .from("companies")
+          .insert({ user_id: userId, portfolio_id: portfolioId, isin })
+          .select("id")
+          .single();
+        if (createErr) {
+          // Race: someone created it — re-read.
+          const { data: existing } = await userSupabase
+            .from("companies")
+            .select("id")
+            .eq("portfolio_id", portfolioId)
+            .eq("isin", isin)
+            .single();
+          if (existing) {
+            companyMap.set(isin, existing.id as string);
+          } else {
+            errors.push({ symbol: h.symbol, message: `Could not create company: ${createErr.message}` });
+          }
+        } else {
+          companyMap.set(isin, created.id as string);
+          newCompaniesCreated.push(h.symbol);
+        }
+      }
     }
   }
 

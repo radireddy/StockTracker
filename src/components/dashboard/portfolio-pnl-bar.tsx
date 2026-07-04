@@ -52,13 +52,16 @@ export function PortfolioPnlBar({
       <div>
         <span className="text-muted-foreground">P&L</span>{" "}
         <span
+          aria-label={`${isProfit ? "Profit" : "Loss"}: ${isProfit ? "+" : ""}${fmt(pnl)} (${isProfit ? "+" : ""}${pnlPct.toFixed(1)}%)`}
           className={`font-semibold ${
             isProfit ? "text-green-600" : "text-red-600"
           }`}
         >
-          {isProfit ? "+" : ""}
-          {fmt(pnl)} ({isProfit ? "+" : ""}
-          {pnlPct.toFixed(1)}%)
+          <span aria-hidden="true">
+            {isProfit ? "+" : ""}
+            {fmt(pnl)} ({isProfit ? "+" : ""}
+            {pnlPct.toFixed(1)}%)
+          </span>
         </span>
       </div>
     </div>

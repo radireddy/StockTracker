@@ -6,6 +6,31 @@ const log = createLogger({ service: "price-refresh" });
 
 const provider = stockPriceRegistry.getActive();
 
+export interface PriceUpdateRow {
+  isin: string;
+  price: number;
+  change: number;
+  change_pct: number;
+  volume: number | null;
+  /** Omit the key entirely to leave the existing market_cap untouched. */
+  market_cap?: number | null;
+  last_updated: string;
+}
+
+/**
+ * Bulk-updates stock prices in a single DB round-trip via the
+ * `bulk_update_stock_prices` RPC (see migration 005). Replaces the previous
+ * per-row UPDATE loop, which serialized one round-trip per stock.
+ */
+export async function bulkUpdatePrices(
+  adminClient: SupabaseClient,
+  rows: PriceUpdateRow[]
+): Promise<{ error: string | null }> {
+  if (rows.length === 0) return { error: null };
+  const { error } = await adminClient.rpc("bulk_update_stock_prices", { p_rows: rows });
+  return { error: error ? error.message : null };
+}
+
 export function isIndianTradingHours(): boolean {
   const now = new Date();
   // Convert to IST (UTC+5:30)
@@ -125,8 +150,10 @@ export async function refreshPrices(
 
   const quotes = await provider.fetchBulkQuotes(uniqueSymbols);
 
-  let updated = 0;
   const failed: string[] = [];
+  const rows: PriceUpdateRow[] = [];
+  const attemptedSymbols: string[] = [];
+  const now = new Date().toISOString();
 
   for (const symbol of uniqueSymbols) {
     const quote = quotes.get(symbol);
@@ -137,24 +164,27 @@ export async function refreshPrices(
       continue;
     }
 
-    const { error: updateError } = await adminClient
-      .from("indian_stocks")
-      .update({
-        price: quote.price,
-        change: quote.change,
-        change_pct: quote.changePct,
-        volume: quote.volume ?? null,
-        market_cap: quote.marketCap ?? null,
-        last_updated: new Date().toISOString(),
-      })
-      .eq("isin", isin);
+    attemptedSymbols.push(symbol);
+    rows.push({
+      isin,
+      price: quote.price,
+      change: quote.change,
+      change_pct: quote.changePct,
+      volume: quote.volume ?? null,
+      market_cap: quote.marketCap ?? null,
+      last_updated: now,
+    });
+  }
 
-    if (updateError) {
-      log.error("Failed to update stock price in DB", { symbol, isin, error: updateError.message });
-      failed.push(symbol);
-    } else {
-      updated++;
-    }
+  // Single bulk round-trip instead of one UPDATE per stock. If the batch
+  // fails, every symbol in it is reported as failed (per-row attribution is
+  // not available for a batch write).
+  const { error: bulkError } = await bulkUpdatePrices(adminClient, rows);
+  let updated = rows.length;
+  if (bulkError) {
+    log.error("Failed to bulk-update stock prices in DB", { count: rows.length, error: bulkError });
+    failed.push(...attemptedSymbols);
+    updated = 0;
   }
 
   if (failed.length > 0) {
