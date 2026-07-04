@@ -714,6 +714,7 @@ export function CompaniesTable({
                     <td className="px-2 py-2 font-medium truncate max-w-0">
                       <Link
                         href={`/company/${company.id}`}
+                        prefetch={false}
                         onClick={(e) => e.stopPropagation()}
                         className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
