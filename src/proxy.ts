@@ -8,6 +8,9 @@ export const proxy = withAxiom(async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Skip Next internals, static assets, and the public SEO/metadata routes
+    // (robots, sitemap, manifest, OG/Twitter images, icons) so crawlers and
+    // social scrapers reach them without hitting the auth redirect.
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|opengraph-image|twitter-image|icon|apple-icon|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

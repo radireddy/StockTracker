@@ -65,7 +65,7 @@ export function CompanyForm() {
   const done = () => {
     invalidate();
     toast.success("Company added");
-    router.push("/");
+    router.push("/dashboard");
   };
   const fail = (result: unknown) => {
     toastError(result);
