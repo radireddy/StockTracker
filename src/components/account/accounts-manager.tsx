@@ -123,11 +123,11 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
                     autoFocus
                     className="h-8"
                   />
-                  <Button size="icon" variant="ghost" className="h-8 w-8" disabled={busy} onClick={() => handleRename(a.id)}>
-                    <Check className="h-4 w-4 text-green-600" />
+                  <Button size="icon" variant="ghost" aria-label="Save account name" className="h-8 w-8" disabled={busy} onClick={() => handleRename(a.id)}>
+                    <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingId(null)}>
-                    <X className="h-4 w-4" />
+                  <Button size="icon" variant="ghost" aria-label="Cancel editing" className="h-8 w-8" onClick={() => setEditingId(null)}>
+                    <X className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </>
               ) : (
@@ -142,22 +142,24 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
                   <Button
                     size="icon"
                     variant="ghost"
+                    aria-label={`Rename ${a.label}`}
                     className="h-8 w-8 text-muted-foreground"
                     onClick={() => {
                       setEditingId(a.id);
                       setEditLabel(a.label);
                     }}
                   >
-                    <Pencil className="h-3.5 w-3.5" />
+                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
                   <Button
                     size="icon"
                     variant="ghost"
+                    aria-label={`Delete ${a.label}`}
                     className="h-8 w-8 text-muted-foreground hover:text-destructive"
                     disabled={busy}
                     onClick={() => handleDelete(a)}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
                 </>
               )}

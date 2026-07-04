@@ -106,6 +106,8 @@ export function CreatePortfolioDialog({
                 <button
                   key={c}
                   type="button"
+                  aria-label={`Color ${c}`}
+                  aria-pressed={color === c}
                   className={`h-7 w-7 rounded-full border-2 transition-all ${
                     color === c
                       ? "border-foreground scale-110"

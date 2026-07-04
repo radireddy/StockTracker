@@ -162,8 +162,7 @@ function SelectScrollUpButton({
       )}
       {...props}
     >
-      <ChevronUpIcon
-      />
+      <ChevronUpIcon aria-hidden="true" />
     </SelectPrimitive.ScrollUpArrow>
   )
 }
@@ -181,8 +180,7 @@ function SelectScrollDownButton({
       )}
       {...props}
     >
-      <ChevronDownIcon
-      />
+      <ChevronDownIcon aria-hidden="true" />
     </SelectPrimitive.ScrollDownArrow>
   )
 }

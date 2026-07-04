@@ -192,17 +192,17 @@ export function HoldingsTab({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/30">
-                      <th className="text-left px-3 py-2 font-medium">Account</th>
-                      <th className="text-right px-3 py-2 font-medium">Qty</th>
-                      <th className="text-right px-3 py-2 font-medium">Avg Price</th>
-                      <th className="text-center px-3 py-2 font-medium">Source</th>
-                      <th className="text-right px-3 py-2 font-medium">Actions</th>
+                      <th scope="col" className="text-left px-3 py-2 font-medium">Account</th>
+                      <th scope="col" className="text-right px-3 py-2 font-medium">Qty</th>
+                      <th scope="col" className="text-right px-3 py-2 font-medium">Avg Price</th>
+                      <th scope="col" className="text-center px-3 py-2 font-medium">Source</th>
+                      <th scope="col" className="text-right px-3 py-2 font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {holdings.map((h) => (
                       <tr key={h.id} className="border-b border-border/20">
-                        <td className="px-3 py-2">{h.accounts?.label ?? "—"}</td>
+                        <th scope="row" className="px-3 py-2 text-left font-normal">{h.accounts?.label ?? "—"}</th>
                         {editingId === h.id ? (
                           <>
                             <td className="px-3 py-2 text-right">
@@ -226,11 +226,11 @@ export function HoldingsTab({
                             </td>
                             <td className="px-3 py-2 text-right">
                               <div className="inline-flex gap-1">
-                                <Button size="icon" variant="ghost" className="h-8 w-8" disabled={busy} onClick={() => handleUpdate(h.id)}>
-                                  <Check className="h-4 w-4 text-green-600" />
+                                <Button size="icon" variant="ghost" aria-label="Save holding" className="h-8 w-8" disabled={busy} onClick={() => handleUpdate(h.id)}>
+                                  <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
                                 </Button>
-                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingId(null)}>
-                                  <X className="h-4 w-4" />
+                                <Button size="icon" variant="ghost" aria-label="Cancel editing" className="h-8 w-8" onClick={() => setEditingId(null)}>
+                                  <X className="h-4 w-4" aria-hidden="true" />
                                 </Button>
                               </div>
                             </td>
@@ -249,6 +249,7 @@ export function HoldingsTab({
                                 <Button
                                   size="icon"
                                   variant="ghost"
+                                  aria-label={`Edit holding in ${h.accounts?.label ?? "account"}`}
                                   className="h-8 w-8 text-muted-foreground"
                                   onClick={() => {
                                     setEditingId(h.id);
@@ -256,16 +257,17 @@ export function HoldingsTab({
                                     setEditPrice(String(h.avg_buy_price));
                                   }}
                                 >
-                                  <Pencil className="h-3.5 w-3.5" />
+                                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                                 </Button>
                                 <Button
                                   size="icon"
                                   variant="ghost"
+                                  aria-label={`Remove holding in ${h.accounts?.label ?? "account"}`}
                                   className="h-8 w-8 text-muted-foreground hover:text-destructive"
                                   disabled={busy}
                                   onClick={() => handleDelete(h)}
                                 >
-                                  <Trash2 className="h-3.5 w-3.5" />
+                                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                                 </Button>
                               </div>
                             </td>

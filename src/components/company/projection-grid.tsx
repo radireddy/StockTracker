@@ -94,6 +94,7 @@ export function ProjectionGrid({
                 return (
                   <th
                     key={idx}
+                    scope="col"
                     className={`group py-3 px-3 text-right text-xs font-semibold tracking-wide min-w-[100px] ${
                       isEst
                         ? "text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/20"
@@ -166,8 +167,9 @@ export function ProjectionGrid({
                     .join(" ")}
                 >
                   {/* Label */}
-                  <td
-                    className={`sticky left-0 z-10 py-2 pl-5 pr-3 whitespace-nowrap ${
+                  <th
+                    scope="row"
+                    className={`sticky left-0 z-10 py-2 pl-5 pr-3 whitespace-nowrap text-left font-normal ${
                       isHighlight
                         ? "bg-muted/40 dark:bg-muted/20 font-bold text-foreground"
                         : isHeader
@@ -178,7 +180,7 @@ export function ProjectionGrid({
                     }`}
                   >
                     {row.label}
-                  </td>
+                  </th>
 
                   {/* Values */}
                   {data.map((fy, idx) => {

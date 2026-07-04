@@ -114,6 +114,7 @@ function FontSizeSelect({ editor }: { editor: Editor }) {
   return (
     <select
       value={currentSize}
+      aria-label="Font size"
       onChange={(e) => {
         const size = e.target.value;
         if (size) {
@@ -153,6 +154,9 @@ function ToolbarButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
+      aria-label={title}
+      aria-pressed={active}
+      aria-disabled={disabled}
       title={title}
       className={cn(
         "p-1.5 rounded-md transition-colors",
@@ -207,6 +211,8 @@ function ColorPicker({
             <button
               key={color}
               type="button"
+              aria-label={`Set text color ${color}`}
+              aria-pressed={currentColor === color}
               className={cn(
                 "w-5 h-5 rounded-sm border transition-transform hover:scale-125",
                 color === "#ffffff" ? "border-border" : "border-border/50",
@@ -338,7 +344,11 @@ function Toolbar({ editor, companyId, uploading, fileInputRef, pdfInputRef, disa
   }, [editor]);
 
   return (
-    <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border/50 flex-wrap">
+    <div
+      role="toolbar"
+      aria-label="Text formatting"
+      className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border/50 flex-wrap"
+    >
       {/* Text formatting */}
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
@@ -667,6 +677,7 @@ export default function RichTextEditorImpl({
       <input
         ref={fileInputRef}
         type="file"
+        aria-label="Upload image"
         accept="image/jpeg,image/png,image/webp,image/gif"
         className="hidden"
         onChange={async (e) => {
@@ -680,6 +691,7 @@ export default function RichTextEditorImpl({
       <input
         ref={pdfInputRef}
         type="file"
+        aria-label="Attach PDF"
         accept="application/pdf"
         className="hidden"
         onChange={async (e) => {

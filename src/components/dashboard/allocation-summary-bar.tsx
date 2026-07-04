@@ -65,6 +65,12 @@ export function AllocationSummaryBar({
     over: "bg-red-50 dark:bg-red-950/30",
   };
 
+  const statusWord = {
+    under: "under target",
+    in_range: "in range",
+    over: "over target",
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-muted/20 px-4 py-2 text-sm">
       <span className="text-xs font-medium text-muted-foreground mr-1">Allocation (Current Value)</span>
@@ -73,13 +79,14 @@ export function AllocationSummaryBar({
         return (
           <div
             key={star}
+            aria-label={`${star} star: ${pct.toFixed(1)}% of portfolio, target ${groupMin.toFixed(0)}-${groupMax.toFixed(0)}%, ${statusWord[status]}`}
             className={`flex items-center gap-1.5 rounded px-2 py-0.5 ${statusBg[status]}`}
           >
-            <span className="text-yellow-500 text-xs">{"★".repeat(star)}</span>
-            <span className={`font-semibold tabular-nums ${statusColors[status]}`}>
+            <span className="text-yellow-500 text-xs" aria-hidden="true">{"★".repeat(star)}</span>
+            <span className={`font-semibold tabular-nums ${statusColors[status]}`} aria-hidden="true">
               {pct.toFixed(1)}%
             </span>
-            <span className="text-muted-foreground text-xs">
+            <span className="text-muted-foreground text-xs" aria-hidden="true">
               ({groupMin.toFixed(0)}-{groupMax.toFixed(0)}%)
             </span>
           </div>

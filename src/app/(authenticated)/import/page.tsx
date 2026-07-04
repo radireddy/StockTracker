@@ -266,13 +266,14 @@ export default function ImportPage() {
                       {phase === "select" && (
                         <button
                           type="button"
+                          aria-label={`Remove ${f.name}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             removeFile(i);
                           }}
                           className="text-muted-foreground hover:text-destructive shrink-0 p-1"
                         >
-                          <XCircle className="h-4 w-4" />
+                          <XCircle className="h-4 w-4" aria-hidden="true" />
                         </button>
                       )}
                     </div>
@@ -411,10 +412,11 @@ export default function ImportPage() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      aria-label={`Delete import record for ${h.accounts?.label ?? "account"}`}
                       className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
                       onClick={() => handleDeleteHistory(h.id)}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                     </Button>
                   </div>
                 </div>

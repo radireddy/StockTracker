@@ -708,6 +708,7 @@ export function CompaniesTable({
                     className={`cursor-pointer border-b border-border/20 hover:bg-muted/40 transition-colors ${
                       idx % 2 === 0 ? "" : "bg-muted/15"
                     } ${borderClass}`}
+                    title={isHoldings && activeStatus ? `Allocation: ${STATUS_LABEL[activeStatus]}` : undefined}
                     onClick={() => router.push(`/company/${company.id}`)}
                   >
                     <td className="px-2 py-2 font-medium truncate max-w-0">
@@ -722,12 +723,15 @@ export function CompaniesTable({
                             {company.indian_stocks.nse_symbol}
                           </span>
                         )}
+                        {isHoldings && activeStatus && (
+                          <span className="sr-only"> — allocation {STATUS_LABEL[activeStatus]}</span>
+                        )}
                       </Link>
                     </td>
                     {isHoldings ? (
                       <>
                         <td className={`px-1 py-2 text-center text-sm ${HIDE_MOBILE}`}>
-                          {"★".repeat(company.star_rating ?? 0)}
+                          <StarRating rating={company.star_rating} />
                         </td>
                         <td className={`px-1 py-2 text-center text-xs capitalize text-muted-foreground ${HIDE_MOBILE}`}>
                           {company.strategy ?? "-"}
@@ -808,7 +812,7 @@ export function CompaniesTable({
                     ) : (
                       <>
                         <td className={`px-1 py-2 text-center text-sm ${HIDE_MOBILE}`}>
-                          {"★".repeat(company.star_rating ?? 0)}
+                          <StarRating rating={company.star_rating} />
                         </td>
                         <td className={`px-1 py-2 text-center text-xs capitalize text-muted-foreground ${HIDE_MOBILE}`}>
                           {company.strategy ?? "-"}
@@ -1060,6 +1064,17 @@ function SortIcon({
   return <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>;
 }
 
+/** Star rating with a text alternative for assistive tech. */
+function StarRating({ rating }: { rating: number | null }) {
+  const n = rating ?? 0;
+  if (n <= 0) return null;
+  return (
+    <span aria-label={`${n} of 4 stars`}>
+      <span aria-hidden="true">{"★".repeat(n)}</span>
+    </span>
+  );
+}
+
 function AllocationTable({
   filtered,
   getAllocationData,
@@ -1228,7 +1243,7 @@ function AllocationTable({
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger className="cursor-help border-b border-dashed border-muted-foreground/40">
-                      {"★".repeat(company.star_rating ?? 0)}
+                      <StarRating rating={company.star_rating} />
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-sm font-medium">{investedTooltip}</TooltipContent>
                   </Tooltip>
