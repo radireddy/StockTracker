@@ -2,6 +2,8 @@
 
 import { useMemo, useCallback, useEffect } from "react";
 import { CompaniesTable } from "@/components/dashboard/companies-table";
+import { MobileDashboard } from "@/components/dashboard/mobile-dashboard";
+import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { PortfolioPnlBar } from "@/components/dashboard/portfolio-pnl-bar";
 import { AllocationSummaryBar } from "@/components/dashboard/allocation-summary-bar";
 import { AccountFilter } from "@/components/account/account-filter";
@@ -43,7 +45,7 @@ export default function DashboardPage() {
   }, [selectedPortfolio?.name]);
 
   return (
-    <div className="max-w-[95vw] xl:max-w-[1600px] mx-auto space-y-3">
+    <div className="max-w-[95vw] xl:max-w-[1600px] mx-auto space-y-3 pb-24 lg:pb-0">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">
@@ -65,23 +67,37 @@ export default function DashboardPage() {
         </Link>
       </div>
       {isHoldings && !isLoading && (
-        <>
+        <div className="hidden space-y-3 lg:block">
           <PortfolioPnlBar companies={companies} />
           <AllocationSummaryBar companies={companies} allocationRanges={allocationRanges} />
-        </>
+        </div>
       )}
       {isLoading ? (
         <div role="status" aria-live="polite" className="text-center py-12 text-sm text-muted-foreground">
           Loading companies...
         </div>
       ) : (
-        <CompaniesTable
-          companies={companies}
-          portfolioType={portfolioType}
-          onRemoveCompany={removeCompany}
-          allocationRanges={allocationRanges}
-        />
+        <>
+          {/* Desktop: dense data table */}
+          <div className="hidden lg:block">
+            <CompaniesTable
+              companies={companies}
+              portfolioType={portfolioType}
+              onRemoveCompany={removeCompany}
+              allocationRanges={allocationRanges}
+            />
+          </div>
+          {/* Mobile / small screens: card layout */}
+          <div className="lg:hidden">
+            <MobileDashboard
+              companies={companies}
+              portfolioType={portfolioType}
+              allocationRanges={allocationRanges}
+            />
+          </div>
+        </>
       )}
+      <MobileBottomNav />
     </div>
   );
 }
