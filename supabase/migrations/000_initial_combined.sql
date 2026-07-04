@@ -789,3 +789,27 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION bulk_update_stock_prices(jsonb) TO authenticated, service_role;
+
+-- ============================================================================
+-- Data API grants
+-- ----------------------------------------------------------------------------
+-- Supabase's newer cloud default does NOT auto-expose objects created in the
+-- `public` schema by `postgres` to the Data API roles (anon, authenticated,
+-- service_role) -- unlike the legacy default, which installed matching
+-- ALTER DEFAULT PRIVILEGES at project bootstrap. Without these grants, a
+-- logged-in read/write fails with "permission denied for table ...".
+-- RLS (enabled per-table above) remains the actual row-access gate; these
+-- grants only let the roles reach the objects at all. Must run AFTER all
+-- tables/functions above are created.
+-- ============================================================================
+
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+
+GRANT ALL ON ALL TABLES    IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
+
+-- Auto-expose future objects created by postgres too (restores legacy behaviour).
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES    TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
