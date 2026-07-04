@@ -1,12 +1,22 @@
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PortfolioManager } from "@/components/settings/portfolio-manager";
+import { AllocationRangesEditor } from "@/components/settings/allocation-ranges-editor";
+import { getPortfolios } from "@/app/(authenticated)/actions/portfolio-actions";
+import type { AllocationRanges } from "@/types/database";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  let supabase, user;
+  try {
+    ({ supabase, user } = await getAuthUser());
+  } catch {
+    redirect("/login");
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -14,13 +24,10 @@ export default async function SettingsPage() {
     .eq("id", user.id)
     .single();
 
-  const { data: portfolios } = await supabase
-    .from("portfolios")
-    .select("*, companies(count)")
-    .order("created_at");
+  const portfolios = await getPortfolios();
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">Settings</h1>
       <Card>
         <CardHeader>
@@ -37,23 +44,20 @@ export default async function SettingsPage() {
       </Card>
       <Card>
         <CardHeader>
+          <CardTitle>Allocation Ranges</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AllocationRangesEditor
+            initialRanges={(profile?.allocation_ranges as AllocationRanges | null) ?? null}
+          />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
           <CardTitle>Portfolios</CardTitle>
         </CardHeader>
         <CardContent>
-          {portfolios && portfolios.length > 0 ? (
-            <ul className="space-y-2 text-sm">
-              {portfolios.map((p: Record<string, unknown>) => (
-                <li key={p.id as string} className="flex items-center justify-between">
-                  <span>{p.name as string}{p.is_default ? " (default)" : ""}</span>
-                  <Badge variant="secondary">
-                    {(p.companies as { count: number }[])?.[0]?.count ?? 0} companies
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground">No portfolios yet.</p>
-          )}
+          <PortfolioManager portfolios={portfolios} />
         </CardContent>
       </Card>
     </div>

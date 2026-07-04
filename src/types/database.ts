@@ -1,5 +1,15 @@
 export type ProjectionType = 'pe_earnings' | 'ev_ebitda';
 
+export type AllocationRange = { min: number; max: number };
+export type AllocationRanges = Record<string, AllocationRange>;
+
+export const DEFAULT_ALLOCATION_RANGES: AllocationRanges = {
+  "1": { min: 0, max: 2 },
+  "2": { min: 2, max: 4 },
+  "3": { min: 4, max: 6 },
+  "4": { min: 6, max: 8 },
+};
+
 export interface Profile {
   id: string;
   email: string;
@@ -11,6 +21,7 @@ export interface Profile {
     max_portfolios: number;
     alerts_enabled: boolean;
   };
+  allocation_ranges: AllocationRanges | null;
   created_at: string;
   updated_at: string;
 }
@@ -21,6 +32,10 @@ export interface Portfolio {
   name: string;
   description: string | null;
   is_default: boolean;
+  type: 'holdings' | 'watchlist';
+  sort_order: number;
+  color: string | null;
+  icon: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -55,6 +70,8 @@ export interface Company {
   expected_returns: number | null;
   thesis: string | null;
   highlights: string | null;
+  notes: string | null;
+  sort_order: number;
   created_at: string;
   updated_at: string;
   // Joined from indian_stocks
@@ -74,6 +91,17 @@ export interface ProjectionModel {
   // Nested data (populated by Supabase joins)
   financial_years?: FinancialYear[];
   valuation_scenarios?: ValuationScenario[];
+}
+
+/**
+ * Company with the nested relations loaded by the company detail query
+ * (see `app/(authenticated)/company/[id]/page.tsx`). Relations are optional
+ * because they depend on the specific Supabase select used.
+ */
+export interface CompanyWithRelations extends Company {
+  projection_models?: ProjectionModel[];
+  segment_valuations?: SegmentValuation[];
+  market_perceptions?: MarketPerception[];
 }
 
 export interface FinancialYear {
@@ -164,3 +192,72 @@ export interface MarketPerception {
   created_at: string;
   updated_at: string;
 }
+
+/** A broker demat account (flat model). One account = broker + client_id + label. */
+export interface Account {
+  id: string;
+  user_id: string;
+  label: string;
+  broker: string;           // 'zerodha' | 'manual' | (future brokers)
+  client_id: string | null; // broker demat id; null for manual-only accounts
+  pan_number: string | null;
+  mobile: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Per-account per-company position snapshot (imported directly, not derived). */
+export interface Holding {
+  id: string;
+  user_id: string;
+  portfolio_id: string;
+  account_id: string;
+  company_id: string;
+  isin: string;
+  quantity: number;
+  avg_buy_price: number;
+  sector: string | null;
+  source: string;           // 'zerodha' | 'manual'
+  import_holding_id: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined
+  accounts?: Account;
+}
+
+/** One statement import (synchronous; replaces the old async import_jobs). */
+export type ImportHolding = {
+  id: string;
+  user_id: string;
+  portfolio_id: string;
+  account_id: string;
+  broker: string;
+  client_id: string | null;
+  statement_date: string | null;
+  file_name: string | null;
+  status: 'completed' | 'failed';
+  is_reimport: boolean;
+  companies_count: number;
+  imported_count: number;
+  skipped_count: number;
+  summary: ImportHoldingSummary;
+  errors: ImportHoldingError[];
+  created_at: string;
+  // Joined
+  accounts?: Account;
+};
+
+export type ImportHoldingSummary = {
+  symbols_imported?: string[];
+  symbols_skipped?: string[];
+  new_companies_created?: string[];
+  statement_date?: string;
+  client_id?: string;
+  account_label?: string;
+};
+
+export type ImportHoldingError = {
+  symbol?: string;
+  message: string;
+  row?: number;
+};

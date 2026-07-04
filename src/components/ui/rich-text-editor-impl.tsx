@@ -19,6 +19,15 @@ import TaskItem from "@tiptap/extension-task-item";
 import { Extension } from "@tiptap/core";
 import { cn } from "@/lib/utils";
 
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    fontSize: {
+      setFontSize: (fontSize: string) => ReturnType;
+      unsetFontSize: () => ReturnType;
+    };
+  }
+}
+
 const FontSize = Extension.create({
   name: "fontSize",
   addOptions() {
@@ -94,6 +103,7 @@ export interface RichTextEditorProps {
   onChange?: (html: string) => void;
   editorRef?: (editor: Editor | null) => void;
   companyId?: string;
+  disableMedia?: boolean;
 }
 
 const FONT_SIZES = ["12px", "14px", "16px", "18px", "20px", "24px", "28px", "32px"];
@@ -104,12 +114,13 @@ function FontSizeSelect({ editor }: { editor: Editor }) {
   return (
     <select
       value={currentSize}
+      aria-label="Font size"
       onChange={(e) => {
         const size = e.target.value;
         if (size) {
-          (editor.chain().focus() as any).setFontSize(size).run();
+          editor.chain().focus().setFontSize(size).run();
         } else {
-          (editor.chain().focus() as any).unsetFontSize().run();
+          editor.chain().focus().unsetFontSize().run();
         }
       }}
       title="Font Size"
@@ -143,6 +154,9 @@ function ToolbarButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
+      aria-label={title}
+      aria-pressed={active}
+      aria-disabled={disabled}
       title={title}
       className={cn(
         "p-1.5 rounded-md transition-colors",
@@ -197,6 +211,8 @@ function ColorPicker({
             <button
               key={color}
               type="button"
+              aria-label={`Set text color ${color}`}
+              aria-pressed={currentColor === color}
               className={cn(
                 "w-5 h-5 rounded-sm border transition-transform hover:scale-125",
                 color === "#ffffff" ? "border-border" : "border-border/50",
@@ -295,12 +311,13 @@ function TableMenu({ editor }: { editor: Editor }) {
   );
 }
 
-function Toolbar({ editor, companyId, uploading, fileInputRef, pdfInputRef }: {
+function Toolbar({ editor, companyId, uploading, fileInputRef, pdfInputRef, disableMedia }: {
   editor: Editor;
   companyId?: string;
   uploading: boolean;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   pdfInputRef: React.RefObject<HTMLInputElement | null>;
+  disableMedia?: boolean;
 }) {
   const iconSize = 15;
 
@@ -327,7 +344,11 @@ function Toolbar({ editor, companyId, uploading, fileInputRef, pdfInputRef }: {
   }, [editor]);
 
   return (
-    <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border/50 flex-wrap">
+    <div
+      role="toolbar"
+      aria-label="Text formatting"
+      className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border/50 flex-wrap"
+    >
       {/* Text formatting */}
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
@@ -486,13 +507,17 @@ function Toolbar({ editor, companyId, uploading, fileInputRef, pdfInputRef }: {
           <Unlink size={iconSize} />
         </ToolbarButton>
       )}
-      <ToolbarButton onClick={addImage} title="Insert Image" disabled={uploading}>
-        {uploading ? <Loader2 size={iconSize} className="animate-spin" /> : <ImagePlus size={iconSize} />}
-      </ToolbarButton>
-      {companyId && (
-        <ToolbarButton onClick={() => pdfInputRef.current?.click()} title="Attach PDF" disabled={uploading}>
-          <Paperclip size={iconSize} />
-        </ToolbarButton>
+      {!disableMedia && (
+        <>
+          <ToolbarButton onClick={addImage} title="Insert Image" disabled={uploading}>
+            {uploading ? <Loader2 size={iconSize} className="animate-spin" /> : <ImagePlus size={iconSize} />}
+          </ToolbarButton>
+          {companyId && (
+            <ToolbarButton onClick={() => pdfInputRef.current?.click()} title="Attach PDF" disabled={uploading}>
+              <Paperclip size={iconSize} />
+            </ToolbarButton>
+          )}
+        </>
       )}
 
       {/* Table */}
@@ -526,6 +551,7 @@ export default function RichTextEditorImpl({
   onChange,
   editorRef,
   companyId,
+  disableMedia,
 }: RichTextEditorProps) {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -578,7 +604,7 @@ export default function RichTextEditorImpl({
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Link.configure({ openOnClick: true, autolink: true, HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' } }),
-      ImageResize,
+      ...disableMedia ? [] : [ImageResize],
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
@@ -621,7 +647,7 @@ export default function RichTextEditorImpl({
         }
         return false;
       },
-    } : undefined,
+    } : {},
   });
 
   if (!editor) return null;
@@ -634,6 +660,7 @@ export default function RichTextEditorImpl({
         uploading={uploading}
         fileInputRef={fileInputRef}
         pdfInputRef={pdfInputRef}
+        disableMedia={disableMedia}
       />
       {uploading && (
         <div className="px-3 py-1.5 bg-muted/50 border-b border-border/50 flex items-center gap-2 text-xs text-muted-foreground">
@@ -650,6 +677,7 @@ export default function RichTextEditorImpl({
       <input
         ref={fileInputRef}
         type="file"
+        aria-label="Upload image"
         accept="image/jpeg,image/png,image/webp,image/gif"
         className="hidden"
         onChange={async (e) => {
@@ -663,6 +691,7 @@ export default function RichTextEditorImpl({
       <input
         ref={pdfInputRef}
         type="file"
+        aria-label="Attach PDF"
         accept="application/pdf"
         className="hidden"
         onChange={async (e) => {

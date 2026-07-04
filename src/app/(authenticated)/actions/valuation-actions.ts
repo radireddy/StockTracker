@@ -1,7 +1,10 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger({ service: "valuation-actions" });
 
 export async function upsertValuation(
   companyId: string,
@@ -14,9 +17,7 @@ export async function upsertValuation(
     buy_price?: number | null;
   }
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { error } = await supabase.from("valuation_scenarios").upsert(
     {
@@ -27,6 +28,10 @@ export async function upsertValuation(
     { onConflict: "company_id,scenario_type" }
   );
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("upsertValuation failed", { error: error.message, companyId, scenarioType: scenario.scenario_type });
+    throw new Error(error.message);
+  }
   revalidatePath(`/company/${companyId}`);
+  log.info("Valuation upserted", { companyId, scenarioType: scenario.scenario_type });
 }

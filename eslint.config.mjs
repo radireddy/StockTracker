@@ -13,6 +13,15 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  // Test files legitimately use `any` for lightweight mocks/spies and reassign
+  // locals like `module`; relax those rules for the test tree only.
+  {
+    files: ["src/__tests__/**"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "@next/next/no-assign-module-variable": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

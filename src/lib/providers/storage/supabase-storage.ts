@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import type { StorageProvider, StorageResult } from "./types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger({ service: "storage", provider: "supabase" });
 
 const BUCKET = "attachments";
 
@@ -17,10 +20,12 @@ export class SupabaseStorageProvider implements StorageProvider {
       });
 
     if (error) {
+      log.error("Upload failed", { path, contentType, error: error.message });
       throw new Error(`Storage upload failed: ${error.message}`);
     }
 
     const url = this.getPublicUrl(path);
+    log.info("File uploaded", { path, size: file.byteLength, contentType });
     return { path, url, size: file.byteLength };
   }
 
@@ -32,6 +37,7 @@ export class SupabaseStorageProvider implements StorageProvider {
       .remove([path]);
 
     if (error) {
+      log.error("Delete failed", { path, error: error.message });
       throw new Error(`Storage delete failed: ${error.message}`);
     }
   }

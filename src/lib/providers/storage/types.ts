@@ -33,15 +33,15 @@ export const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 export const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024; // 10MB
 
 export function getMaxSize(contentType: string): number {
-  if (ALLOWED_IMAGE_TYPES.includes(contentType as any)) return MAX_IMAGE_SIZE;
-  if (ALLOWED_DOCUMENT_TYPES.includes(contentType as any)) return MAX_DOCUMENT_SIZE;
+  if ((ALLOWED_IMAGE_TYPES as readonly string[]).includes(contentType)) return MAX_IMAGE_SIZE;
+  if ((ALLOWED_DOCUMENT_TYPES as readonly string[]).includes(contentType)) return MAX_DOCUMENT_SIZE;
   return 0;
 }
 
 export function isAllowedType(contentType: string): contentType is AllowedMimeType {
-  return ALLOWED_TYPES.includes(contentType as any);
+  return (ALLOWED_TYPES as readonly string[]).includes(contentType);
 }
 
 export function isImageType(contentType: string): boolean {
-  return ALLOWED_IMAGE_TYPES.includes(contentType as any);
+  return (ALLOWED_IMAGE_TYPES as readonly string[]).includes(contentType);
 }

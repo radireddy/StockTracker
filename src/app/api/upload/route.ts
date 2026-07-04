@@ -1,15 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUserOrNull } from "@/lib/supabase/server";
 import { storageRegistry } from "@/lib/providers/storage/registry";
 import { isAllowedType, getMaxSize } from "@/lib/providers/storage/types";
+import { createLogger } from "@/lib/logger";
+import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+
+const log = createLogger({ service: "upload" });
 
 export async function POST(request: NextRequest) {
   // 1. Authenticate
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-  if (authError || !user) {
+  const { supabase, user } = await getAuthUserOrNull();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = await rateLimit(user.id, RATE_LIMITS.upload);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil((rl.reset - Date.now()) / 1000)) } }
+    );
   }
 
   // 2. Parse form data
@@ -23,6 +33,26 @@ export async function POST(request: NextRequest) {
 
   if (!companyId) {
     return NextResponse.json({ error: "No companyId provided" }, { status: 400 });
+  }
+
+  // 2b. Verify the company belongs to the authenticated user (defense-in-depth).
+  // RLS already scopes reads to the user, so an unowned/nonexistent id returns no
+  // row. This also prevents an attacker-supplied companyId from being used as an
+  // arbitrary storage path segment.
+  const { data: company, error: companyError } = await supabase
+    .from("companies")
+    .select("id")
+    .eq("id", companyId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (companyError) {
+    log.error("Company lookup failed", { error: companyError.message, companyId });
+    return NextResponse.json({ error: "Upload failed. Please try again." }, { status: 500 });
+  }
+
+  if (!company) {
+    return NextResponse.json({ error: "Company not found" }, { status: 404 });
   }
 
   // 3. Validate file type
@@ -55,6 +85,7 @@ export async function POST(request: NextRequest) {
     const provider = storageRegistry.getActive();
     const result = await provider.upload(buffer, path, contentType);
 
+    log.info("Upload successful", { fileName: file.name, fileSize: file.size, contentType, path });
     return NextResponse.json({
       url: result.url,
       path: result.path,
@@ -63,7 +94,13 @@ export async function POST(request: NextRequest) {
       size: result.size,
     });
   } catch (err) {
-    console.error("Upload failed:", err);
+    log.error("Upload failed", {
+      error: err instanceof Error ? err.message : String(err),
+      fileName: file.name,
+      fileSize: file.size,
+      contentType,
+      companyId,
+    });
     return NextResponse.json(
       { error: "Upload failed. Please try again." },
       { status: 500 }

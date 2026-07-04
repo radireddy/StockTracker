@@ -1,16 +1,21 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import type { IndianStock } from "@/types/database";
+import { createLogger } from "@/lib/logger";
+import { sanitizePostgrestSearch } from "@/lib/postgrest-filter";
+const log = createLogger({ service: "stock-actions" });
 
 export async function searchStocks(query: string): Promise<IndianStock[]> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   if (!query || query.length < 2) return [];
 
-  const q = query.trim();
+  // Strip PostgREST/LIKE metacharacters so user input cannot break out of the
+  // .or() filter value and inject extra conditions. Re-check length afterwards
+  // in case the term was made up entirely of stripped characters.
+  const q = sanitizePostgrestSearch(query);
+  if (q.length < 2) return [];
 
   const { data, error } = await supabase
     .from("indian_stocks")
@@ -19,14 +24,15 @@ export async function searchStocks(query: string): Promise<IndianStock[]> {
     .order("name")
     .limit(20);
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    log.error("searchStocks failed", { error: error.message, query: q });
+    throw new Error(error.message);
+  }
   return data ?? [];
 }
 
 export async function getStockByIsin(isin: string): Promise<IndianStock | null> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  const { supabase, user } = await getAuthUser();
 
   const { data, error } = await supabase
     .from("indian_stocks")
@@ -34,6 +40,9 @@ export async function getStockByIsin(isin: string): Promise<IndianStock | null> 
     .eq("isin", isin)
     .single();
 
-  if (error) return null;
+  if (error) {
+    log.error("getStockByIsin failed", { error: error.message, isin });
+    return null;
+  }
   return data;
 }

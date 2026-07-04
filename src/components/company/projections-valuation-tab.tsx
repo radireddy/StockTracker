@@ -33,6 +33,8 @@ import {
 } from "@/app/(authenticated)/actions/projection-actions";
 import { updateCompany } from "@/app/(authenticated)/actions/company-actions";
 import { marketCapInCrores } from "@/lib/utils/calculations";
+import { toast } from "sonner";
+import { toastError } from "@/lib/toast-error";
 import type { Company, ProjectionModel, FinancialYear, ProjectionType } from "@/types/database";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -44,6 +46,7 @@ interface ModelState {
   financialYears: FinancialYear[];
   overrides: Set<string>;
   scenarioData: Record<ScenarioType, Record<string, number | null>>;
+  storedDerivedScenarios: Record<ScenarioType, Record<string, number | null>>;
   expReturns: number;
 }
 
@@ -77,10 +80,11 @@ function getCurrentFYNum(): number {
     : now.getFullYear() % 100;
 }
 
-function generateDefaultYears(companyId: string, projectionModelId: string): FinancialYear[] {
+function generateDefaultYears(companyId: string, projectionModelId: string, horizonYears: number): FinancialYear[] {
   const currentFY = getCurrentFYNum();
   const prevFY = currentFY - 1;
-  return Array.from({ length: 4 }, (_, i) => {
+  const columnCount = 1 + horizonYears; // 1 actual + horizon projected
+  return Array.from({ length: columnCount }, (_, i) => {
     const fyNum = prevFY + i;
     const isEst = i > 0;
     return {
@@ -116,27 +120,38 @@ function initModelState(model: ProjectionModel, company: Company): ModelState {
   if (rawYears.length > 0) {
     financialYears = normalizeFinancialYears(rawYears);
   } else {
-    financialYears = generateDefaultYears(company.id, model.id);
+    financialYears = generateDefaultYears(company.id, model.id, company.investment_horizon_years ?? 3);
   }
 
-  // Build overrides set from existing auto fields that have values
+  // Build overrides set from existing auto fields that have values,
+  // but exclude locked fields (they can never be user-overridden and must always recompute)
+  const lockedKeys = new Set(strategy.rowConfigs.filter((r) => r.locked).map((r) => r.key));
   const overrides = new Set<string>();
   (model.financial_years ?? []).forEach((fy, idx) => {
     autoKeys.forEach((key) => {
-      if (fy[key as keyof FinancialYear] != null) overrides.add(oKey(key, idx));
+      if (!lockedKeys.has(key) && fy[key as keyof FinancialYear] != null) overrides.add(oKey(key, idx));
     });
   });
 
   // Build scenarioData from existing valuation_scenarios (extract input fields only)
-  const inputFields = strategy.getValuationFields().filter((f) => f.isInput).map((f) => f.key);
+  const valuationFields = strategy.getValuationFields();
+  const inputFields = valuationFields.filter((f) => f.isInput).map((f) => f.key);
+  const derivedFieldKeys = valuationFields.filter((f) => !f.isInput).map((f) => f.key);
   const scenarioData: Record<ScenarioType, Record<string, number | null>> = {
+    bull: {}, base: {}, bare: {},
+  };
+  const storedDerivedScenarios: Record<ScenarioType, Record<string, number | null>> = {
     bull: {}, base: {}, bare: {},
   };
   for (const vs of model.valuation_scenarios ?? []) {
     const type = vs.scenario_type as ScenarioType;
     if (type in scenarioData) {
+      const row = vs as unknown as Record<string, number | null>;
       for (const key of inputFields) {
-        scenarioData[type][key] = (vs as unknown as Record<string, number | null>)[key] ?? null;
+        scenarioData[type][key] = row[key] ?? null;
+      }
+      for (const key of derivedFieldKeys) {
+        storedDerivedScenarios[type][key] = row[key] ?? null;
       }
     }
   }
@@ -145,7 +160,7 @@ function initModelState(model: ProjectionModel, company: Company): ModelState {
     ? company.expected_returns * 100
     : 25;
 
-  return { model, financialYears, overrides, scenarioData, expReturns };
+  return { model, financialYears, overrides, scenarioData, storedDerivedScenarios, expReturns };
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -179,13 +194,15 @@ export function ProjectionsValuationTab({
     if (!defaultMs) return null;
 
     const strategy = getStrategy(defaultMs.model.projection_type);
-    const computedYears = strategy.computeFields(defaultMs.financialYears, defaultMs.overrides, null);
+    const computedYears = strategy.computeFields(defaultMs.financialYears, defaultMs.overrides, marketCapInCrores(company.indian_stocks?.market_cap));
     const terminalYear = computedYears[computedYears.length - 1] ?? null;
+    // Derive horizon from estimate years count so IRR updates immediately
+    const estimateYears = defaultMs.financialYears.filter((fy) => fy.is_estimate).length;
     const companyForCalc = {
       market_cap: marketCapInCrores(company.indian_stocks?.market_cap),
       current_price: company.indian_stocks?.price ?? null,
       expected_returns: defaultMs.expReturns,
-      investment_horizon_years: company.investment_horizon_years,
+      investment_horizon_years: estimateYears || company.investment_horizon_years,
     };
     const derived = strategy.computeValuationDerived(
       defaultMs.scenarioData.base,
@@ -335,9 +352,10 @@ export function ProjectionsValuationTab({
 
   const handleAddModel = useCallback(async (type: ProjectionType, label: string) => {
     const isDefault = modelStates.length === 0;
-    const newModel = await createProjectionModel(company.id, type, label, isDefault);
+    const res = await createProjectionModel(company.id, type, label, isDefault);
+    if (!res.ok) return toastError(res);
     const pm: ProjectionModel = {
-      ...newModel,
+      ...(res.data as unknown as ProjectionModel),
       financial_years: [],
       valuation_scenarios: [],
     };
@@ -349,7 +367,8 @@ export function ProjectionsValuationTab({
   // ─── Set default ───────────────────────────────────────────────────────────
 
   const handleSetDefault = useCallback(async (modelId: string) => {
-    await setDefaultProjectionModel(company.id, modelId);
+    const res = await setDefaultProjectionModel(company.id, modelId);
+    if (!res.ok) return toastError(res);
     setModelStates((prev) =>
       prev.map((ms) => ({
         ...ms,
@@ -362,7 +381,8 @@ export function ProjectionsValuationTab({
 
   const handleDeleteModel = useCallback(async () => {
     if (!deleteTarget) return;
-    await deleteProjectionModel(deleteTarget.id, company.id);
+    const res = await deleteProjectionModel(deleteTarget.id, company.id);
+    if (!res.ok) return toastError(res);
     setModelStates((prev) => prev.filter((ms) => ms.model.id !== deleteTarget.id));
     setExpandedIds((prev) => {
       const next = new Set(prev);
@@ -379,13 +399,14 @@ export function ProjectionsValuationTab({
     try {
       const models = modelStates.map((ms) => {
         const strategy = getStrategy(ms.model.projection_type);
-        const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, null);
+        const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, marketCapInCrores(company.indian_stocks?.market_cap));
         const terminalYear = computedYears[computedYears.length - 1] ?? null;
+        const estimateYears = ms.financialYears.filter((fy) => fy.is_estimate).length;
         const companyForCalc = {
           market_cap: marketCapInCrores(company.indian_stocks?.market_cap),
           current_price: company.indian_stocks?.price ?? null,
           expected_returns: ms.expReturns,
-          investment_horizon_years: company.investment_horizon_years,
+          investment_horizon_years: estimateYears || company.investment_horizon_years,
         };
         const scenarios = (["bull", "base", "bare"] as const).map((type) => ({
           scenario_type: type,
@@ -393,13 +414,22 @@ export function ProjectionsValuationTab({
           // Also include the input fields
           ...ms.scenarioData[type],
         }));
+        // Null out auto-computed fields that weren't explicitly overridden by user,
+        // so on reload only true user overrides are restored (not stale computed values)
+        const autoKeys = new Set(strategy.rowConfigs.filter((r) => r.type === "auto").map((r) => r.key));
+
         return {
           projection_model_id: ms.model.id,
           financial_years: computedYears.map(
-            ({ id, user_id, created_at, updated_at, ...fy }, idx) => ({
-              ...fy,
-              sort_order: idx,
-            })
+            ({ id, user_id, created_at, updated_at, ...fy }, idx) => {
+              const row: Record<string, unknown> = { ...fy, sort_order: idx };
+              autoKeys.forEach((key) => {
+                if (!ms.overrides.has(oKey(key, idx))) {
+                  row[key] = null;
+                }
+              });
+              return row;
+            }
           ),
           valuation_scenarios: scenarios,
         };
@@ -408,12 +438,17 @@ export function ProjectionsValuationTab({
       // Determine expReturns to save (all models share the same value)
       const expReturns = modelStates[0]?.expReturns ?? 25;
 
-      await Promise.all([
+      // saveAllProjections returns a Result; updateCompany still throws (caught below).
+      const [saveRes] = await Promise.all([
         saveAllProjections(company.id, models),
         updateCompany(company.id, { expected_returns: expReturns / 100 }),
       ]);
+      if (!saveRes.ok) return toastError(saveRes);
 
       router.refresh();
+      toast.success("Projections saved");
+    } catch (err) {
+      toastError(err, { message: "Couldn't save your projections." });
     } finally {
       setSaving(false);
     }
@@ -471,7 +506,9 @@ export function ProjectionsValuationTab({
           const isExpanded = expandedIds.has(ms.model.id);
 
           // Compute data for the grid (reactive to state changes)
-          const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, null);
+          const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, marketCapInCrores(company.indian_stocks?.market_cap));
+          // Derive horizon from local estimate years so IRR computes immediately
+          const estimateYears = ms.financialYears.filter((fy) => fy.is_estimate).length;
 
           return (
             <div key={ms.model.id} className="rounded-lg border border-border/60 overflow-hidden">
@@ -538,12 +575,13 @@ export function ProjectionsValuationTab({
                     <ValuationScenarios
                       strategy={strategy}
                       scenarioData={ms.scenarioData}
+                      storedDerivedScenarios={ms.storedDerivedScenarios}
                       financialYears={computedYears}
                       company={{
                         market_cap: marketCapInCrores(company.indian_stocks?.market_cap),
                         current_price: company.indian_stocks?.price ?? null,
                         expected_returns: company.expected_returns,
-                        investment_horizon_years: company.investment_horizon_years,
+                        investment_horizon_years: estimateYears || company.investment_horizon_years,
                       }}
                       expReturns={ms.expReturns}
                       onExpReturnsChange={(val) =>

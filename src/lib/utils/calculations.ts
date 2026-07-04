@@ -1,4 +1,6 @@
-import type { ProjectionModel } from "@/types/database";
+import type { FinancialYear, ProjectionModel, AllocationRanges, AllocationRange } from "@/types/database";
+import { DEFAULT_ALLOCATION_RANGES } from "@/types/database";
+import type { HorizonPegMetrics } from "@/lib/projections/types";
 
 export function marginOfSafety(
   buyPrice: number,
@@ -62,12 +64,46 @@ export function getDefaultModelBuyPrice(
 
 /** Get default model's base case IRR */
 export function getDefaultModelIRR(
-  projectionModels: ProjectionModel[]
+  projectionModels: ProjectionModel[],
+  currentMarketCapRaw?: number | null,
+  investmentHorizon?: number | null
 ): number | null {
   const defaultModel = projectionModels.find((pm) => pm.is_default);
   if (!defaultModel?.valuation_scenarios) return null;
   const base = defaultModel.valuation_scenarios.find((s) => s.scenario_type === "base");
-  return base?.irr ?? null;
+  if (!base) return null;
+  return computeLiveIrr(base.target_market_cap, currentMarketCapRaw ?? null, investmentHorizon ?? null) ?? base.irr ?? null;
+}
+
+/** Compute IRR live from stored target_market_cap and current market data.
+ *  target_market_cap is in Cr, currentMarketCapRaw is in raw rupees from DB. */
+export function computeLiveIrr(
+  targetMarketCapCr: number | null,
+  currentMarketCapRaw: number | null,
+  horizon: number | null
+): number | null {
+  const curMCCr = marketCapInCrores(currentMarketCapRaw);
+  if (targetMarketCapCr == null || curMCCr == null || curMCCr <= 0 || horizon == null || horizon <= 0) return null;
+  const val = (Math.pow(targetMarketCapCr / curMCCr, 1 / horizon) - 1) * 100;
+  if (!isFinite(val)) return null;
+  return Math.round(val * 10) / 10;
+}
+
+/** Compute buy price live from stored target_market_cap and current market data. */
+export function computeLiveBuyPrice(
+  targetMarketCapCr: number | null,
+  currentMarketCapRaw: number | null,
+  currentPrice: number | null,
+  expectedReturnsPct: number | null,
+  horizon: number | null
+): number | null {
+  const curMCCr = marketCapInCrores(currentMarketCapRaw);
+  if (targetMarketCapCr == null || curMCCr == null || curMCCr <= 0) return null;
+  if (currentPrice == null || expectedReturnsPct == null || horizon == null) return null;
+  const buyingMC = targetMarketCapCr / Math.pow(1 + expectedReturnsPct / 100, horizon);
+  const buyPrice = buyingMC * (currentPrice / curMCCr);
+  if (!isFinite(buyPrice)) return null;
+  return Math.round(buyPrice);
 }
 
 export function effectiveBuyPrice(
@@ -75,6 +111,68 @@ export function effectiveBuyPrice(
   scenarios: { scenario_type: string; buy_price: number | null }[]
 ): number | null {
   return companyBuyPrice ?? getBaseCaseBuyPrice(scenarios);
+}
+
+// --- Horizon PEG ---
+
+/**
+ * Compute Forward PEG metrics using previous year (FY before current) and terminal year.
+ * - Trailing PE = Market Cap / Previous Year PAT
+ * - Earnings CAGR = (Terminal PAT / Previous Year PAT)^(1/n) - 1
+ * - Forward PEG = Trailing PE / Earnings CAGR (%)
+ * Current FY from calendar, previous year = current FY - 1, n = terminal FY - previous FY.
+ */
+export function computeHorizonPegMetrics(
+  financialYears: FinancialYear[],
+  marketCap: number | null
+): HorizonPegMetrics | null {
+  if (financialYears.length < 2 || marketCap == null) return null;
+
+  // Current FY from calendar (e.g. June 2026 → FY27)
+  const now = new Date();
+  const currentFYNum = now.getMonth() >= 3
+    ? (now.getFullYear() + 1) % 100
+    : now.getFullYear() % 100;
+  const prevFYNum = currentFYNum - 1;
+
+  // Find previous year in array by FY number (match FY26 or FY26E)
+  const prevYear = financialYears.find((fy) => {
+    const match = fy.year.match(/FY(\d+)/);
+    return match ? parseInt(match[1]) === prevFYNum : false;
+  });
+  if (!prevYear) return null;
+
+  // Terminal year = last year in array
+  const terminalYear = financialYears[financialYears.length - 1];
+  const terminalMatch = terminalYear.year.match(/FY(\d+)/);
+  if (!terminalMatch) return null;
+  const terminalFYNum = parseInt(terminalMatch[1]);
+
+  // n = years between previous year and terminal year
+  const n = terminalFYNum - prevFYNum;
+  if (n <= 0) return null;
+
+  const prevPat = prevYear.pat;
+  const terminalPat = terminalYear.pat;
+
+  // Trailing PE = Market Cap / Previous Year PAT
+  const trailingPe =
+    prevPat != null && prevPat > 0
+      ? Math.round((marketCap / prevPat) * 10) / 10
+      : null;
+
+  // Earnings CAGR = (Terminal PAT / Previous Year PAT)^(1/n) - 1
+  const earningsCagr =
+    prevPat != null && prevPat > 0 && terminalPat != null && terminalPat > 0
+      ? Math.round((Math.pow(terminalPat / prevPat, 1 / n) - 1) * 1000) / 10
+      : null;
+
+  const fwdPeg =
+    trailingPe != null && earningsCagr != null && earningsCagr > 0
+      ? Math.round((trailingPe / earningsCagr) * 100) / 100
+      : null;
+
+  return { currentPe: trailingPe, earningsCagr, forwardPeg: fwdPeg };
 }
 
 // --- Conversion helpers ---
@@ -106,6 +204,12 @@ export function fmtPrice(val: number | null): string {
 export function fmtPriceShort(val: number | null): string {
   if (val == null) return "-";
   return roundPrice(val).toLocaleString(IN_LOCALE);
+}
+
+/** Amount without decimals — for totals like Cost, Current Value, P&L */
+export function fmtAmountShort(val: number | null): string {
+  if (val == null) return "-";
+  return Math.round(val).toLocaleString(IN_LOCALE);
 }
 
 /** Percentage from decimal (0.25 → "25.0%"). Guards against absurd values. */
@@ -140,4 +244,33 @@ export function fmtNum(val: number | null | undefined, decimals = 2): string {
 /** Round price to 2 decimal places */
 export function roundPrice(val: number): number {
   return Math.round(val * 100) / 100;
+}
+
+// --- Allocation helpers ---
+
+export type AllocationStatus = "under" | "in_range" | "over";
+
+/** Get the effective allocation ranges (user overrides or defaults) */
+export function getEffectiveRanges(userRanges: AllocationRanges | null): AllocationRanges {
+  return userRanges ?? DEFAULT_ALLOCATION_RANGES;
+}
+
+/** Get allocation range for a star rating */
+export function getRangeForStar(star: number | null, ranges: AllocationRanges): AllocationRange {
+  const key = String(star ?? 1);
+  return ranges[key] ?? { min: 0, max: 2 };
+}
+
+/** Determine allocation status relative to target range */
+export function getAllocationStatus(actualPct: number, range: AllocationRange): AllocationStatus {
+  if (actualPct < range.min) return "under";
+  if (actualPct > range.max) return "over";
+  return "in_range";
+}
+
+/** Delta from nearest range boundary. 0 if in range, negative if under, positive if over. */
+export function getAllocationDelta(actualPct: number, range: AllocationRange): number {
+  if (actualPct < range.min) return actualPct - range.min;
+  if (actualPct > range.max) return actualPct - range.max;
+  return 0;
 }

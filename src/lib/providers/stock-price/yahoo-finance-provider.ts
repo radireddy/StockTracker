@@ -1,9 +1,19 @@
 import YahooFinance from "yahoo-finance2";
-import type { StockPriceProvider, StockQuote } from "./types";
+import { StockPriceError, type StockPriceProvider, type StockQuote } from "./types";
+import { createLogger } from "@/lib/logger";
 
-const BATCH_SIZE = 8;
+const log = createLogger({ service: "stock-price", provider: "yahoo-finance" });
+
+const BATCH_SIZE = 15;
+const REQUEST_TIMEOUT_MS = 5000;
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
+
+// Abort the underlying fetch if Yahoo doesn't respond in time so hung
+// requests don't tie up the serverless function until the platform kills it.
+function quoteFetchOptions() {
+  return { fetchOptions: { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) } };
+}
 
 export class YahooFinanceProvider implements StockPriceProvider {
   name = "yahoo-finance";
@@ -16,10 +26,30 @@ export class YahooFinanceProvider implements StockPriceProvider {
 
   async fetchQuote(symbol: string): Promise<StockQuote> {
     const mapped = this.mapSymbol(symbol);
-    const result = await yf.quote(mapped);
+
+    let result;
+    try {
+      result = await yf.quote(mapped, undefined, quoteFetchOptions());
+    } catch (error) {
+      const timedOut = error instanceof Error && error.name === "TimeoutError";
+      log.warn("Quote fetch failed", {
+        symbol,
+        mapped,
+        timedOut,
+        timeoutMs: REQUEST_TIMEOUT_MS,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new StockPriceError(
+        error instanceof Error ? error.message : String(error),
+        { provider: this.name, symbol, timedOut, cause: error }
+      );
+    }
 
     if (!result || !result.regularMarketPrice) {
-      throw new Error(`No quote returned for ${symbol}`);
+      throw new StockPriceError(`No quote returned for ${symbol}`, {
+        provider: this.name,
+        symbol,
+      });
     }
 
     return this.mapResult(symbol, result);
@@ -37,7 +67,7 @@ export class YahooFinanceProvider implements StockPriceProvider {
       const mapped = batch.map((s) => this.mapSymbol(s));
 
       try {
-        const quotes = await yf.quote(mapped);
+        const quotes = await yf.quote(mapped, undefined, quoteFetchOptions());
         const quotesArr = Array.isArray(quotes) ? quotes : [quotes];
 
         for (const q of quotesArr) {
@@ -48,13 +78,14 @@ export class YahooFinanceProvider implements StockPriceProvider {
           }
         }
       } catch (error) {
-        console.warn(`Yahoo Finance: batch fetch failed, falling back to individual:`, error);
+        const timedOut = error instanceof Error && error.name === "TimeoutError";
+        log.warn("Batch fetch failed, falling back to individual", { batchSize: batch.length, timedOut, timeoutMs: REQUEST_TIMEOUT_MS, error: error instanceof Error ? error.message : String(error) });
         for (const symbol of batch) {
           try {
             const quote = await this.fetchQuote(symbol);
             results.set(symbol, quote);
           } catch (e) {
-            console.warn(`Yahoo Finance: failed to fetch ${symbol}:`, e);
+            log.warn("Individual fetch failed", { symbol, error: e instanceof Error ? e.message : String(e) });
           }
         }
       }
@@ -63,6 +94,8 @@ export class YahooFinanceProvider implements StockPriceProvider {
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
+
+    log.info("Bulk quotes fetched", { requested: symbols.length, received: results.size });
 
     return results;
   }

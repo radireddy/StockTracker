@@ -1,5 +1,6 @@
 import type { FinancialYear, ProjectionType } from "@/types/database";
-import type { ProjectionStrategy, RowConfig, ValuationFieldConfig } from "./types";
+import type { HorizonPegMetrics, ProjectionStrategy, RowConfig, ValuationFieldConfig } from "./types";
+import { computeHorizonPegMetrics } from "@/lib/utils/calculations";
 
 function round(val: number | null | undefined, decimals = 1): number | null {
   if (val == null || !isFinite(val)) return null;
@@ -29,8 +30,8 @@ export class PeEarningsStrategy implements ProjectionStrategy {
     { key: "pat", label: "PAT", type: "auto", format: "number", section: "total" },
     { key: "pat_growth_pct", label: "PAT Growth %", type: "auto", format: "percent", locked: true },
     { key: "pat_margin_pct", label: "PAT Margin %", type: "auto", format: "percent", locked: true },
-    { key: "pe", label: "PE", type: "auto", format: "ratio", dividerAbove: true, locked: true },
-    { key: "peg", label: "PEG", type: "auto", format: "ratio", locked: true },
+    { key: "pe", label: "Forward PE", type: "auto", format: "ratio", dividerAbove: true, locked: true },
+    { key: "peg", label: "Forward PEG", type: "auto", format: "ratio", locked: true },
   ];
 
   computeFields(
@@ -188,5 +189,9 @@ export class PeEarningsStrategy implements ProjectionStrategy {
 
   getTerminalMetricValue(terminalYear: FinancialYear | null): number | null {
     return terminalYear?.pat ?? null;
+  }
+
+  computeHorizonPeg(financialYears: FinancialYear[], marketCap: number | null): HorizonPegMetrics | null {
+    return computeHorizonPegMetrics(financialYears, marketCap);
   }
 }
