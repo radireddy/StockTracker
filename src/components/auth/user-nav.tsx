@@ -17,7 +17,7 @@ export function UserNav({ profile }: { profile: Profile }) {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    router.push("/login");
+    router.push("/");
   };
 
   return (
