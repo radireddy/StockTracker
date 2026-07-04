@@ -36,6 +36,12 @@ export function UserNav({ profile }: { profile: Profile }) {
           </div>
         </div>
         <DropdownMenuSeparator />
+        <DropdownMenuItem className="lg:hidden" onClick={() => router.push("/dashboard")}>
+          Dashboard
+        </DropdownMenuItem>
+        <DropdownMenuItem className="lg:hidden" onClick={() => router.push("/import")}>
+          Import
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push("/settings")}>
           Settings
         </DropdownMenuItem>
