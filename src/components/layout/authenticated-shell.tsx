@@ -45,9 +45,15 @@ export function AuthenticatedShell({
   return (
     <PortfolioContext value={contextValue}>
       <div className="min-h-screen bg-background">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[100] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:ring-2 focus:ring-ring"
+        >
+          Skip to content
+        </a>
         <AppHeader profile={profile} />
         <QueryProvider>
-          <main className="px-4 md:px-8 py-4">{children}</main>
+          <main id="main-content" tabIndex={-1} className="px-4 md:px-8 py-4 outline-none">{children}</main>
         </QueryProvider>
         <Toaster position="top-right" richColors closeButton />
       </div>

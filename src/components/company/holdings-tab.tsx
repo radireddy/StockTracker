@@ -162,7 +162,7 @@ export function HoldingsTab({
       </div>
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p role="status" aria-live="polite" className="text-sm text-muted-foreground">Loading…</p>
       ) : (
         <>
           {holdings.length > 0 && (
@@ -283,27 +283,30 @@ export function HoldingsTab({
 
           {showAdd && (
             <div className="border rounded-lg p-4 space-y-3 bg-muted/20">
-              <p className="text-sm font-medium">Add holding to an account</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Account <span className="text-destructive">*</span></label>
-                  <AccountSelect
-                    accounts={accounts}
-                    value={addAccountId}
-                    onChange={setAddAccountId}
-                    newLabel={newAccountLabel}
-                    onNewLabelChange={setNewAccountLabel}
-                  />
+              <fieldset className="space-y-3">
+                <legend className="text-sm font-medium">Add holding to an account</legend>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <label htmlFor="add-holding-account" className="text-xs text-muted-foreground">Account <span className="text-destructive">*</span></label>
+                    <AccountSelect
+                      id="add-holding-account"
+                      accounts={accounts}
+                      value={addAccountId}
+                      onChange={setAddAccountId}
+                      newLabel={newAccountLabel}
+                      onNewLabelChange={setNewAccountLabel}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor="add-holding-qty" className="text-xs text-muted-foreground">Quantity <span className="text-destructive">*</span></label>
+                    <Input id="add-holding-qty" value={addQty} onChange={(e) => setAddQty(e.target.value)} inputMode="decimal" className="h-9" />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor="add-holding-price" className="text-xs text-muted-foreground">Avg buy price <span className="text-destructive">*</span></label>
+                    <Input id="add-holding-price" value={addPrice} onChange={(e) => setAddPrice(e.target.value)} inputMode="decimal" className="h-9" />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Quantity <span className="text-destructive">*</span></label>
-                  <Input value={addQty} onChange={(e) => setAddQty(e.target.value)} inputMode="decimal" className="h-9" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Avg buy price <span className="text-destructive">*</span></label>
-                  <Input value={addPrice} onChange={(e) => setAddPrice(e.target.value)} inputMode="decimal" className="h-9" />
-                </div>
-              </div>
+              </fieldset>
               {existingLot && (
                 <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-300">
                   <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />

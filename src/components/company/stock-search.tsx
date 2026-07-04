@@ -11,6 +11,8 @@ interface StockSearchProps {
   selected?: IndianStock | null;
   onClear?: () => void;
   disabled?: boolean;
+  /** id applied to the search input so an external <label htmlFor> can associate with it. */
+  inputId?: string;
 }
 
 export function StockSearch({
@@ -18,6 +20,7 @@ export function StockSearch({
   selected = null,
   onClear,
   disabled = false,
+  inputId,
 }: StockSearchProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<IndianStock[]>([]);
@@ -191,6 +194,7 @@ export function StockSearch({
   return (
     <div ref={containerRef} className="relative">
       <Input
+        id={inputId}
         role="combobox"
         aria-expanded={isOpen}
         aria-controls={listboxId}

@@ -188,8 +188,9 @@ export function CompanyForm() {
         {/* Stock Search */}
         <Card className="border-primary/10 shadow-sm overflow-visible">
           <CardContent className="pt-5 pb-5">
-            <Label className="text-sm font-medium mb-2 block">Stock <span className="text-destructive">*</span></Label>
+            <Label htmlFor="stock-search" className="text-sm font-medium mb-2 block">Stock <span className="text-destructive">*</span></Label>
             <StockSearch
+              inputId="stock-search"
               onSelect={setSelectedStock}
               selected={selectedStock}
               onClear={() => setSelectedStock(null)}
@@ -217,8 +218,9 @@ export function CompanyForm() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-sm">Account <span className="text-destructive">*</span></Label>
+                  <Label htmlFor="position-account" className="text-sm">Account <span className="text-destructive">*</span></Label>
                   <AccountSelect
+                    id="position-account"
                     accounts={accounts}
                     value={accountId}
                     onChange={setAccountId}
@@ -227,12 +229,12 @@ export function CompanyForm() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-sm">Quantity</Label>
-                  <Input value={quantity} onChange={(e) => setQuantity(e.target.value)} inputMode="decimal" placeholder="e.g. 100" className="bg-background" />
+                  <Label htmlFor="position-quantity" className="text-sm">Quantity</Label>
+                  <Input id="position-quantity" value={quantity} onChange={(e) => setQuantity(e.target.value)} inputMode="decimal" placeholder="e.g. 100" className="bg-background" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-sm">Avg Buy Price (₹)</Label>
-                  <Input value={avgPrice} onChange={(e) => setAvgPrice(e.target.value)} inputMode="decimal" placeholder="e.g. 245.50" className="bg-background" />
+                  <Label htmlFor="position-avg-price" className="text-sm">Avg Buy Price (₹)</Label>
+                  <Input id="position-avg-price" value={avgPrice} onChange={(e) => setAvgPrice(e.target.value)} inputMode="decimal" placeholder="e.g. 245.50" className="bg-background" />
                 </div>
               </div>
             </CardContent>

@@ -17,6 +17,7 @@ export function AccountSelect({
   newLabel,
   onNewLabelChange,
   className,
+  id,
 }: {
   accounts: Account[];
   value: string; // "" | <account id> | NEW_ACCOUNT
@@ -24,10 +25,13 @@ export function AccountSelect({
   newLabel: string;
   onNewLabelChange: (value: string) => void;
   className?: string;
+  id?: string;
 }) {
   return (
     <div className="space-y-2">
       <select
+        id={id}
+        aria-label="Account"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={`flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ${className ?? ""}`}
@@ -44,6 +48,7 @@ export function AccountSelect({
       </select>
       {value === NEW_ACCOUNT && (
         <Input
+          aria-label="New account name"
           placeholder="New account name (e.g. Father – Groww)"
           value={newLabel}
           onChange={(e) => onNewLabelChange(e.target.value)}

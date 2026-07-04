@@ -14,7 +14,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StockTracker — Track Your Investments",
+  title: {
+    default: "StockTracker — Track Your Investments",
+    template: "%s · StockTracker",
+  },
   description: "Track stock investments with financial models, valuations, and thesis management",
 };
 

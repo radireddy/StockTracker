@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect } from "react";
 import { CompaniesTable } from "@/components/dashboard/companies-table";
 import { PortfolioPnlBar } from "@/components/dashboard/portfolio-pnl-bar";
 import { AllocationSummaryBar } from "@/components/dashboard/allocation-summary-bar";
@@ -36,6 +36,12 @@ export default function DashboardPage() {
     [invalidate]
   );
 
+  // Per-page title (client page — cannot export metadata). WCAG 2.4.2 Page Titled.
+  useEffect(() => {
+    const name = selectedPortfolio?.name;
+    document.title = name ? `${name} · StockTracker` : "Dashboard · StockTracker";
+  }, [selectedPortfolio?.name]);
+
   return (
     <div className="max-w-[95vw] xl:max-w-[1600px] mx-auto space-y-3">
       <div className="flex items-center justify-between">
@@ -65,7 +71,7 @@ export default function DashboardPage() {
         </>
       )}
       {isLoading ? (
-        <div className="text-center py-12 text-sm text-muted-foreground">
+        <div role="status" aria-live="polite" className="text-center py-12 text-sm text-muted-foreground">
           Loading companies...
         </div>
       ) : (

@@ -3,6 +3,28 @@ import { notFound } from "next/navigation";
 import { CompanyPageClient } from "@/components/company/company-page-client";
 import { getDefaultModelIRR } from "@/lib/utils/calculations";
 import type { ProjectionModel, FinancialYear } from "@/types/database";
+import type { Metadata } from "next";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("companies")
+    .select("indian_stocks(name)")
+    .eq("id", id)
+    .single();
+  const rel = data?.indian_stocks as
+    | { name: string | null }
+    | { name: string | null }[]
+    | null
+    | undefined;
+  const name = Array.isArray(rel) ? rel[0]?.name : rel?.name;
+  return { title: name ?? "Company" };
+}
 
 export default async function CompanyPage({
   params,

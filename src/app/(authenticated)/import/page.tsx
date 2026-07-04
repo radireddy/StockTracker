@@ -324,8 +324,8 @@ export default function ImportPage() {
           )}
 
           {phase === "importing" && (
-            <div className="flex items-center gap-3 p-4 rounded-lg bg-blue-500/10">
-              <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+            <div role="status" aria-live="polite" className="flex items-center gap-3 p-4 rounded-lg bg-blue-500/10">
+              <Loader2 className="h-5 w-5 animate-spin text-blue-600" aria-hidden="true" />
               <p className="text-sm font-medium">
                 Importing {files[currentIndex]?.name} ({currentIndex + 1}/{files.length})…
               </p>

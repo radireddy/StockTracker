@@ -6,6 +6,9 @@ import { PortfolioManager } from "@/components/settings/portfolio-manager";
 import { AllocationRangesEditor } from "@/components/settings/allocation-ranges-editor";
 import { getPortfolios } from "@/app/(authenticated)/actions/portfolio-actions";
 import type { AllocationRanges } from "@/types/database";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   let supabase, user;

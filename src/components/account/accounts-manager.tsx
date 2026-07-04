@@ -103,8 +103,8 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
       </CardHeader>
       <CardContent className="space-y-2">
         {loading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
+          <div role="status" aria-live="polite" className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             Loading accounts…
           </div>
         ) : accounts.length === 0 && !showCreate ? (
