@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { rateLimit, RATE_LIMITS, createRateLimitStore } from "@/lib/rate-limit";
 import { MemoryStore } from "@/lib/rate-limit/memory-store";
 import { RedisStore } from "@/lib/rate-limit/redis-store";
+import { logger } from "@/lib/logger";
 
 describe("rateLimit", () => {
   it("consumes tokens for a key and blocks past the configured limit", async () => {
@@ -55,5 +56,15 @@ describe("createRateLimitStore", () => {
     process.env.UPSTASH_REDIS_REST_URL = "https://example.upstash.io";
     process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
     expect(createRateLimitStore()).toBeInstanceOf(RedisStore);
+  });
+
+  it("falls back to MemoryStore (does not throw) when the Redis URL is malformed", () => {
+    // A non-https / invalid URL makes Redis.fromEnv() throw. The store must
+    // degrade gracefully rather than crash the build or every request.
+    process.env.UPSTASH_REDIS_REST_URL = "not-a-valid-url";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+    expect(createRateLimitStore()).toBeInstanceOf(MemoryStore);
+    expect(errorSpy).toHaveBeenCalled();
   });
 });
