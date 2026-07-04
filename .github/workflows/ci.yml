@@ -89,7 +89,8 @@ jobs:
       - name: Deploy (preview)
         id: deploy
         run: |
-          url=$(vercel deploy --prebuilt --token="$VERCEL_TOKEN")
+          # Take the last stdout line so a stray CLI banner can't poison the URL.
+          url=$(vercel deploy --prebuilt --token="$VERCEL_TOKEN" | tail -n1)
           echo "url=$url" >> "$GITHUB_OUTPUT"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
