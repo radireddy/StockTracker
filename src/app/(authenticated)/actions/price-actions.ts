@@ -2,7 +2,7 @@
 
 import { getAuthUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isIndianTradingHours, ensureMissingStocks } from "@/lib/services/price-refresh";
+import { isIndianTradingHours, ensureMissingStocks, bulkUpdatePrices, type PriceUpdateRow } from "@/lib/services/price-refresh";
 import { stockPriceRegistry } from "@/lib/providers/stock-price/registry";
 import { revalidatePath } from "next/cache";
 import { createLogger } from "@/lib/logger";
@@ -141,8 +141,10 @@ export async function manualRefreshPrices() {
 
   const quotes = await provider.fetchBulkQuotes(symbols);
 
-  let updated = 0;
   const failed: string[] = [];
+  const rows: PriceUpdateRow[] = [];
+  const attemptedSymbols: string[] = [];
+  const now = new Date().toISOString();
 
   for (const symbol of symbols) {
     const quote = quotes.get(symbol);
@@ -153,23 +155,27 @@ export async function manualRefreshPrices() {
       continue;
     }
 
-    const { error: updateError } = await adminClient
-      .from("indian_stocks")
-      .update({
-        price: quote.price,
-        change: quote.change,
-        change_pct: quote.changePct,
-        volume: quote.volume ?? null,
-        last_updated: new Date().toISOString(),
-      })
-      .eq("isin", isin);
+    attemptedSymbols.push(symbol);
+    // market_cap is intentionally omitted so the RPC leaves the existing
+    // value untouched (manual refresh has never updated market_cap).
+    rows.push({
+      isin,
+      price: quote.price,
+      change: quote.change,
+      change_pct: quote.changePct,
+      volume: quote.volume ?? null,
+      last_updated: now,
+    });
+  }
 
-    if (updateError) {
-      log.error("Manual refresh: failed to update stock price in DB", { symbol, isin, error: updateError.message });
-      failed.push(symbol);
-    } else {
-      updated++;
-    }
+  // Single bulk round-trip instead of one UPDATE per stock. On batch failure
+  // every attempted symbol is reported as failed.
+  const { error: bulkError } = await bulkUpdatePrices(adminClient, rows);
+  let updated = rows.length;
+  if (bulkError) {
+    log.error("Manual refresh: failed to bulk-update stock prices in DB", { count: rows.length, error: bulkError });
+    failed.push(...attemptedSymbols);
+    updated = 0;
   }
 
   revalidatePath("/");
