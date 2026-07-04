@@ -39,7 +39,7 @@ export default function AuthenticatedError({
             Try again
           </button>
           <button
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/dashboard")}
             className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             Dashboard

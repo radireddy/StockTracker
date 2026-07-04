@@ -37,7 +37,7 @@ export function DeleteCompanyButton({
     try {
       await deleteCompany(companyId);
       invalidate();
-      router.push("/");
+      router.push("/dashboard");
     } finally {
       setDeleting(false);
     }
