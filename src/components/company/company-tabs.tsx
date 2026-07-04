@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+import { Tabs } from "@base-ui/react/tabs";
 import { ThesisTab } from "@/components/company/thesis-tab";
 import { ProjectionsValuationTab } from "@/components/company/projections-valuation-tab";
 import { TimelineTab } from "@/components/company/timeline-tab";
@@ -41,59 +42,55 @@ export function CompanyTabs({
 
   const [activeTab, setActiveTab] = useState("details");
 
+  const tabClassName =
+    "px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 border-transparent text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-active:border-primary data-active:text-primary";
+
   return (
-    <div>
-      <nav className="border-b border-border/50 mt-2">
-        <div className="flex gap-0 overflow-x-auto">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </nav>
+    <Tabs.Root
+      value={activeTab}
+      onValueChange={(value) => setActiveTab(value as string)}
+    >
+      <Tabs.List className="border-b border-border/50 mt-2 flex gap-0 overflow-x-auto">
+        {tabs.map((tab) => (
+          <Tabs.Tab key={tab.id} value={tab.id} className={tabClassName}>
+            {tab.label}
+          </Tabs.Tab>
+        ))}
+      </Tabs.List>
 
       <div className="py-6">
-        <div className={activeTab === "details" ? undefined : "hidden"}>
+        <Tabs.Panel value="details" keepMounted>
           <EditCompanyTab
             company={company}
             baseCaseBuyPrice={getDefaultModelBuyPrice(projectionModels)}
           />
-        </div>
+        </Tabs.Panel>
         {portfolioType === "holdings" && (
-          <div className={activeTab === "holdings" ? undefined : "hidden"}>
+          <Tabs.Panel value="holdings" keepMounted>
             <HoldingsTab
               companyId={company.id}
               portfolioId={company.portfolio_id}
               isin={company.isin}
             />
-          </div>
+          </Tabs.Panel>
         )}
-        <div className={activeTab === "thesis" ? undefined : "hidden"}>
+        <Tabs.Panel value="thesis" keepMounted>
           <ThesisTab company={company} />
-        </div>
-        <div className={activeTab === "projections" ? undefined : "hidden"}>
+        </Tabs.Panel>
+        <Tabs.Panel value="projections" keepMounted>
           <ProjectionsValuationTab
             company={company}
             projectionModels={projectionModels}
             onBaseIrrChange={onBaseIrrChange}
           />
-        </div>
-        <div className={activeTab === "timeline" ? undefined : "hidden"}>
+        </Tabs.Panel>
+        <Tabs.Panel value="timeline" keepMounted>
           <TimelineTab companyId={company.id} entries={timelineEntries} />
-        </div>
-        <div className={activeTab === "highlights" ? undefined : "hidden"}>
+        </Tabs.Panel>
+        <Tabs.Panel value="highlights" keepMounted>
           <HighlightsSection company={company} />
-        </div>
+        </Tabs.Panel>
       </div>
-    </div>
+    </Tabs.Root>
   );
 }

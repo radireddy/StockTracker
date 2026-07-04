@@ -711,12 +711,18 @@ export function CompaniesTable({
                     onClick={() => router.push(`/company/${company.id}`)}
                   >
                     <td className="px-2 py-2 font-medium truncate max-w-0">
-                      {company.indian_stocks?.name ?? ""}
-                      {company.indian_stocks?.nse_symbol && (
-                        <span className="ml-1 text-xs text-muted-foreground">
-                          {company.indian_stocks.nse_symbol}
-                        </span>
-                      )}
+                      <Link
+                        href={`/company/${company.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {company.indian_stocks?.name ?? ""}
+                        {company.indian_stocks?.nse_symbol && (
+                          <span className="ml-1 text-xs text-muted-foreground">
+                            {company.indian_stocks.nse_symbol}
+                          </span>
+                        )}
+                      </Link>
                     </td>
                     {isHoldings ? (
                       <>
