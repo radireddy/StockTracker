@@ -2,7 +2,7 @@
 
 import { getAuthUser } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import DOMPurify from "isomorphic-dompurify";
+import { sanitizeRichText } from "@/lib/sanitize";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger({ service: "timeline-actions" });
@@ -34,7 +34,7 @@ export async function createTimelineEntry(
     user_id: user.id,
     quarter: data.quarter,
     entry_date: data.entry_date,
-    content: DOMPurify.sanitize(data.content),
+    content: sanitizeRichText(data.content) ?? "",
     sort_order: data.sort_order,
   });
 
@@ -54,7 +54,7 @@ export async function updateTimelineEntry(
   const { supabase, user } = await getAuthUser();
 
   const updateData: Record<string, unknown> = { ...data };
-  if (data.content) updateData.content = DOMPurify.sanitize(data.content);
+  if (data.content) updateData.content = sanitizeRichText(data.content) ?? "";
 
   const { error } = await supabase
     .from("timeline_entries")

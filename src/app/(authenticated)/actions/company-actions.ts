@@ -3,17 +3,12 @@
 import { getAuthUser } from "@/lib/supabase/server";
 import { fetchStockPrice } from "@/app/(authenticated)/actions/price-actions";
 import { revalidatePath } from "next/cache";
-import DOMPurify from "isomorphic-dompurify";
+import { sanitizeRichText } from "@/lib/sanitize";
 import { createLogger } from "@/lib/logger";
 import { companyCreateSchema } from "@/lib/validations";
 import { action, AppError, describeDbError, type ActionResult } from "@/lib/action-result";
 
 const log = createLogger({ service: "company-actions" });
-
-function sanitizeHtml(html: string | null): string | null {
-  if (!html) return null;
-  return DOMPurify.sanitize(html);
-}
 
 /**
  * Lightweight company fetch for the initial company-page render (header +
@@ -85,8 +80,8 @@ export async function createCompany(formData: FormData): Promise<ActionResult<st
       star_rating: Number(formData.get("star_rating")) || 2,
       strategy: formData.get("strategy") as "core" | "satellite" | null,
       investment_horizon_years: formData.get("investment_horizon_years") ? Number(formData.get("investment_horizon_years")) : 0,
-      thesis: sanitizeHtml(formData.get("thesis") as string | null),
-      highlights: sanitizeHtml(formData.get("highlights") as string | null),
+      thesis: sanitizeRichText(formData.get("thesis") as string | null),
+      highlights: sanitizeRichText(formData.get("highlights") as string | null),
     }).select("id").single();
 
     if (error) {
@@ -111,8 +106,8 @@ export async function createCompany(formData: FormData): Promise<ActionResult<st
 export async function updateCompany(id: string, data: Record<string, unknown>) {
   const { supabase, user } = await getAuthUser();
 
-  if (data.thesis) data.thesis = sanitizeHtml(data.thesis as string);
-  if (data.highlights) data.highlights = sanitizeHtml(data.highlights as string);
+  if (data.thesis) data.thesis = sanitizeRichText(data.thesis as string);
+  if (data.highlights) data.highlights = sanitizeRichText(data.highlights as string);
 
   const { error } = await supabase
     .from("companies")
