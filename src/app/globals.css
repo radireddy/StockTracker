@@ -305,3 +305,17 @@ html {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* Opaque backgrounds for sticky table columns. A sticky cell sits above the
+   horizontally-scrolling cells, so it MUST be opaque or the scrolled content
+   bleeds through (semi-transparent tints like bg-muted/40 do not work here).
+   color-mix reproduces the intended tint over the page background, opaquely,
+   and resolves per-theme via the CSS variables. */
+@layer utilities {
+  .sticky-col {
+    background-color: var(--background);
+  }
+  .sticky-col-highlight {
+    background-color: color-mix(in oklab, var(--muted) 40%, var(--background));
+  }
+}
