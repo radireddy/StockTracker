@@ -34,8 +34,16 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         {children}
+        {/*
+          Browsers hide the `nonce` content attribute after parsing a script
+          under an active CSP (it survives only on the `.nonce` DOM property),
+          so React reads it back as "" during hydration and flags a benign
+          mismatch against the real nonce. suppress it here — the property is
+          already correct on the client and CSP validation is unaffected.
+        */}
         <script
           nonce={nonce}
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: `document.addEventListener('click',function(e){var a=e.target.closest('.prose a[href]');if(a){a.target='_blank';a.rel='noopener noreferrer'}})`,
           }}
