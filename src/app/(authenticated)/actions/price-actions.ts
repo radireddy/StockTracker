@@ -6,6 +6,7 @@ import { isIndianTradingHours, ensureMissingStocks, bulkUpdatePrices, type Price
 import { stockPriceRegistry } from "@/lib/providers/stock-price/registry";
 import { revalidatePath } from "next/cache";
 import { createLogger } from "@/lib/logger";
+import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 const log = createLogger({ service: "price-actions" });
 
 const provider = stockPriceRegistry.getActive();
@@ -84,7 +85,14 @@ async function fetchStockPriceForEntry(
 }
 
 export async function manualRefreshPrices() {
-  const { supabase } = await getAuthUser();
+  const { supabase, user } = await getAuthUser();
+
+  // Throttle per user: this fans out to the external quote provider for every
+  // held symbol, so repeated clicks must not stampede Yahoo Finance.
+  const rl = await rateLimit(user.id, RATE_LIMITS.refreshPrices);
+  if (!rl.success) {
+    throw new Error("Too many refresh requests. Please wait a moment and try again.");
+  }
 
   const start = Date.now();
   const adminClient = createAdminClient();

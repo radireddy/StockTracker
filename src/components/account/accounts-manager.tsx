@@ -16,9 +16,16 @@ import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
 
 /** Manage broker accounts: rename, delete, and create manual accounts. */
-export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [loading, setLoading] = useState(true);
+export function AccountsManager({
+  onChanged,
+  initialAccounts,
+}: {
+  onChanged?: () => void;
+  /** When provided (server-seeded), the on-mount fetch is skipped. */
+  initialAccounts?: Account[];
+}) {
+  const [accounts, setAccounts] = useState<Account[]>(initialAccounts ?? []);
+  const [loading, setLoading] = useState(initialAccounts === undefined);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -38,8 +45,9 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    // Skip the fetch when the parent already seeded accounts from the server.
+    if (initialAccounts === undefined) load();
+  }, [load, initialAccounts]);
 
   // Re-fetch after a successful change (already confirmed to the user). If the
   // refetch itself fails, warn that the list may be stale and offer a retry.

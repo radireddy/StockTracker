@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import type { Editor } from "@tiptap/react";
 import {
+  getCompanyTimeline,
   createTimelineEntry,
   updateTimelineEntry,
   deleteTimelineEntry,
@@ -14,13 +16,9 @@ import type { TimelineEntry } from "@/types/database";
 
 const PAGE_SIZE = 5;
 
-export function TimelineTab({
-  companyId,
-  entries,
-}: {
-  companyId: string;
-  entries: TimelineEntry[];
-}) {
+export function TimelineTab({ companyId }: { companyId: string }) {
+  const [entries, setEntries] = useState<TimelineEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [quarter, setQuarter] = useState("");
   const [saving, setSaving] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -39,6 +37,23 @@ export function TimelineTab({
     editEditorRef.current = editor;
   }, []);
 
+  const reload = useCallback(async () => {
+    const data = await getCompanyTimeline(companyId);
+    setEntries(data as TimelineEntry[]);
+  }, [companyId]);
+
+  useEffect(() => {
+    let active = true;
+    getCompanyTimeline(companyId).then((data) => {
+      if (!active) return;
+      setEntries(data as TimelineEntry[]);
+      setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [companyId]);
+
   const handleAdd = async () => {
     if (!htmlRef.current || editorRef.current?.isEmpty) return;
     setSaving(true);
@@ -51,6 +66,7 @@ export function TimelineTab({
     editorRef.current?.commands.clearContent();
     htmlRef.current = "";
     setQuarter("");
+    await reload();
     setSaving(false);
   };
 
@@ -74,11 +90,13 @@ export function TimelineTab({
       content: editHtmlRef.current,
     });
     setEditingId(null);
+    await reload();
     setSaving(false);
   };
 
   const handleDelete = async (id: string) => {
     await deleteTimelineEntry(id, companyId);
+    await reload();
   };
 
   // Sort newest first by created_at
@@ -87,6 +105,14 @@ export function TimelineTab({
   );
   const visible = sorted.slice(0, visibleCount);
   const hasMore = sorted.length > visibleCount;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-10 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

@@ -7,6 +7,22 @@ import { createLogger } from "@/lib/logger";
 
 const log = createLogger({ service: "timeline-actions" });
 
+/** All timeline entries for a company (lazy-fetched on first open of the tab). */
+export async function getCompanyTimeline(companyId: string) {
+  const { supabase } = await getAuthUser();
+
+  const { data, error } = await supabase
+    .from("timeline_entries")
+    .select("*")
+    .eq("company_id", companyId);
+
+  if (error) {
+    log.error("getCompanyTimeline failed", { error: error.message, companyId });
+    throw new Error(error.message);
+  }
+  return data ?? [];
+}
+
 export async function createTimelineEntry(
   companyId: string,
   data: { quarter?: string; entry_date?: string; content: string; sort_order?: number }

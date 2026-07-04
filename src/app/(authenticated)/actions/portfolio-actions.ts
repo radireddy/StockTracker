@@ -94,50 +94,41 @@ export async function getPortfolio(id: string): Promise<Portfolio | null> {
 
 export async function getPortfolioDeletionSummary(
   id: string
-): Promise<{ companies: number; transactions: number }> {
+): Promise<{ companies: number; holdings: number }> {
   const { supabase, user } = await getAuthUser();
 
-  // Count companies in portfolio
-  const { count: companyCount, error: companyError } = await supabase
-    .from("companies")
-    .select("*", { count: "exact", head: true })
-    .eq("portfolio_id", id);
+  // Both counts are computed DB-side and scoped by portfolio_id (RLS also
+  // scopes to the caller). Holdings carry their own portfolio_id, so there is
+  // no need to fetch every company id into JS to fan out the count.
+  const [companyResult, holdingResult] = await Promise.all([
+    supabase
+      .from("companies")
+      .select("*", { count: "exact", head: true })
+      .eq("portfolio_id", id),
+    supabase
+      .from("holdings")
+      .select("*", { count: "exact", head: true })
+      .eq("portfolio_id", id),
+  ]);
 
-  if (companyError) {
+  if (companyResult.error) {
     log.error("getPortfolioDeletionSummary: companies count failed", {
-      error: companyError.message,
+      error: companyResult.error.message,
       id,
     });
-    throw new Error(companyError.message);
+    throw new Error(companyResult.error.message);
   }
-
-  // Get company IDs for transaction count
-  const { data: companyIds } = await supabase
-    .from("companies")
-    .select("id")
-    .eq("portfolio_id", id);
-
-  let transactionCount = 0;
-  if (companyIds && companyIds.length > 0) {
-    const ids = companyIds.map((c) => c.id);
-    const { count, error: txError } = await supabase
-      .from("transactions")
-      .select("*", { count: "exact", head: true })
-      .in("company_id", ids);
-
-    if (txError) {
-      log.error("getPortfolioDeletionSummary: transactions count failed", {
-        error: txError.message,
-        id,
-      });
-      throw new Error(txError.message);
-    }
-    transactionCount = count ?? 0;
+  if (holdingResult.error) {
+    log.error("getPortfolioDeletionSummary: holdings count failed", {
+      error: holdingResult.error.message,
+      id,
+    });
+    throw new Error(holdingResult.error.message);
   }
 
   return {
-    companies: companyCount ?? 0,
-    transactions: transactionCount,
+    companies: companyResult.count ?? 0,
+    holdings: holdingResult.count ?? 0,
   };
 }
 
@@ -157,44 +148,38 @@ export async function createPortfolio(input: {
   const parsed = portfolioSchema.safeParse({ name: input.name, type: input.type });
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
 
-  // Check plan limits
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("plan_limits")
-    .eq("id", user.id)
-    .single();
+  // These three reads are independent, so run them together. The portfolio
+  // count is fetched once and reused for both the plan-limit check and the
+  // is-first-portfolio (default) decision.
+  const [
+    { data: profile },
+    { count: portfolioCount },
+    { data: lastPortfolio },
+  ] = await Promise.all([
+    supabase.from("profiles").select("plan_limits").eq("id", user.id).single(),
+    supabase.from("portfolios").select("*", { count: "exact", head: true }),
+    supabase
+      .from("portfolios")
+      .select("sort_order")
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
+  const currentCount = portfolioCount ?? 0;
+
+  // Check plan limits
   if (profile?.plan_limits) {
     const limits = profile.plan_limits as { max_portfolios?: number };
-    if (limits.max_portfolios != null) {
-      const { count } = await supabase
-        .from("portfolios")
-        .select("*", { count: "exact", head: true });
-
-      if (count != null && count >= limits.max_portfolios) {
-        throw new Error(
-          `Portfolio limit reached (${limits.max_portfolios}). Upgrade your plan to create more.`
-        );
-      }
+    if (limits.max_portfolios != null && currentCount >= limits.max_portfolios) {
+      throw new Error(
+        `Portfolio limit reached (${limits.max_portfolios}). Upgrade your plan to create more.`
+      );
     }
   }
 
-  // Get next sort_order
-  const { data: lastPortfolio } = await supabase
-    .from("portfolios")
-    .select("sort_order")
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .single();
-
   const nextSortOrder = (lastPortfolio?.sort_order ?? -1) + 1;
-
-  // Check if this is the first portfolio (should be default)
-  const { count: existingCount } = await supabase
-    .from("portfolios")
-    .select("*", { count: "exact", head: true });
-
-  const isFirst = (existingCount ?? 0) === 0;
+  const isFirst = currentCount === 0;
 
   const { data, error } = await supabase
     .from("portfolios")

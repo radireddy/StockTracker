@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { CompanyPageClient } from "@/components/company/company-page-client";
+import { getCompanyCore } from "@/app/(authenticated)/actions/company-actions";
 import { getDefaultModelIRR } from "@/lib/utils/calculations";
-import type { ProjectionModel, FinancialYear } from "@/types/database";
+import type { CompanyWithRelations } from "@/types/database";
 import type { Metadata } from "next";
 
 export async function generateMetadata({
@@ -32,24 +33,20 @@ export default async function CompanyPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
 
-  const { data: company, error } = await supabase
-    .from("companies")
-    .select(`
-      *,
-      indian_stocks(*),
-      projection_models(*, financial_years(*), valuation_scenarios(*)),
-      timeline_entries(*),
-      segment_valuations(*),
-      market_perceptions(*)
-    `)
-    .eq("id", id)
-    .single();
-
-  if (error || !company) notFound();
+  // Lightweight fetch — only what the header + Details tab need. Heavy relations
+  // (thesis/highlights HTML, timeline, financial years, segments, perceptions)
+  // are lazy-fetched by their tabs on first open. See getCompanyCore.
+  let company: CompanyWithRelations;
+  try {
+    company = (await getCompanyCore(id)) as unknown as CompanyWithRelations;
+  } catch {
+    notFound();
+  }
+  if (!company) notFound();
 
   // Fetch portfolio type
+  const supabase = await createClient();
   const { data: portfolio } = await supabase
     .from("portfolios")
     .select("type")
@@ -58,18 +55,11 @@ export default async function CompanyPage({
 
   const portfolioType = (portfolio?.type as "holdings" | "watchlist") ?? "holdings";
 
-  const projectionModels = ((company.projection_models ?? []) as ProjectionModel[])
-    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-    .map((pm) => ({
-      ...pm,
-      financial_years: ((pm.financial_years ?? []) as FinancialYear[]).sort(
-        (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
-      ),
-    }));
-
-  const timelineEntries = company.timeline_entries ?? [];
+  // Base IRR is derived from the default model's valuation scenarios, which the
+  // core fetch includes — so the header shows it immediately without the heavy
+  // projections relation.
   const initialBaseIrr = getDefaultModelIRR(
-    projectionModels,
+    company.projection_models ?? [],
     company.indian_stocks?.market_cap,
     company.investment_horizon_years
   );
@@ -78,8 +68,6 @@ export default async function CompanyPage({
     <div className="max-w-6xl mx-auto">
       <CompanyPageClient
         company={company}
-        projectionModels={projectionModels}
-        timelineEntries={timelineEntries}
         initialBaseIrr={initialBaseIrr}
         portfolioType={portfolioType}
       />

@@ -1,29 +1,53 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
-import { updateCompany } from "@/app/(authenticated)/actions/company-actions";
-import type { Company } from "@/types/database";
+import { updateCompany, getCompanyThesis } from "@/app/(authenticated)/actions/company-actions";
 
-export function ThesisTab({ company }: { company: Company }) {
+export function ThesisTab({ companyId }: { companyId: string }) {
+  const [loading, setLoading] = useState(true);
+  const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
-  const htmlRef = useRef(company.thesis ?? "");
+  const htmlRef = useRef("");
+
+  useEffect(() => {
+    let active = true;
+    getCompanyThesis(companyId).then((thesis) => {
+      if (!active) return;
+      const html = thesis ?? "";
+      setContent(html);
+      htmlRef.current = html;
+      setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [companyId]);
 
   const handleSave = async () => {
     setSaving(true);
-    await updateCompany(company.id, { thesis: htmlRef.current });
+    await updateCompany(companyId, { thesis: htmlRef.current });
     setSaving(false);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-10 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
       <RichTextEditor
-        content={company.thesis ?? ""}
+        content={content}
         placeholder="Write your investment thesis..."
         minHeight="200px"
         onChange={(html) => { htmlRef.current = html; }}
-        companyId={company.id}
+        companyId={companyId}
       />
       <Button size="sm" onClick={handleSave} disabled={saving}>
         {saving ? "Saving..." : "Save Thesis"}

@@ -26,6 +26,9 @@ export const RATE_LIMITS = {
   upload: { limit: 10, windowMs: 60_000, prefix: "upload" },
   dashboard: { limit: 30, windowMs: 60_000, prefix: "dashboard" },
   auth: { limit: 10, windowMs: 3_600_000, prefix: "auth" },
+  // Manual price refresh fans out to the external quote provider (Yahoo) for
+  // every held symbol, so it is expensive and throttled per user.
+  refreshPrices: { limit: 5, windowMs: 60_000, prefix: "refresh_prices" },
 } satisfies Record<string, RateLimitConfig>;
 
 export type { RateLimitConfig, RateLimitResult, RateLimitStore };
