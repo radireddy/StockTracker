@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createLogger } from "@/lib/logger";
 import { accountSchema } from "@/lib/validations";
 import { action, AppError, describeDbError, type ActionResult } from "@/lib/action-result";
+import { buildAccountUpdate } from "@/lib/accounts";
 import type { Account } from "@/types/database";
 
 const log = createLogger({ service: "account-actions" });
@@ -71,15 +72,20 @@ export async function createAccount(input: {
 
 export async function updateAccount(
   id: string,
-  input: { label?: string; pan_number?: string; mobile?: string }
+  input: { label?: string; broker?: string; client_id?: string; pan_number?: string; mobile?: string }
 ): Promise<ActionResult<Account>> {
   return action(async () => {
     const { supabase } = await getAuthUser();
 
-    const updateData: Record<string, string | null> = {};
-    if (input.label !== undefined) updateData.label = input.label.trim();
-    if (input.pan_number !== undefined) updateData.pan_number = input.pan_number.trim() || null;
-    if (input.mobile !== undefined) updateData.mobile = input.mobile.trim() || null;
+    const parsed = accountSchema.partial().safeParse(input);
+    if (!parsed.success) {
+      throw new AppError(parsed.error.issues[0].message, "Correct the highlighted fields and try again.");
+    }
+
+    const updateData = buildAccountUpdate(input);
+    if (Object.keys(updateData).length === 0) {
+      throw new AppError("Nothing to update.", "Change a field and try again.");
+    }
 
     const { data, error } = await supabase
       .from("accounts")
@@ -90,9 +96,12 @@ export async function updateAccount(
 
     if (error) {
       if (error.code === "23505") {
+        const dupClientId = updateData.client_id != null;
         throw new AppError(
-          `An account named "${input.label}" already exists.`,
-          "Choose a different account name."
+          dupClientId
+            ? "Another account already uses that Client ID for this broker."
+            : `An account named "${input.label}" already exists.`,
+          dupClientId ? "Client IDs must be unique per broker." : "Choose a different account name."
         );
       }
       log.error("updateAccount failed", { error: error.message, id });
