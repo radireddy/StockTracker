@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { PortfolioManager } from "@/components/settings/portfolio-manager";
 import { AllocationRangesEditor } from "@/components/settings/allocation-ranges-editor";
+import { AccountsManager } from "@/components/account/accounts-manager";
 import { getPortfolios } from "@/app/(authenticated)/actions/portfolio-actions";
 import type { AllocationRanges } from "@/types/database";
 import type { Metadata } from "next";
@@ -61,6 +62,7 @@ export default async function SettingsPage() {
           <PortfolioManager portfolios={portfolios} />
         </CardContent>
       </Card>
+      <AccountsManager />
     </div>
   );
 }
