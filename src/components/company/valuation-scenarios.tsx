@@ -145,7 +145,7 @@ export function ValuationScenarios({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-20"></TableHead>
+              <TableHead className="sticky-col sticky left-0 z-20 w-20"></TableHead>
               {fields.map((f) => (
                 <TableHead
                   key={f.key}
@@ -173,7 +173,7 @@ export function ValuationScenarios({
 
               return (
                 <TableRow key={type}>
-                  <TableCell className={`font-semibold ${cfg.color}`}>
+                  <TableCell className={`sticky-col sticky left-0 z-10 font-semibold ${cfg.color}`}>
                     {cfg.label}
                   </TableCell>
                   {fields.map((f, colIdx) => {

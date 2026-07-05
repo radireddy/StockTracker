@@ -3,20 +3,9 @@
 import type { DashboardCompanyRow } from "@/hooks/use-dashboard-data";
 import type { HoldingMetrics } from "@/lib/utils/dashboard-metrics";
 import { fmtAmountShort, fmtPriceShort, fmtNum, isBuySignal } from "@/lib/utils/calculations";
-
-/** Star rating with a text alternative for assistive tech. */
-function Stars({ rating }: { rating: number | null }) {
-  const n = rating ?? 0;
-  if (n <= 0) return null;
-  return (
-    <span className="text-[13px] tracking-tight text-amber-500" aria-label={`${n} of 4 stars`}>
-      <span aria-hidden="true">
-        {"★".repeat(n)}
-        <span className="text-muted-foreground/25">{"★".repeat(4 - n)}</span>
-      </span>
-    </span>
-  );
-}
+import { initials } from "@/lib/utils/portfolios";
+import { Stars } from "@/components/ui/stars";
+import { STATUS_VAR } from "@/components/dashboard/status-tag";
 
 function signedAmount(n: number): string {
   return `${n >= 0 ? "+" : "−"}₹${fmtAmountShort(Math.abs(n))}`;
@@ -24,20 +13,23 @@ function signedAmount(n: number): string {
 
 function pnlClass(v: number | null): string {
   if (v == null) return "text-muted-foreground";
-  return v >= 0 ? "text-green-600" : "text-red-600";
+  return v >= 0 ? "text-positive" : "text-destructive";
 }
 
-/** Buy price / MoS colour: green when the stock trades below your buy price. */
+/** Buy price / MoS colour: positive when trading below your buy price. */
 function edgeClass(mos: number | null): string {
   if (mos == null) return "";
-  return mos >= 0 ? "text-green-600" : "text-red-600";
+  return mos >= 0 ? "text-positive" : "text-destructive";
 }
 
-const ALLOC_FILL: Record<HoldingMetrics["allocStatus"], string> = {
-  in_range: "bg-green-500",
-  under: "bg-amber-500",
-  over: "bg-red-500",
-};
+/** Company avatar tile. */
+function Fav({ name }: { name: string }) {
+  return (
+    <span className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-[11px] bg-accent text-[0.78rem] font-bold text-primary">
+      {initials(name)}
+    </span>
+  );
+}
 
 function AllocationBar({ metrics }: { metrics: HoldingMetrics }) {
   const actual = metrics.valuePct;
@@ -48,51 +40,53 @@ function AllocationBar({ metrics }: { metrics: HoldingMetrics }) {
   const b2 = (max / upperBound) * 100;
 
   return (
-    <div className="mt-2.5 flex items-center gap-2.5">
-      <div className="relative h-1.5 flex-1 rounded-full bg-muted">
+    <div className="mt-3">
+      <div className="relative h-1.5 overflow-hidden rounded-full bg-muted">
         <span
-          className={`absolute inset-y-0 left-0 rounded-full ${ALLOC_FILL[metrics.allocStatus]}`}
-          style={{ width: `${fill}%` }}
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ width: `${fill}%`, background: STATUS_VAR[metrics.allocStatus] }}
         />
-        <i className="absolute -inset-y-0.5 w-0.5 rounded bg-foreground/30" style={{ left: `${b1}%` }} />
-        <i className="absolute -inset-y-0.5 w-0.5 rounded bg-foreground/30" style={{ left: `${b2}%` }} />
+        <i className="absolute -inset-y-0.5 w-0.5 rounded bg-foreground/35" style={{ left: `${b1}%` }} />
+        <i className="absolute -inset-y-0.5 w-0.5 rounded bg-foreground/35" style={{ left: `${b2}%` }} />
       </div>
-      <span className="whitespace-nowrap font-mono text-[10.5px] tabular-nums text-muted-foreground">
-        <span className="mr-1 font-sans text-[9px] uppercase tracking-wide text-muted-foreground/70">Now</span>
+      <div className="mt-1.5 flex justify-end gap-1.5 font-mono text-[0.66rem] tabular-nums text-muted-foreground">
+        <span className="font-sans text-[0.58rem] uppercase tracking-wide text-muted-foreground/70">Now</span>
         <b className="font-semibold text-foreground">{actual.toFixed(1)}%</b>
-        <span className="mx-1 font-sans text-[9px] uppercase tracking-wide text-muted-foreground/70">Target</span>
+        <span className="font-sans text-[0.58rem] uppercase tracking-wide text-muted-foreground/70">Target</span>
         {min}–{max}%
-      </span>
+      </div>
     </div>
+  );
+}
+
+function Metric({ label, value, className }: { label: string; value: string; className?: string }) {
+  return (
+    <span className="inline-flex items-baseline gap-1.5">
+      <span className="text-[0.62rem] font-bold uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className={`font-mono font-semibold tabular-nums ${className ?? ""}`}>{value}</span>
+    </span>
   );
 }
 
 function ResearchStrip({ metrics }: { metrics: HoldingMetrics }) {
   const mosPct = metrics.mos != null ? Math.round(metrics.mos * 100) : null;
   return (
-    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[11.5px]">
-      <span className="inline-flex items-baseline gap-1.5">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-primary">Buy</span>
-        <span className={`font-mono font-semibold tabular-nums ${edgeClass(metrics.mos)}`}>
-          {metrics.buyPrice != null ? `₹${fmtPriceShort(metrics.buyPrice)}` : "—"}
-        </span>
-      </span>
-      <span className="inline-flex items-baseline gap-1.5">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-primary">MoS</span>
-        <span className={`font-mono font-semibold tabular-nums ${edgeClass(metrics.mos)}`}>
-          {mosPct != null ? `${mosPct > 0 ? "+" : ""}${mosPct}%` : "—"}
-        </span>
-      </span>
-      <span className="inline-flex items-baseline gap-1.5">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-primary">Base</span>
-        <span
-          className={`font-mono font-semibold tabular-nums ${
-            metrics.baseReturn == null ? "" : metrics.baseReturn >= 0 ? "text-green-600" : "text-red-600"
-          }`}
-        >
-          {metrics.baseReturn != null ? `${metrics.baseReturn > 0 ? "+" : ""}${metrics.baseReturn.toFixed(0)}%` : "—"}
-        </span>
-      </span>
+    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[0.72rem]">
+      <Metric
+        label="Buy"
+        value={metrics.buyPrice != null ? `₹${fmtPriceShort(metrics.buyPrice)}` : "—"}
+        className={edgeClass(metrics.mos)}
+      />
+      <Metric
+        label="MoS"
+        value={mosPct != null ? `${mosPct > 0 ? "+" : ""}${mosPct}%` : "—"}
+        className={edgeClass(metrics.mos)}
+      />
+      <Metric
+        label="Base"
+        value={metrics.baseReturn != null ? `${metrics.baseReturn > 0 ? "+" : ""}${metrics.baseReturn.toFixed(0)}%` : "—"}
+        className={metrics.baseReturn == null ? "" : metrics.baseReturn >= 0 ? "text-positive" : "text-destructive"}
+      />
     </div>
   );
 }
@@ -116,38 +110,53 @@ export function CompanyCard({
     <button
       type="button"
       onClick={() => onOpen(company.id)}
-      className="w-full rounded-xl border border-border/60 bg-card p-3.5 text-left shadow-sm transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="card-interactive relative w-full overflow-hidden rounded-[18px] border bg-card p-3.5 text-left shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="truncate text-[15px] font-bold tracking-tight">{name}</div>
-          <div className="mt-1 flex items-center gap-2 text-[11.5px] text-muted-foreground">
-            <Stars rating={company.star_rating} />
+      {isHoldings && (
+        <span
+          className="absolute inset-y-3 left-0 w-[3px] rounded-full"
+          style={{ background: STATUS_VAR[metrics.allocStatus] }}
+          aria-hidden="true"
+        />
+      )}
+
+      <div className="flex items-start gap-2.5">
+        <Fav name={name} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[0.92rem] font-bold tracking-tight">{name}</div>
+          <div className="mt-0.5 flex items-center gap-1.5 text-[0.7rem] text-muted-foreground">
+            <span>{company.indian_stocks?.nse_symbol ?? company.isin}</span>
+            <Stars rating={company.star_rating} className="text-[0.72rem]" />
             {company.strategy && (
-              <span className="rounded border border-border/60 bg-muted px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide">
+              <span className="rounded bg-muted px-1.5 py-px text-[0.6rem] font-bold uppercase tracking-wide text-muted-foreground">
                 {company.strategy}
               </span>
             )}
           </div>
         </div>
+
         {isHoldings ? (
           <div className="shrink-0 text-right">
-            <div className={`font-mono text-[15px] font-bold tabular-nums ${pnlClass(metrics.pnlAmt)}`}>
+            <div className={`font-mono text-[0.98rem] font-bold tabular-nums ${pnlClass(metrics.pnlAmt)}`}>
               {metrics.pnlAmt != null ? signedAmount(metrics.pnlAmt) : "—"}
             </div>
-            <div className={`mt-0.5 font-mono text-[12px] font-semibold tabular-nums ${pnlClass(metrics.pnlPct)}`}>
-              {metrics.pnlPct != null ? `${metrics.pnlPct >= 0 ? "+" : ""}${metrics.pnlPct.toFixed(2)}%` : ""}
+            <div className={`mt-0.5 font-mono text-[0.74rem] font-semibold tabular-nums ${pnlClass(metrics.pnlPct)}`}>
+              {metrics.pnlPct != null ? `${metrics.pnlPct >= 0 ? "+" : ""}${metrics.pnlPct.toFixed(1)}%` : ""}
             </div>
           </div>
         ) : (
           <div className="shrink-0 text-right">
-            <div className="font-mono text-[15px] font-bold tabular-nums">
+            <div className="text-[0.56rem] uppercase tracking-[0.1em] text-muted-foreground">CMP</div>
+            <div className="font-mono text-[0.98rem] font-bold tabular-nums">
               {metrics.price != null ? `₹${fmtPriceShort(metrics.price)}` : "—"}
             </div>
-            <div className="text-[9.5px] uppercase tracking-wide text-muted-foreground">CMP</div>
-            {buy && (
-              <span className="mt-1 inline-block rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-green-600 dark:bg-green-950/30">
-                BUY
+            {buy ? (
+              <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-primary px-1.5 py-0.5 text-[0.62rem] font-bold text-primary-foreground">
+                <span aria-hidden="true">●</span> BUY ZONE
+              </span>
+            ) : (
+              <span className="mt-1 inline-block rounded-md bg-muted px-1.5 py-0.5 text-[0.62rem] font-bold text-muted-foreground">
+                WAIT
               </span>
             )}
           </div>
@@ -155,23 +164,23 @@ export function CompanyCard({
       </div>
 
       {isHoldings && (
-        <div className="mt-3 flex gap-4 border-t border-border/60 pt-2.5 font-mono text-[12px] tabular-nums">
+        <div className="mt-3 flex gap-5 border-t border-border/70 pt-2.5 font-mono text-[0.75rem] tabular-nums">
           <div>
-            <span className="mb-0.5 block font-sans text-[10px] uppercase tracking-wide text-muted-foreground/70">Qty</span>
+            <span className="mb-0.5 block font-sans text-[0.6rem] uppercase tracking-wide text-muted-foreground/70">Qty</span>
             <b className="font-semibold">{company.quantity != null ? fmtNum(company.quantity, 0) : "—"}</b>
           </div>
           <div>
-            <span className="mb-0.5 block font-sans text-[10px] uppercase tracking-wide text-muted-foreground/70">Avg</span>
+            <span className="mb-0.5 block font-sans text-[0.6rem] uppercase tracking-wide text-muted-foreground/70">Avg</span>
             <b className="font-semibold">₹{fmtPriceShort(company.avg_buy_price ?? null)}</b>
           </div>
           <div>
-            <span className="mb-0.5 block font-sans text-[10px] uppercase tracking-wide text-muted-foreground/70">LTP</span>
+            <span className="mb-0.5 block font-sans text-[0.6rem] uppercase tracking-wide text-muted-foreground/70">LTP</span>
             <b className="font-semibold">₹{fmtPriceShort(metrics.price)}</b>
           </div>
         </div>
       )}
 
-      <div className={`${isHoldings ? "mt-2.5 border-t border-border/60 pt-2.5" : "mt-3 border-t border-border/60 pt-2.5"}`}>
+      <div className="mt-3 border-t border-border/70 pt-2.5">
         <ResearchStrip metrics={metrics} />
         {isHoldings && <AllocationBar metrics={metrics} />}
       </div>
