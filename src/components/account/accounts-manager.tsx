@@ -157,7 +157,7 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
                       value={editClientId}
                       onChange={(e) => setEditClientId(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleSaveEdit(a.id)}
-                      placeholder="Client ID (e.g. YY7859)"
+                      placeholder="Client ID (e.g. AB1234)"
                       className="h-8"
                     />
                   </div>
@@ -169,10 +169,16 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
                 <div className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{a.label}</p>
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {a.broker}
-                      {a.client_id ? ` · ${a.client_id}` : ""}
-                    </p>
+                    <div className="mt-0.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                      <span>
+                        <span className="text-muted-foreground/70">Broker:</span>{" "}
+                        <span className="capitalize">{a.broker}</span>
+                      </span>
+                      <span>
+                        <span className="text-muted-foreground/70">Client ID:</span>{" "}
+                        {a.client_id || "—"}
+                      </span>
+                    </div>
                   </div>
                   <Button
                     size="icon"
@@ -222,7 +228,7 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
                 className="h-8"
               />
               <Input
-                placeholder="Client ID (e.g. YY7859)"
+                placeholder="Client ID (e.g. AB1234)"
                 value={newClientId}
                 onChange={(e) => setNewClientId(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleCreate()}

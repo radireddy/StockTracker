@@ -10,7 +10,7 @@ Account management is currently scattered and account auto-detection is brittle:
 
 1. **Scattered UI** — the full `AccountsManager` CRUD list lives on the **Import** page. Inline "+ New account…" creation is also offered in three other places: the **new company** form (`company-form.tsx`), the company detail **Holdings tab** (`holdings-tab.tsx`), and the **Move stock** dialog (`move-stock-dialog.tsx`).
 
-2. **Duplicate accounts on import** — import auto-detects the target account by an exact match on `(broker, client_id)` read from the statement. A manually-created account is stored with `broker='manual'`, `client_id=null`, so it can **never** match a real Zerodha statement. A user who created "My Zerodha" by hand and then imports the `YY7859` statement ends up with a **second, duplicate** account (`YY7859 (Zerodha)`), because the importer sees no match and silently creates a new one.
+2. **Duplicate accounts on import** — import auto-detects the target account by an exact match on `(broker, client_id)` read from the statement. A manually-created account is stored with `broker='manual'`, `client_id=null`, so it can **never** match a real Zerodha statement. A user who created "My Zerodha" by hand and then imports the `AB1234` statement ends up with a **second, duplicate** account (`AB1234 (Zerodha)`), because the importer sees no match and silently creates a new one.
 
 ## Goals
 
@@ -50,7 +50,7 @@ Account management is currently scattered and account auto-detection is brittle:
 - On a `23505` conflict against the `(user_id, broker, client_id)` index, return an `AppError` with a clear message: e.g. *"Another account already uses that Client ID for this broker. Client IDs must be unique per broker."*
 - `createAccount` already accepts these fields; ensure the Settings create form passes them.
 
-**Result:** a user can set "My Zerodha" → broker `zerodha`, client ID `YY7859` in Settings, and the next import auto-matches on `(broker, client_id)` exactly as today.
+**Result:** a user can set "My Zerodha" → broker `zerodha`, client ID `AB1234` in Settings, and the next import auto-matches on `(broker, client_id)` exactly as today.
 
 ## Part 3 — Remove inline account creation everywhere
 

@@ -70,17 +70,17 @@ describe("buildAccountUpdate", () => {
     });
   });
   it("keeps a real client_id and omits empty broker", () => {
-    expect(buildAccountUpdate({ client_id: " YY7859 ", broker: "  " })).toEqual({ client_id: "YY7859" });
+    expect(buildAccountUpdate({ client_id: " AB1234 ", broker: "  " })).toEqual({ client_id: "AB1234" });
   });
 });
 
 describe("matchAccount", () => {
   const accts = [
-    { id: "a1", label: "My Zerodha", broker: "zerodha", client_id: "YY7859" },
+    { id: "a1", label: "My Zerodha", broker: "zerodha", client_id: "AB1234" },
     { id: "a2", label: "Manual", broker: "manual", client_id: null },
   ];
   it("matches on broker + client_id", () => {
-    expect(matchAccount(accts, "zerodha", "YY7859")).toEqual({ id: "a1", label: "My Zerodha" });
+    expect(matchAccount(accts, "zerodha", "AB1234")).toEqual({ id: "a1", label: "My Zerodha" });
   });
   it("returns null with no client id", () => {
     expect(matchAccount(accts, "zerodha", null)).toBeNull();
@@ -92,10 +92,10 @@ describe("matchAccount", () => {
 
 describe("shouldBackfillClientId", () => {
   it("true when account has no client id and a client id is given", () => {
-    expect(shouldBackfillClientId({ client_id: null }, "YY7859")).toBe(true);
+    expect(shouldBackfillClientId({ client_id: null }, "AB1234")).toBe(true);
   });
   it("false when account already has a client id", () => {
-    expect(shouldBackfillClientId({ client_id: "AA1111" }, "YY7859")).toBe(false);
+    expect(shouldBackfillClientId({ client_id: "AA1111" }, "AB1234")).toBe(false);
   });
   it("false when no client id given", () => {
     expect(shouldBackfillClientId({ client_id: null }, null)).toBe(false);
@@ -104,10 +104,10 @@ describe("shouldBackfillClientId", () => {
 
 describe("classifyDetection", () => {
   it("matched when an account id is present", () => {
-    expect(classifyDetection({ clientId: "YY7859", matchedAccountId: "a1" })).toBe("matched");
+    expect(classifyDetection({ clientId: "AB1234", matchedAccountId: "a1" })).toBe("matched");
   });
   it("unmatched when client id present but no match", () => {
-    expect(classifyDetection({ clientId: "YY7859", matchedAccountId: null })).toBe("unmatched");
+    expect(classifyDetection({ clientId: "AB1234", matchedAccountId: null })).toBe("unmatched");
   });
   it("no-client-id when client id missing", () => {
     expect(classifyDetection({ clientId: null, matchedAccountId: null })).toBe("no-client-id");
@@ -321,7 +321,7 @@ Add the inputs to the create block (below the label input) and the edit block, w
 
 ```tsx
 <Input placeholder="Broker (e.g. zerodha)" value={newBroker} onChange={(e) => setNewBroker(e.target.value)} className="h-8" />
-<Input placeholder="Client ID (e.g. YY7859)" value={newClientId} onChange={(e) => setNewClientId(e.target.value)} className="h-8" />
+<Input placeholder="Client ID (e.g. AB1234)" value={newClientId} onChange={(e) => setNewClientId(e.target.value)} className="h-8" />
 ```
 
 (For edit, bind to `editBroker`/`editClientId`.) Add a caption under the create block:
