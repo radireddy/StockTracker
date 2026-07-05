@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { createPortfolio } from "@/app/(authenticated)/actions/portfolio-actions";
+import { Check } from "lucide-react";
 
 const COLORS = [
   "#22c55e", "#3b82f6", "#eab308", "#f97316",
@@ -113,22 +114,35 @@ export function CreatePortfolioDialog({
 
           <div className="space-y-2">
             <Label>Color</Label>
-            <div className="flex gap-2">
-              {COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  aria-label={`Color ${c}`}
-                  aria-pressed={color === c}
-                  className={`h-7 w-7 rounded-full border-2 transition-all ${
-                    color === c
-                      ? "border-foreground scale-110"
-                      : "border-transparent"
-                  }`}
-                  style={{ backgroundColor: c }}
-                  onClick={() => setColor(c)}
-                />
-              ))}
+            <div className="flex flex-wrap gap-2.5">
+              {COLORS.map((c) => {
+                const selected = color === c;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-label={`Color ${c}`}
+                    aria-pressed={selected}
+                    className="group grid h-8 w-8 place-items-center rounded-full transition-transform duration-150 ease-out hover:scale-110 focus-visible:outline-none active:scale-95"
+                    style={{
+                      backgroundColor: c,
+                      boxShadow: selected
+                        ? `0 0 0 2px var(--popover), 0 0 0 4px ${c}`
+                        : "inset 0 0 0 1px rgb(0 0 0 / 0.12)",
+                    }}
+                    onClick={() => setColor(c)}
+                  >
+                    <Check
+                      strokeWidth={3}
+                      className={`h-4 w-4 text-white drop-shadow-[0_1px_1px_rgb(0_0_0/0.35)] transition-all duration-150 ${
+                        selected
+                          ? "scale-100 opacity-100"
+                          : "scale-50 opacity-0 group-hover:opacity-40 group-hover:scale-75"
+                      }`}
+                    />
+                  </button>
+                );
+              })}
             </div>
           </div>
 
