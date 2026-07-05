@@ -10,6 +10,12 @@ const LINKS = [
   },
   { href: "/portfolio-allocation", label: "Portfolio allocation" },
   { href: "/watchlist-buy-signal", label: "Watchlist buy signal" },
+  {
+    href: "/quarterly-earnings-timeline",
+    label: "Quarterly earnings timeline",
+  },
+  { href: "/stock-research-organizer", label: "Stock research organizer" },
+  { href: "/stock-valuation-model", label: "Stock valuation model" },
 ];
 
 /** Shared marketing footer with internal SEO links to the product pages. */
