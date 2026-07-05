@@ -378,7 +378,7 @@ CREATE TABLE accounts (
   user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   label      TEXT NOT NULL,                     -- "Wife – Groww", user-editable, shown in filter chips
   broker     TEXT NOT NULL DEFAULT 'zerodha',   -- 'zerodha' | 'manual' | (future: 'groww', ...)
-  client_id  TEXT,                              -- broker demat id (e.g. 'XD6134'); NULL for manual-only accounts
+  client_id  TEXT,                              -- broker demat id (e.g. 'AB1234'); NULL for manual-only accounts
   pan_number TEXT,
   mobile     TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
