@@ -215,6 +215,7 @@ export function CompaniesTable({
   accounts = [],
   accountFilter = "all",
   onAccountFilterChange,
+  hasResearchData = true,
 }: {
   companies: CompanyWithProjections[];
   portfolioType?: "holdings" | "watchlist";
@@ -223,8 +224,13 @@ export function CompaniesTable({
   accounts?: DashboardAccount[];
   accountFilter?: string;
   onAccountFilterChange?: (value: string) => void;
+  hasResearchData?: boolean;
 }) {
   const isHoldings = portfolioType === "holdings";
+  // Research UI (conviction/valuation columns, star & type filters, allocation
+  // views) shows for watchlists always, and for holdings only once any research
+  // data exists.
+  const showResearch = !isHoldings || hasResearchData;
   const router = useRouter();
   const { portfolios, selectedId } = usePortfolioContext();
   const invalidate = useInvalidateDashboard();
@@ -420,7 +426,7 @@ export function CompaniesTable({
   const thRight = `${thBase} text-right`;
   const thCenter = `${thBase} text-center`;
 
-  const showAllocationView = viewMode === "allocation" && isHoldings;
+  const showAllocationView = viewMode === "allocation" && isHoldings && showResearch;
   const showAccountFilter = isHoldings && accounts.length > 1 && !!onAccountFilterChange;
 
   // --- Responsive column collapsing -------------------------------------
@@ -472,7 +478,7 @@ export function CompaniesTable({
     <div className="space-y-3">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2.5">
-        {isHoldings && (
+        {isHoldings && showResearch && (
           <Segmented<ViewMode>
             aria-label="Table view"
             value={viewMode}
@@ -525,6 +531,7 @@ export function CompaniesTable({
             </SelectContent>
           </Select>
         )}
+        {showResearch && (
         <Select value={starFilter} onValueChange={(v) => setStarFilter(v ?? "all")}>
           <SelectTrigger className="h-8 w-28 rounded-lg text-sm">
             <SelectValue placeholder="Stars">
@@ -542,7 +549,8 @@ export function CompaniesTable({
             ))}
           </SelectContent>
         </Select>
-        {!showAllocationView && isHoldings && (
+        )}
+        {!showAllocationView && isHoldings && showResearch && (
           <Select value={strategyFilter} onValueChange={(v) => setStrategyFilter(v ?? "all")}>
             <SelectTrigger className="h-8 w-28 rounded-lg text-sm">
               <SelectValue placeholder="Strategy">
@@ -629,12 +637,16 @@ export function CompaniesTable({
                   <th scope="col" className={`${thBase} text-left`} onClick={() => toggleSort("name")}>
                     Company<SortIcon field="name" sortField={sortField} sortDir={sortDir} />
                   </th>
-                  <th scope="col" className={`${thCenter} ${colHidden("star")}`} onClick={() => toggleSort("star_rating")}>
-                    Star<SortIcon field="star_rating" sortField={sortField} sortDir={sortDir} />
-                  </th>
-                  <th scope="col" className={`${thCenter} ${colHidden("type")}`} onClick={() => toggleSort("strategy")}>
-                    Type<SortIcon field="strategy" sortField={sortField} sortDir={sortDir} />
-                  </th>
+                  {showResearch && (
+                    <>
+                      <th scope="col" className={`${thCenter} ${colHidden("star")}`} onClick={() => toggleSort("star_rating")}>
+                        Star<SortIcon field="star_rating" sortField={sortField} sortDir={sortDir} />
+                      </th>
+                      <th scope="col" className={`${thCenter} ${colHidden("type")}`} onClick={() => toggleSort("strategy")}>
+                        Type<SortIcon field="strategy" sortField={sortField} sortDir={sortDir} />
+                      </th>
+                    </>
+                  )}
                   {isHoldings ? (
                     <>
                       <th scope="col" className={thRight} onClick={() => toggleSort("quantity")}>
@@ -658,18 +670,22 @@ export function CompaniesTable({
                       <th scope="col" className={thRight} onClick={() => toggleSort("pnl_amt")}>
                         P&amp;L ₹<SortIcon field="pnl_amt" sortField={sortField} sortDir={sortDir} />
                       </th>
-                      <th scope="col" className={`${thRight} border-l border-border`} onClick={() => toggleSort("buy_price")}>
-                        Target Buy<SortIcon field="buy_price" sortField={sortField} sortDir={sortDir} />
-                      </th>
-                      <th scope="col" className={thRight} onClick={() => toggleSort("mos")}>
-                        MoS%<SortIcon field="mos" sortField={sortField} sortDir={sortDir} />
-                      </th>
-                      <th scope="col" className={thRight} onClick={() => toggleSort("base_cagr")}>
-                        Base<SortIcon field="base_cagr" sortField={sortField} sortDir={sortDir} />
-                      </th>
-                      <th scope="col" className={`${thRight} ${colHidden("bare")}`} onClick={() => toggleSort("bare_cagr")}>
-                        Bare<SortIcon field="bare_cagr" sortField={sortField} sortDir={sortDir} />
-                      </th>
+                      {showResearch && (
+                        <>
+                          <th scope="col" className={`${thRight} border-l border-border`} onClick={() => toggleSort("buy_price")}>
+                            Target Buy<SortIcon field="buy_price" sortField={sortField} sortDir={sortDir} />
+                          </th>
+                          <th scope="col" className={thRight} onClick={() => toggleSort("mos")}>
+                            MoS%<SortIcon field="mos" sortField={sortField} sortDir={sortDir} />
+                          </th>
+                          <th scope="col" className={thRight} onClick={() => toggleSort("base_cagr")}>
+                            Base<SortIcon field="base_cagr" sortField={sortField} sortDir={sortDir} />
+                          </th>
+                          <th scope="col" className={`${thRight} ${colHidden("bare")}`} onClick={() => toggleSort("bare_cagr")}>
+                            Bare<SortIcon field="bare_cagr" sortField={sortField} sortDir={sortDir} />
+                          </th>
+                        </>
+                      )}
                     </>
                   ) : (
                     <>
@@ -755,12 +771,16 @@ export function CompaniesTable({
                             </div>
                           </div>
                         </td>
-                        <td className={`px-2 py-2 text-center ${colHidden("star")}`}>
-                          <Stars rating={company.star_rating} className="text-[0.78rem]" />
-                        </td>
-                        <td className={`px-2 py-2 text-center ${colHidden("type")}`}>
-                          <TypeChip strategy={company.strategy} />
-                        </td>
+                        {showResearch && (
+                          <>
+                            <td className={`px-2 py-2 text-center ${colHidden("star")}`}>
+                              <Stars rating={company.star_rating} className="text-[0.78rem]" />
+                            </td>
+                            <td className={`px-2 py-2 text-center ${colHidden("type")}`}>
+                              <TypeChip strategy={company.strategy} />
+                            </td>
+                          </>
+                        )}
                         {isHoldings ? (
                           <>
                             <td className="px-2.5 py-2 text-right font-mono tabular-nums">
@@ -784,18 +804,22 @@ export function CompaniesTable({
                             <td className={`px-2.5 py-2 text-right font-mono font-semibold tabular-nums ${plAmt == null ? "" : pnlClass(plAmt >= 0)}`}>
                               {plAmt == null ? "-" : `${plAmt >= 0 ? "+" : "−"}${fmtAmountShort(Math.abs(plAmt))}`}
                             </td>
-                            <td className={`border-l border-border px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground ${isDefaulted ? "italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
-                              {fmtPriceShort(buyPrice)}
-                            </td>
-                            <td className={`px-2.5 py-2 text-right font-mono font-semibold tabular-nums ${mosClass(mos)}`}>
-                              {fmtPctShort(mos)}
-                            </td>
-                            <td className="px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground">
-                              {fmtIrr(baseReturn)}
-                            </td>
-                            <td className={`px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground ${colHidden("bare")}`}>
-                              {fmtIrr(bareReturn)}
-                            </td>
+                            {showResearch && (
+                              <>
+                                <td className={`border-l border-border px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground ${isDefaulted ? "italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
+                                  {fmtPriceShort(buyPrice)}
+                                </td>
+                                <td className={`px-2.5 py-2 text-right font-mono font-semibold tabular-nums ${mosClass(mos)}`}>
+                                  {fmtPctShort(mos)}
+                                </td>
+                                <td className="px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground">
+                                  {fmtIrr(baseReturn)}
+                                </td>
+                                <td className={`px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground ${colHidden("bare")}`}>
+                                  {fmtIrr(bareReturn)}
+                                </td>
+                              </>
+                            )}
                           </>
                         ) : (
                           <>
