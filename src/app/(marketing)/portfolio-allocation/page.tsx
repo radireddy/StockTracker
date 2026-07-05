@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { canonical } from "@/lib/seo";
 import { SubPageShell } from "@/components/marketing/sub-page-shell";
 import { ValuePoints } from "@/components/marketing/value-points";
+import { ProofShot } from "@/components/marketing/proof-shot";
+import { HowTo } from "@/components/marketing/how-to";
 import { AllocationDemo } from "@/components/marketing/demos/allocation-demo";
+import { AllocationProof } from "@/components/marketing/demos/allocation-proof";
 import type { Faq } from "@/components/marketing/faq";
 
 const PATH = "/portfolio-allocation";
@@ -58,6 +61,25 @@ const POINTS = [
   },
 ];
 
+const HOW_TO_STEPS = [
+  {
+    title: "Rate each company by conviction",
+    body: "Assign 1–4 stars to every holding. Four stars means highest conviction; one star is a small, speculative position. Ratings are yours to set and revise any time.",
+  },
+  {
+    title: "Set your target weight bands in Settings",
+    body: "Map each star rating to a weight range — for example, 4★ = 6–8%, 3★ = 4–6%. The defaults are a sensible starting point; adjust them to match your portfolio style.",
+  },
+  {
+    title: "Open the Allocation view and read the health widget",
+    body: "The top panel shows each conviction bucket's current weight vs. its target band at a glance. Orange = under-deployed, green = in range, red = over-weight.",
+  },
+  {
+    title: "Follow the rupee signals down the table",
+    body: "Each company row shows Inv %, Cur %, its visual status bar, and the exact rupee amount to add or trim. Deploy fresh capital into the highest-conviction under-weight positions first.",
+  },
+];
+
 export default function AllocationPage() {
   return (
     <SubPageShell
@@ -73,6 +95,17 @@ export default function AllocationPage() {
         title="Incremental investing, made mechanical"
         sub="Let your portfolio drift toward your conviction with every rupee you add."
         points={POINTS}
+      />
+      <ProofShot
+        alt="StockTracker allocation view showing an Allocation health widget at the top with conviction-bucket bars: 4-star bucket at 20.2% (UNDER, target 24–32%), 3-star at 54.7% (UNDER, target 64–96%), 2-star at 17.2% (IN RANGE, target 10–20%), 1-star at 7.9% (OVER, target 0–4%). Below it, a grouped table lists 2–3 companies per star bucket with columns for CMP, Target Buy, Inv%, Cur%, Target range, an invested status bar, Status badge (UNDER/IN RANGE/OVER), Delta, and MoS%. Company names and tickers are masked with redaction bars."
+        caption="Real StockTracker allocation screen — company names masked, figures illustrative."
+      >
+        <AllocationProof />
+      </ProofShot>
+      <HowTo
+        title="How to track and rebalance your allocation"
+        sub="From star ratings to exact rupee signals — here's the workflow."
+        steps={HOW_TO_STEPS}
       />
     </SubPageShell>
   );
