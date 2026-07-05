@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo, useRef, useEffect, useLayoutEffect, Fragment } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -43,6 +43,18 @@ import {
   STATUS_LABEL,
 } from "@/components/dashboard/status-tag";
 import type { AllocationRanges } from "@/types/database";
+
+// useLayoutEffect warns during SSR; fall back to useEffect on the server.
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+/**
+ * Order in which each table sheds columns when it can't fit its container.
+ * Earlier entries are dropped first; if hiding all of them still isn't enough
+ * the table falls back to horizontal scrolling.
+ */
+const RESPONSIVE_HIDE_ORDER = ["type", "bare", "cost", "pnlPct", "cmp", "star"] as const;
+const ALLOCATION_HIDE_ORDER = ["targetBuy", "cmp", "star", "mos", "target"] as const;
 
 type DashboardValuationScenario = {
   scenario_type: string;
@@ -411,6 +423,51 @@ export function CompaniesTable({
   const showAllocationView = viewMode === "allocation" && isHoldings;
   const showAccountFilter = isHoldings && accounts.length > 1 && !!onAccountFilterChange;
 
+  // --- Responsive column collapsing -------------------------------------
+  // Measure the scroll container; while the active table overflows, drop the
+  // next low-priority column (RESPONSIVE_HIDE_ORDER for the portfolio table,
+  // ALLOCATION_HIDE_ORDER for the allocation table). We reset to "show all" on
+  // any resize / shape change so columns reappear when space is available, then
+  // re-collapse as needed — all within a layout effect, so it never flashes.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [hiddenCount, setHiddenCount] = useState(0);
+  const [resizeTick, setResizeTick] = useState(0);
+  const prevTick = useRef(0);
+  const shapeSig = `${isHoldings}|${showAllocationView}|${filtered.length}`;
+  const prevSig = useRef(shapeSig);
+  const hideOrder: readonly string[] = showAllocationView
+    ? ALLOCATION_HIDE_ORDER
+    : RESPONSIVE_HIDE_ORDER;
+  const maxHideable = hideOrder.length;
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setResizeTick((t) => t + 1));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useIsomorphicLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (prevTick.current !== resizeTick || prevSig.current !== shapeSig) {
+      prevTick.current = resizeTick;
+      prevSig.current = shapeSig;
+      if (hiddenCount !== 0) {
+        setHiddenCount(0);
+        return;
+      }
+    }
+    const overflowing = el.scrollWidth - el.clientWidth > 1;
+    if (overflowing && hiddenCount < maxHideable) {
+      setHiddenCount((c) => c + 1);
+    }
+  }, [resizeTick, hiddenCount, maxHideable, shapeSig]);
+
+  const hiddenCols = new Set<string>(hideOrder.slice(0, hiddenCount));
+  const colHidden = (key: string) => (hiddenCols.has(key) ? "hidden" : "");
+
   return (
     <div className="space-y-3">
       {/* Toolbar */}
@@ -450,7 +507,13 @@ export function CompaniesTable({
         {showAccountFilter && (
           <Select value={accountFilter} onValueChange={(v) => onAccountFilterChange?.(v ?? "all")}>
             <SelectTrigger className="h-8 w-40 rounded-lg text-sm">
-              <SelectValue placeholder="All accounts" />
+              <SelectValue placeholder="All accounts">
+                {(value) =>
+                  value === "all"
+                    ? "All accounts"
+                    : (accounts.find((a) => a.id === value)?.label ?? "All accounts")
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All accounts</SelectItem>
@@ -523,7 +586,7 @@ export function CompaniesTable({
 
       {/* Table card */}
       <div className="overflow-hidden rounded-xl border bg-card shadow-soft">
-        <div className="overflow-x-auto">
+        <div ref={scrollRef} className="overflow-x-auto">
           {showAllocationView ? (
             <AllocationTable
               filtered={filtered}
@@ -541,16 +604,16 @@ export function CompaniesTable({
               hasCompanies={companies.length > 0}
             />
           ) : (
-            <table className="w-full border-collapse whitespace-nowrap text-sm" role="table" aria-label="Companies portfolio table">
+            <table className="w-full border-collapse text-sm" role="table" aria-label="Companies portfolio table">
               <thead>
                 <tr className="border-b border-border">
                   <th scope="col" className={`${thBase} text-left`} onClick={() => toggleSort("name")}>
                     Company<SortIcon field="name" sortField={sortField} sortDir={sortDir} />
                   </th>
-                  <th scope="col" className={thCenter} onClick={() => toggleSort("star_rating")}>
+                  <th scope="col" className={`${thCenter} ${colHidden("star")}`} onClick={() => toggleSort("star_rating")}>
                     Star<SortIcon field="star_rating" sortField={sortField} sortDir={sortDir} />
                   </th>
-                  <th scope="col" className={thCenter} onClick={() => toggleSort("strategy")}>
+                  <th scope="col" className={`${thCenter} ${colHidden("type")}`} onClick={() => toggleSort("strategy")}>
                     Type<SortIcon field="strategy" sortField={sortField} sortDir={sortDir} />
                   </th>
                   {isHoldings ? (
@@ -561,16 +624,16 @@ export function CompaniesTable({
                       <th scope="col" className={thRight} onClick={() => toggleSort("avg_buy_price")}>
                         Avg Buy<SortIcon field="avg_buy_price" sortField={sortField} sortDir={sortDir} />
                       </th>
-                      <th scope="col" className={thRight} onClick={() => toggleSort("current_price")}>
+                      <th scope="col" className={`${thRight} ${colHidden("cmp")}`} onClick={() => toggleSort("current_price")}>
                         CMP<SortIcon field="current_price" sortField={sortField} sortDir={sortDir} />
                       </th>
-                      <th scope="col" className={thRight} onClick={() => toggleSort("total_cost")}>
+                      <th scope="col" className={`${thRight} ${colHidden("cost")}`} onClick={() => toggleSort("total_cost")}>
                         Cost<SortIcon field="total_cost" sortField={sortField} sortDir={sortDir} />
                       </th>
                       <th scope="col" className={thRight} onClick={() => toggleSort("market_value")}>
                         Cur. Value<SortIcon field="market_value" sortField={sortField} sortDir={sortDir} />
                       </th>
-                      <th scope="col" className={thRight} onClick={() => toggleSort("pnl_pct")}>
+                      <th scope="col" className={`${thRight} ${colHidden("pnlPct")}`} onClick={() => toggleSort("pnl_pct")}>
                         P&amp;L %<SortIcon field="pnl_pct" sortField={sortField} sortDir={sortDir} />
                       </th>
                       <th scope="col" className={thRight} onClick={() => toggleSort("pnl_amt")}>
@@ -585,13 +648,13 @@ export function CompaniesTable({
                       <th scope="col" className={thRight} onClick={() => toggleSort("base_cagr")}>
                         Base<SortIcon field="base_cagr" sortField={sortField} sortDir={sortDir} />
                       </th>
-                      <th scope="col" className={thRight} onClick={() => toggleSort("bare_cagr")}>
+                      <th scope="col" className={`${thRight} ${colHidden("bare")}`} onClick={() => toggleSort("bare_cagr")}>
                         Bare<SortIcon field="bare_cagr" sortField={sortField} sortDir={sortDir} />
                       </th>
                     </>
                   ) : (
                     <>
-                      <th scope="col" className={thRight} onClick={() => toggleSort("current_price")}>
+                      <th scope="col" className={`${thRight} ${colHidden("cmp")}`} onClick={() => toggleSort("current_price")}>
                         CMP<SortIcon field="current_price" sortField={sortField} sortDir={sortDir} />
                       </th>
                       <th scope="col" className={thRight} onClick={() => toggleSort("buy_price")}>
@@ -603,7 +666,7 @@ export function CompaniesTable({
                       <th scope="col" className={thRight} onClick={() => toggleSort("base_cagr")}>
                         Base<SortIcon field="base_cagr" sortField={sortField} sortDir={sortDir} />
                       </th>
-                      <th scope="col" className={thRight} onClick={() => toggleSort("bare_cagr")}>
+                      <th scope="col" className={`${thRight} ${colHidden("bare")}`} onClick={() => toggleSort("bare_cagr")}>
                         Bare<SortIcon field="bare_cagr" sortField={sortField} sortDir={sortDir} />
                       </th>
                       <th scope="col" className={thCenter} onClick={() => toggleSort("signal")}>
@@ -658,7 +721,7 @@ export function CompaniesTable({
                                 href={`/company/${company.id}`}
                                 prefetch={false}
                                 onClick={(e) => e.stopPropagation()}
-                                className="block truncate font-semibold tracking-tight hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                className="block break-words font-semibold tracking-tight hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               >
                                 {name}
                                 {isHoldings && stripeStatus && (
@@ -673,10 +736,10 @@ export function CompaniesTable({
                             </div>
                           </div>
                         </td>
-                        <td className="px-2 py-2 text-center">
+                        <td className={`px-2 py-2 text-center ${colHidden("star")}`}>
                           <Stars rating={company.star_rating} className="text-[0.78rem]" />
                         </td>
-                        <td className="px-2 py-2 text-center">
+                        <td className={`px-2 py-2 text-center ${colHidden("type")}`}>
                           <TypeChip strategy={company.strategy} />
                         </td>
                         {isHoldings ? (
@@ -687,16 +750,16 @@ export function CompaniesTable({
                             <td className="px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground">
                               {fmtPriceShort(avgBuy ?? null)}
                             </td>
-                            <td className="px-2.5 py-2 text-right font-mono tabular-nums">
+                            <td className={`px-2.5 py-2 text-right font-mono tabular-nums ${colHidden("cmp")}`}>
                               {fmtPriceShort(currentPrice)}
                             </td>
-                            <td className="px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground">
+                            <td className={`px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground ${colHidden("cost")}`}>
                               {qty && avgBuy ? fmtAmountShort(avgBuy * qty) : "-"}
                             </td>
                             <td className="px-2.5 py-2 text-right font-mono font-semibold tabular-nums">
                               {qty && currentPrice ? fmtAmountShort(currentPrice * qty) : "-"}
                             </td>
-                            <td className={`px-2.5 py-2 text-right font-mono font-semibold tabular-nums ${plPct == null ? "" : pnlClass(plPct >= 0)}`}>
+                            <td className={`px-2.5 py-2 text-right font-mono font-semibold tabular-nums ${colHidden("pnlPct")} ${plPct == null ? "" : pnlClass(plPct >= 0)}`}>
                               {plPct == null ? "-" : `${plPct >= 0 ? "+" : ""}${plPct.toFixed(1)}%`}
                             </td>
                             <td className={`px-2.5 py-2 text-right font-mono font-semibold tabular-nums ${plAmt == null ? "" : pnlClass(plAmt >= 0)}`}>
@@ -711,13 +774,13 @@ export function CompaniesTable({
                             <td className="px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground">
                               {fmtIrr(baseReturn)}
                             </td>
-                            <td className="px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground">
+                            <td className={`px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground ${colHidden("bare")}`}>
                               {fmtIrr(bareReturn)}
                             </td>
                           </>
                         ) : (
                           <>
-                            <td className="px-2.5 py-2 text-right font-mono tabular-nums">
+                            <td className={`px-2.5 py-2 text-right font-mono tabular-nums ${colHidden("cmp")}`}>
                               {fmtPriceShort(currentPrice)}
                             </td>
                             <td className={`px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground ${isDefaulted ? "italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
@@ -729,16 +792,16 @@ export function CompaniesTable({
                             <td className="px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground">
                               {fmtIrr(baseReturn)}
                             </td>
-                            <td className="px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground">
+                            <td className={`px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground ${colHidden("bare")}`}>
                               {fmtIrr(bareReturn)}
                             </td>
                             <td className="px-2 py-2 text-center">
                               {buy ? (
-                                <span className="inline-flex items-center gap-1 rounded-md bg-primary px-1.5 py-0.5 text-[0.68rem] font-bold text-primary-foreground">
+                                <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-primary px-1.5 py-0.5 text-[0.68rem] font-bold text-primary-foreground">
                                   <span aria-hidden="true">●</span> BUY ZONE
                                 </span>
                               ) : (
-                                <span className="rounded-md bg-muted px-1.5 py-0.5 text-[0.68rem] font-semibold text-muted-foreground">
+                                <span className="whitespace-nowrap rounded-md bg-muted px-1.5 py-0.5 text-[0.68rem] font-semibold text-muted-foreground">
                                   WAIT
                                 </span>
                               )}
