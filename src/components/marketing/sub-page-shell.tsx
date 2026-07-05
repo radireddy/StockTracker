@@ -5,7 +5,12 @@ import { SiteHeader } from "@/components/marketing/site-header";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { JsonLd } from "@/components/marketing/json-ld";
 import { FaqSection, type Faq } from "@/components/marketing/faq";
-import { breadcrumbJsonLd, faqJsonLd } from "@/lib/seo";
+import {
+  breadcrumbJsonLd,
+  faqJsonLd,
+  organizationJsonLd,
+  softwareApplicationJsonLd,
+} from "@/lib/seo";
 
 /** Other product pages to cross-link, minus the current one. */
 const ALL = [
@@ -44,7 +49,14 @@ export function SubPageShell({
   const others = ALL.filter((l) => l.href !== path);
   return (
     <div className="flex min-h-screen flex-col overflow-x-clip bg-background text-foreground">
-      <JsonLd graphs={[breadcrumbJsonLd(breadcrumbLabel, path), faqJsonLd(faqs)]} />
+      <JsonLd
+        graphs={[
+          breadcrumbJsonLd(breadcrumbLabel, path),
+          faqJsonLd(faqs),
+          softwareApplicationJsonLd(),
+          organizationJsonLd(),
+        ]}
+      />
       <SiteHeader />
 
       <main className="flex-1">
