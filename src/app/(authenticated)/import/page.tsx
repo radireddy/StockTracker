@@ -4,12 +4,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -195,18 +195,13 @@ export default function ImportPage() {
   const selectedPortfolioName = holdingsPortfolios.find((p) => p.id === portfolioId)?.name ?? "—";
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Import Holdings
-          </CardTitle>
-          <CardDescription>
-            Import a Zerodha holdings statement. Each statement is a snapshot for one
-            account; re-importing an account replaces its existing holdings.
-          </CardDescription>
-        </CardHeader>
+    <div className="mx-auto max-w-2xl space-y-6">
+      <PageHeader
+        eyebrow="Data"
+        title="Import Holdings"
+        description="Import a Zerodha holdings statement. Each statement is a snapshot for one account; re-importing an account replaces its existing holdings."
+      />
+      <Card className="shadow-soft">
         <CardContent className="space-y-5">
           {/* Portfolio selector */}
           <div className="space-y-2">
@@ -220,7 +215,7 @@ export default function ImportPage() {
                 value={portfolioId}
                 onChange={(e) => setPortfolioId(e.target.value)}
                 disabled={phase !== "select"}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {holdingsPortfolios.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -329,8 +324,8 @@ export default function ImportPage() {
           )}
 
           {phase === "importing" && (
-            <div role="status" aria-live="polite" className="flex items-center gap-3 p-4 rounded-lg bg-blue-500/10">
-              <Loader2 className="h-5 w-5 animate-spin text-blue-600" aria-hidden="true" />
+            <div role="status" aria-live="polite" className="flex items-center gap-3 p-4 rounded-lg bg-primary/10">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden="true" />
               <p className="text-sm font-medium">
                 Importing {files[currentIndex]?.name} ({currentIndex + 1}/{files.length})…
               </p>
@@ -358,7 +353,7 @@ export default function ImportPage() {
 
       {/* Import history — lazy-loaded; show a placeholder until it arrives */}
       {historyLoading ? (
-        <Card>
+        <Card className="shadow-soft">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Clock className="h-4 w-4" />
@@ -373,7 +368,7 @@ export default function ImportPage() {
           </CardContent>
         </Card>
       ) : history.length > 0 && (
-        <Card>
+        <Card className="shadow-soft">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
@@ -424,7 +419,7 @@ export default function ImportPage() {
                       className={
                         h.status === "failed"
                           ? "bg-destructive/10 text-destructive"
-                          : "bg-green-500/10 text-green-700"
+                          : "bg-positive/10 text-positive"
                       }
                     >
                       {h.status === "failed" ? "Failed" : h.is_reimport ? "Replaced" : "Imported"}
@@ -457,11 +452,11 @@ function ResultList({ results, onReset }: { results: FileResult[]; onReset: () =
 
   return (
     <div className="space-y-4">
-      <div className={`flex items-center gap-3 p-4 rounded-lg ${anyError ? "bg-yellow-500/10" : "bg-green-500/10"}`}>
+      <div className={`flex items-center gap-3 p-4 rounded-lg ${anyError ? "bg-warning/10" : "bg-positive/10"}`}>
         {anyError ? (
-          <AlertTriangle className="h-5 w-5 text-yellow-600" />
+          <AlertTriangle className="h-5 w-5 text-warning" />
         ) : (
-          <CheckCircle2 className="h-5 w-5 text-green-600" />
+          <CheckCircle2 className="h-5 w-5 text-positive" />
         )}
         <div className="flex-1">
           <p className="text-sm font-medium">
@@ -478,7 +473,7 @@ function ResultList({ results, onReset }: { results: FileResult[]; onReset: () =
               {r.error ? (
                 <XCircle className="h-4 w-4 text-destructive shrink-0" />
               ) : (
-                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                <CheckCircle2 className="h-4 w-4 text-positive shrink-0" />
               )}
               <span className="text-sm font-medium truncate">{r.file.name}</span>
               {r.result && (
@@ -494,7 +489,7 @@ function ResultList({ results, onReset }: { results: FileResult[]; onReset: () =
               <>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
-                    <Plus className="h-3 w-3 text-green-600" />
+                    <Plus className="h-3 w-3 text-positive" />
                     {r.result.companies_count} stocks
                   </span>
                   {r.result.statement_date && <span>as on {r.result.statement_date}</span>}

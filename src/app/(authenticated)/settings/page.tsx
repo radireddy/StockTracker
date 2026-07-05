@@ -2,6 +2,7 @@ import { getAuthUser } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
 import { PortfolioManager } from "@/components/settings/portfolio-manager";
 import { AllocationRangesEditor } from "@/components/settings/allocation-ranges-editor";
 import { getPortfolios } from "@/app/(authenticated)/actions/portfolio-actions";
@@ -27,9 +28,9 @@ export default async function SettingsPage() {
   const portfolios = await getPortfolios();
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">Settings</h1>
-      <Card>
+    <div className="mx-auto max-w-2xl space-y-6">
+      <PageHeader eyebrow="Account" title="Settings" />
+      <Card className="shadow-soft">
         <CardHeader>
           <CardTitle>Profile</CardTitle>
         </CardHeader>
@@ -42,7 +43,7 @@ export default async function SettingsPage() {
           </p>
         </CardContent>
       </Card>
-      <Card>
+      <Card className="shadow-soft">
         <CardHeader>
           <CardTitle>Allocation Ranges</CardTitle>
         </CardHeader>
@@ -52,7 +53,7 @@ export default async function SettingsPage() {
           />
         </CardContent>
       </Card>
-      <Card>
+      <Card className="shadow-soft">
         <CardHeader>
           <CardTitle>Portfolios</CardTitle>
         </CardHeader>

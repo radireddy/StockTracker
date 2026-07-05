@@ -37,7 +37,7 @@ export function CompanyHeader({
       : null;
   const buy = isBuySignal(currentPrice, buyPrice);
 
-  const mosColor = mos != null ? (mos > 0 ? "text-green-600" : mos < -0.1 ? "text-red-600" : "text-yellow-600") : "";
+  const mosColor = mos != null ? (mos > 0 ? "text-positive" : mos < -0.1 ? "text-destructive" : "text-warning") : "";
 
   const companyName = company.indian_stocks?.name ?? "Unknown";
   const companySymbol = company.indian_stocks?.nse_symbol ?? null;
@@ -51,7 +51,7 @@ export function CompanyHeader({
           {companySymbol && (
             <span className="text-base text-muted-foreground">{companySymbol}</span>
           )}
-          {buy && <Badge className="bg-green-600 text-white text-xs px-2 py-0.5">BUY</Badge>}
+          {buy && <Badge className="border-transparent bg-positive/15 text-positive text-xs px-2 py-0.5">BUY</Badge>}
         </div>
         <div className="flex items-center gap-2">
           <DeleteCompanyButton companyId={company.id} companyName={companyName} />
@@ -79,7 +79,7 @@ export function CompanyHeader({
         <MetricItem label="Strategy" value={company.strategy ?? "-"} />
         <MetricItem label="Sector" value={company.indian_stocks?.sector ?? "-"} />
         <MetricItem label="Horizon" value={company.investment_horizon_years ? `${company.investment_horizon_years}y` : "0y"} className="cursor-help" title="Auto-calculated from Financial Model estimates" />
-        <MetricItem label="Base IRR" value={fmtIrr(baseIrr)} className={baseIrr != null && baseIrr > 0 ? "text-green-600" : ""} />
+        <MetricItem label="Base IRR" value={fmtIrr(baseIrr)} className={baseIrr != null && baseIrr > 0 ? "text-positive" : ""} />
       </div>
     </div>
   );

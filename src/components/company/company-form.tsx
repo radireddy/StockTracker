@@ -170,7 +170,7 @@ export function CompanyForm() {
               <select
                 value={selectedId}
                 onChange={(e) => select(e.target.value)}
-                className="h-7 rounded-md border border-input bg-background px-2 text-sm font-medium"
+                className="h-7 rounded-lg border border-input bg-background px-2 text-sm font-medium outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               >
                 {portfolios.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
@@ -186,7 +186,7 @@ export function CompanyForm() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Stock Search */}
-        <Card className="border-primary/10 shadow-sm overflow-visible">
+        <Card className="border-primary/10 shadow-soft overflow-visible">
           <CardContent className="pt-5 pb-5">
             <Label htmlFor="stock-search" className="text-sm font-medium mb-2 block">Stock <span className="text-destructive">*</span></Label>
             <StockSearch
@@ -209,7 +209,7 @@ export function CompanyForm() {
 
         {/* Holdings: Position card (required) */}
         {isHoldings && (
-          <Card className="shadow-sm">
+          <Card className="shadow-soft">
             <CardContent className="pt-5 pb-5 space-y-4">
               <div className="flex items-center gap-2 mb-1">
                 <Wallet className="h-4 w-4 text-primary" />
@@ -243,7 +243,7 @@ export function CompanyForm() {
 
         {/* Research fields: always shown for watchlist; collapsed for holdings */}
         {isHoldings ? (
-          <Card className="shadow-sm">
+          <Card className="shadow-soft">
             <CardContent className="pt-4 pb-4">
               <details>
                 <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium">
@@ -255,7 +255,7 @@ export function CompanyForm() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="shadow-sm">
+          <Card className="shadow-soft">
             <CardContent className="pt-5 pb-5 space-y-4">
               <div className="flex items-center gap-2 mb-1">
                 <Star className="h-4 w-4 text-primary" />
