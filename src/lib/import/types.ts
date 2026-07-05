@@ -29,7 +29,7 @@ export interface HoldingsParseResult {
 export interface BrokerMetadata {
   broker: BrokerType;
   client_id: string | null;
-  account_label: string | null;  // suggested label, e.g. "XD6134 (Zerodha)"
+  account_label: string | null;  // suggested label, e.g. "AB1234 (Zerodha)"
   statement_date: string | null; // YYYY-MM-DD, from "…as on 2025-03-31"
 }
 

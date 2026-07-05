@@ -95,16 +95,19 @@ export function CompanyCard({
   company,
   metrics,
   portfolioType,
+  hasResearchData = true,
   onOpen,
 }: {
   company: DashboardCompanyRow;
   metrics: HoldingMetrics;
   portfolioType: "holdings" | "watchlist";
+  hasResearchData?: boolean;
   onOpen: (id: string) => void;
 }) {
   const name = company.indian_stocks?.name ?? company.isin;
   const isHoldings = portfolioType === "holdings";
   const buy = isBuySignal(metrics.price, metrics.buyPrice);
+  const showResearch = !isHoldings || hasResearchData;
 
   return (
     <button
@@ -112,7 +115,7 @@ export function CompanyCard({
       onClick={() => onOpen(company.id)}
       className="card-interactive relative w-full overflow-hidden rounded-[18px] border bg-card p-3.5 text-left shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      {isHoldings && (
+      {isHoldings && showResearch && (
         <span
           className="absolute inset-y-3 left-0 w-[3px] rounded-full"
           style={{ background: STATUS_VAR[metrics.allocStatus] }}
@@ -126,11 +129,15 @@ export function CompanyCard({
           <div className="truncate text-[0.92rem] font-bold tracking-tight">{name}</div>
           <div className="mt-0.5 flex items-center gap-1.5 text-[0.7rem] text-muted-foreground">
             <span>{company.indian_stocks?.nse_symbol ?? company.isin}</span>
-            <Stars rating={company.star_rating} className="text-[0.72rem]" />
-            {company.strategy && (
-              <span className="rounded bg-muted px-1.5 py-px text-[0.6rem] font-bold uppercase tracking-wide text-muted-foreground">
-                {company.strategy}
-              </span>
+            {showResearch && (
+              <>
+                <Stars rating={company.star_rating} className="text-[0.72rem]" />
+                {company.strategy && (
+                  <span className="rounded bg-muted px-1.5 py-px text-[0.6rem] font-bold uppercase tracking-wide text-muted-foreground">
+                    {company.strategy}
+                  </span>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -180,10 +187,12 @@ export function CompanyCard({
         </div>
       )}
 
-      <div className="mt-3 border-t border-border/70 pt-2.5">
-        <ResearchStrip metrics={metrics} />
-        {isHoldings && <AllocationBar metrics={metrics} />}
-      </div>
+      {showResearch && (
+        <div className="mt-3 border-t border-border/70 pt-2.5">
+          <ResearchStrip metrics={metrics} />
+          {isHoldings && <AllocationBar metrics={metrics} />}
+        </div>
+      )}
     </button>
   );
 }

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Holdings-only design v2</title>
+<style>
+  :root{
+    --green:#0d6b40; --green-soft:#e8f3ec; --ink:#1a1a1a; --muted:#6b7280;
+    --line:#e5e7eb; --bg:#f4f6f5; --red:#c0392b; --pos:#127a3e;
+    --amber:#b45309; --amber-soft:#fef3e2;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);padding:24px;line-height:1.4}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 20px}
+  .toggle{display:inline-flex;gap:4px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:4px;margin-bottom:18px;flex-wrap:wrap}
+  .toggle button{border:0;background:transparent;padding:8px 15px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer}
+  .toggle button.active{background:var(--green);color:#fff}
+  .panel{display:none}
+  .panel.active{display:block}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+  .label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .big{font-size:30px;font-weight:700;letter-spacing:-.5px;margin:6px 0}
+  .pill{display:inline-flex;align-items:center;gap:6px;background:var(--green-soft);color:var(--pos);font-weight:600;font-size:12px;padding:4px 10px;border-radius:20px}
+  .stat-row{display:flex;gap:34px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .stat b{font-size:16px;display:block}
+  .stat span{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+
+  .guide{background:linear-gradient(180deg,#fff, #fbfdfb)}
+  .guide h3{margin:0 0 2px;font-size:15px}
+  .guide .gsub{color:var(--muted);font-size:12.5px;margin:0 0 16px}
+  .steps{display:flex;flex-direction:column;gap:10px}
+  .step{display:flex;gap:12px;align-items:center;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff}
+  .step .ic{width:30px;height:30px;border-radius:8px;background:var(--green-soft);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+  .step .t{font-size:13px;font-weight:600}
+  .step .d{font-size:12px;color:var(--muted)}
+  .unlock{margin-left:auto;font-size:10px;color:var(--green);font-weight:700;white-space:nowrap;background:var(--green-soft);padding:3px 8px;border-radius:20px}
+  .cta{margin-top:14px;display:flex;gap:10px;align-items:center}
+  .btn{background:var(--green);color:#fff;border:0;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer}
+  .btn.ghost{background:transparent;color:var(--muted);font-weight:600}
+
+  /* slim re-entry bar */
+  .slim{display:flex;align-items:center;gap:10px;background:#fff;border:1px dashed var(--line);border-radius:10px;padding:11px 16px;margin-bottom:16px;font-size:13px;cursor:pointer}
+  .slim .arrow{margin-left:auto;color:var(--green);font-weight:700}
+  .slim b{color:var(--ink)}
+
+  .toolbar{display:flex;gap:10px;align-items:center;margin:16px 0 0}
+  .seg{display:inline-flex;background:#eef1ef;border-radius:9px;padding:3px}
+  .seg span{padding:6px 14px;font-size:12.5px;font-weight:600;border-radius:6px;color:var(--muted)}
+  .seg span.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .search{flex:1;max-width:230px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:12.5px;color:var(--muted);background:#fff}
+  .drop{border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:12.5px;color:var(--muted);background:#fff}
+  .count{margin-left:auto;font-size:12px;color:var(--muted)}
+  .faded{opacity:.4}
+
+  table{width:100%;border-collapse:collapse;background:#fff;margin-top:12px;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:12.5px}
+  th{ text-align:right;padding:11px 10px;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:700;border-bottom:1px solid var(--line);background:#fafbfa}
+  th.l,td.l{text-align:left}
+  td{padding:11px 10px;text-align:right;border-bottom:1px solid #f1f3f2;font-variant-numeric:tabular-nums}
+  tr:last-child td{border-bottom:0}
+  .co{display:flex;align-items:center;gap:10px}
+  .av{width:26px;height:26px;border-radius:7px;background:var(--green-soft);color:var(--green);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border-left:3px solid var(--green)}
+  .co .nm{font-weight:600;font-size:12.5px}
+  .co .tk{font-size:10px;color:var(--muted)}
+  .pos{color:var(--pos);font-weight:600}
+  .neg{color:var(--red);font-weight:600}
+  .newcol{background:#fffdf5}.newcol-h{background:#fdf6e3}
+  .star{color:#e6a817;letter-spacing:1px}
+  .tag{font-size:10px;background:#eef1ef;padding:2px 7px;border-radius:5px;color:#374151;font-weight:600}
+  .note{font-size:11.5px;color:var(--amber);background:var(--amber-soft);border:1px solid #f3e2c0;border-radius:8px;padding:8px 12px;margin-top:12px;display:inline-block}
+  .callout{font-size:11px;color:var(--muted);margin-top:6px}
+  .keyline-r{border-left:3px solid var(--red)}
+  .hint{font-size:11px;color:var(--muted);margin-top:8px;font-style:italic}
+</style>
+</head>
+<body>
+  <h1>Holdings-only design — v2</h1>
+  <p class="sub">Neutral copy (no "imported"), plus the dismissed state. Toggle across all three.</p>
+
+  <div class="toggle">
+    <button class="active" onclick="show('a',this)">① Guidance card (default)</button>
+    <button onclick="show('b',this)">② Dismissed → slim bar</button>
+    <button onclick="show('c',this)">③ Research-active</button>
+  </div>
+
+  <!-- STATE A -->
+  <div class="panel active" id="a">
+    <div class="grid">
+      <div class="card">
+        <div class="label">Current value</div>
+        <div class="big">₹3,08,69,487</div>
+        <span class="pill">▲ +₹23,67,126 · +8.3% <span style="color:var(--muted);font-weight:500">all-time P&amp;L</span></span>
+        <div class="stat-row">
+          <div class="stat"><b>₹2,85,02,361</b><span>Invested</span></div>
+          <div class="stat"><b>25</b><span>Companies</span></div>
+          <div class="stat"><b>1</b><span>Accounts</span></div>
+        </div>
+      </div>
+      <div class="card guide">
+        <h3>📊 Unlock allocation &amp; valuation tracking</h3>
+        <p class="gsub">You're tracking 25 companies across 1 account. Add a little research to turn on the analysis features — each lights up on its own.</p>
+        <div class="steps">
+          <div class="step"><div class="ic">⭐</div><div><div class="t">Rate conviction (1–4★)</div><div class="d">How strongly you back each company</div></div><div class="unlock">unlocks Allocation health</div></div>
+          <div class="step"><div class="ic">🎯</div><div><div class="t">Set a target buy price</div><div class="d">Your ideal entry price</div></div><div class="unlock">unlocks MoS %</div></div>
+          <div class="step"><div class="ic">📈</div><div><div class="t">Add valuation scenarios</div><div class="d">Base / bare-case fair value &amp; IRR</div></div><div class="unlock">unlocks Base / Bare</div></div>
+        </div>
+        <div class="cta">
+          <button class="btn">Rate your first company</button>
+          <button class="btn ghost">Not now — just track holdings</button>
+        </div>
+        <div class="hint">Payoff tags (right) are informational, not links. The single CTA is the one action.</div>
+      </div>
+    </div>
+    <div class="card" style="padding:14px 16px">
+      <div class="toolbar" style="margin-top:0">
+        <div class="seg"><span class="on">Portfolio</span><span style="opacity:.35">Allocation 🔒</span></div>
+        <input class="search" value="Search companies…" readonly>
+        <span class="drop faded">All Stars ▾</span><span class="drop faded">All ▾</span>
+        <span class="count">25 companies</span>
+      </div>
+      <div class="callout">Allocation tab, Star &amp; Type filters hidden (greyed here to point them out). 6 research columns removed.</div>
+      <table>
+        <thead><tr><th class="l">Company</th><th>Qty</th><th>Avg Buy</th><th>CMP</th><th>Cost</th><th>Cur. Value</th><th>P&amp;L %</th><th>P&amp;L ₹</th></tr></thead>
+        <tbody>
+          <tr><td class="l"><div class="co"><div class="av">IB</div><div><div class="nm">Interarch Building</div><div class="tk">INTERARCH</div></div></div></td><td>775</td><td>1,786.23</td><td>1,880.8</td><td>13,84,326</td><td>14,57,620</td><td class="pos">+5.3%</td><td class="pos">+73,294</td></tr>
+          <tr><td class="l"><div class="co"><div class="av">EH</div><div><div class="nm">Entero Healthcare</div><div class="tk">ENTERO</div></div></div></td><td>1,050</td><td>1,164.81</td><td>1,216.2</td><td>12,23,050</td><td>12,77,010</td><td class="pos">+4.4%</td><td class="pos">+53,960</td></tr>
+          <tr><td class="l"><div class="co"><div class="av keyline-r">SH</div><div><div class="nm">Samhi Hotels</div><div class="tk">SAMHI</div></div></div></td><td>11,150</td><td>188.41</td><td>176.71</td><td>21,00,729</td><td>19,70,317</td><td class="neg">−6.2%</td><td class="neg">−1,30,413</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- STATE B: dismissed -->
+  <div class="panel" id="b">
+    <div class="slim" onclick="show('a',document.querySelectorAll('.toggle button')[0])">
+      📊 <b>Enable allocation &amp; valuation tracking</b> <span style="color:var(--muted)">— rate a company's conviction to unlock analysis</span> <span class="arrow">→</span>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <div class="label">Current value</div>
+        <div class="big">₹3,08,69,487</div>
+        <span class="pill">▲ +₹23,67,126 · +8.3%</span>
+        <div class="stat-row">
+          <div class="stat"><b>₹2,85,02,361</b><span>Invested</span></div>
+          <div class="stat"><b>25</b><span>Companies</span></div>
+          <div class="stat"><b>1</b><span>Accounts</span></div>
+        </div>
+      </div>
+      <div class="card" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12.5px;text-align:center">Allocation card stays hidden.<br>Full-width holdings table can flow up here instead.</div>
+    </div>
+    <div class="card" style="padding:14px 16px">
+      <div class="toolbar" style="margin-top:0">
+        <div class="seg"><span class="on">Portfolio</span></div>
+        <input class="search" value="Search companies…" readonly>
+        <span class="count">25 companies</span>
+      </div>
+      <div class="callout">Card collapsed to the dashed bar above. Dismissal is remembered per portfolio — no more nagging. Clicking the bar re-opens the card; adding a star anywhere unlocks everything automatically.</div>
+      <table>
+        <thead><tr><th class="l">Company</th><th>Qty</th><th>Avg Buy</th><th>CMP</th><th>Cost</th><th>Cur. Value</th><th>P&amp;L %</th><th>P&amp;L ₹</th></tr></thead>
+        <tbody>
+          <tr><td class="l"><div class="co"><div class="av">IB</div><div><div class="nm">Interarch Building</div><div class="tk">INTERARCH</div></div></div></td><td>775</td><td>1,786.23</td><td>1,880.8</td><td>13,84,326</td><td>14,57,620</td><td class="pos">+5.3%</td><td class="pos">+73,294</td></tr>
+          <tr><td class="l"><div class="co"><div class="av">EH</div><div><div class="nm">Entero Healthcare</div><div class="tk">ENTERO</div></div></div></td><td>1,050</td><td>1,164.81</td><td>1,216.2</td><td>12,23,050</td><td>12,77,010</td><td class="pos">+4.4%</td><td class="pos">+53,960</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- STATE C -->
+  <div class="panel" id="c">
+    <div class="grid">
+      <div class="card">
+        <div class="label">Current value</div>
+        <div class="big">₹3,08,69,487</div>
+        <span class="pill">▲ +₹23,67,126 · +8.3%</span>
+        <div class="stat-row">
+          <div class="stat"><b>₹2,85,02,361</b><span>Invested</span></div>
+          <div class="stat"><b>25</b><span>Companies</span></div>
+          <div class="stat"><b>1</b><span>Accounts</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><div class="label">Allocation health</div><div style="font-size:11px;color:var(--muted)">current value vs. target by conviction</div></div>
+        <div style="margin-top:22px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;gap:12px"><span class="star">★★★★</span><div style="flex:1;height:14px;background:#eef1ef;border-radius:7px;overflow:hidden"><div style="width:62%;height:100%;background:var(--pos)"></div></div><b style="font-size:13px;width:44px;text-align:right">6.2%</b><span class="tag" style="background:var(--green-soft);color:var(--pos)">IN RANGE</span></div>
+          <div style="display:flex;align-items:center;gap:12px"><span class="star">★★★<span style="color:#d1d5db">★</span></span><div style="flex:1;height:14px;background:#eef1ef;border-radius:7px;overflow:hidden"><div style="width:88%;height:100%;background:#e6a417"></div></div><b style="font-size:13px;width:44px;text-align:right">14.1%</b><span class="tag" style="background:var(--amber-soft);color:var(--amber)">OVER</span></div>
+          <div style="font-size:11.5px;color:var(--muted)">18 companies not yet rated — <a href="#" style="color:var(--green)">rate them</a> to include.</div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="padding:14px 16px">
+      <div class="toolbar" style="margin-top:0">
+        <div class="seg"><span class="on">Portfolio</span><span>Allocation</span></div>
+        <input class="search" value="Search companies…" readonly>
+        <span class="drop">All Stars ▾</span><span class="drop">All ▾</span>
+        <span class="count">25 companies</span>
+      </div>
+      <table>
+        <thead><tr><th class="l">Company</th><th class="newcol-h">Star</th><th class="newcol-h">Type</th><th>Qty</th><th>Avg Buy</th><th>CMP</th><th>Cur. Value</th><th>P&amp;L %</th><th class="newcol-h">Target Buy</th><th class="newcol-h">MoS%</th><th class="newcol-h">Base</th><th class="newcol-h">Bare</th></tr></thead>
+        <tbody>
+          <tr><td class="l"><div class="co"><div class="av">IB</div><div><div class="nm">Interarch</div><div class="tk">INTERARCH</div></div></div></td><td class="newcol star">★★★★</td><td class="newcol"><span class="tag">Core</span></td><td>775</td><td>1,786</td><td>1,880</td><td>14,57,620</td><td class="pos">+5.3%</td><td class="newcol">1,650</td><td class="newcol pos">+8%</td><td class="newcol">2,100</td><td class="newcol">1,400</td></tr>
+          <tr><td class="l"><div class="co"><div class="av">GI</div><div><div class="nm">Gravita</div><div class="tk">GRAVITA</div></div></div></td><td class="newcol" style="color:#c9ccce">–</td><td class="newcol" style="color:#c9ccce">–</td><td>100</td><td>1,500</td><td>1,740</td><td>1,74,000</td><td class="pos">+16.0%</td><td class="newcol" style="color:#c9ccce">–</td><td class="newcol" style="color:#c9ccce">–</td><td class="newcol" style="color:#c9ccce">–</td><td class="newcol" style="color:#c9ccce">–</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+function show(id,btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.toggle button').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+}
+</script>
+</body>
+</html>

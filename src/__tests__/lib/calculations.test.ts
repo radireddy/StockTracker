@@ -669,13 +669,19 @@ describe("roundPrice", () => {
 
 // --- Allocation helpers ---
 describe("getEffectiveRanges", () => {
-  it("returns user ranges when provided", () => {
+  it("returns user ranges when provided, merged with fixed 0-star", () => {
     const custom = { "1": { min: 1, max: 3 } };
-    expect(getEffectiveRanges(custom)).toEqual(custom);
+    expect(getEffectiveRanges(custom)).toEqual({ ...custom, "0": { min: 0, max: 0 } });
   });
 
   it("returns default ranges when null", () => {
     expect(getEffectiveRanges(null)).toEqual(DEFAULT_ALLOCATION_RANGES);
+  });
+
+  it("always injects a fixed 0-star range, even over custom ranges", () => {
+    const custom = { "1": { min: 0, max: 5 }, "4": { min: 5, max: 10 } };
+    expect(getEffectiveRanges(custom)["0"]).toEqual({ min: 0, max: 0 });
+    expect(getEffectiveRanges(null)["0"]).toEqual({ min: 0, max: 0 });
   });
 });
 
@@ -684,8 +690,8 @@ describe("getRangeForStar", () => {
     expect(getRangeForStar(3, DEFAULT_ALLOCATION_RANGES)).toEqual({ min: 4, max: 6 });
   });
 
-  it("defaults to star 1 when null", () => {
-    expect(getRangeForStar(null, DEFAULT_ALLOCATION_RANGES)).toEqual({ min: 0, max: 2 });
+  it("defaults to the fixed 0-star range when null", () => {
+    expect(getRangeForStar(null, DEFAULT_ALLOCATION_RANGES)).toEqual({ min: 0, max: 0 });
   });
 
   it("returns default range for unknown star", () => {

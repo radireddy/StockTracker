@@ -55,7 +55,7 @@ function createHoldingsWorkbook(options: {
 }): ArrayBuffer {
   const {
     holdings = [],
-    clientId = "YY7859",
+    clientId = "AB1234",
     statementLine = "Equity Holdings Statement as on 2025-03-31",
     sheetName = "Equity",
     includeHeader = true,
@@ -112,8 +112,8 @@ describe("zerodhaHoldingsAdapter.parse — metadata", () => {
     });
     const { metadata } = zerodhaHoldingsAdapter.parse(buf);
     expect(metadata.broker).toBe("zerodha");
-    expect(metadata.client_id).toBe("YY7859");
-    expect(metadata.account_label).toBe("YY7859 (Zerodha)");
+    expect(metadata.client_id).toBe("AB1234");
+    expect(metadata.account_label).toBe("AB1234 (Zerodha)");
     expect(metadata.statement_date).toBe("2025-03-31");
   });
 

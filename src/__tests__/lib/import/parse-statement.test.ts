@@ -22,7 +22,7 @@ function holdingRow(symbol: string, isin: string, qty = 10, avg = 100): unknown[
   return [symbol, isin, "IT", qty, 0, 0, 0, 0, avg, 0, 0, 0];
 }
 
-function workbook(holdings: unknown[][], sheetName = "Equity", clientId: string | null = "YY7859"): ArrayBuffer {
+function workbook(holdings: unknown[][], sheetName = "Equity", clientId: string | null = "AB1234"): ArrayBuffer {
   const rows: unknown[][] = [];
   if (clientId !== null) rows.push(["Client ID", clientId]);
   rows.push(["Equity Holdings Statement as on 2025-03-31"]);
@@ -43,7 +43,7 @@ describe("parseStatementBuffer", () => {
     if (res.ok) {
       expect(res.adapter.broker).toBe("zerodha");
       expect(res.parseResult.holdings).toHaveLength(1);
-      expect(res.parseResult.metadata.client_id).toBe("YY7859");
+      expect(res.parseResult.metadata.client_id).toBe("AB1234");
     }
   });
 

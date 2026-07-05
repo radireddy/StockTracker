@@ -46,7 +46,7 @@ describe("detectBroker", () => {
   it("detects Zerodha from a valid holdings-statement buffer", () => {
     const wb = XLSX.utils.book_new();
     const rows = [
-      ["Client ID", "YY7859"],
+      ["Client ID", "AB1234"],
       ["Equity Holdings Statement as on 2025-03-31"],
       [],
       ["Symbol", "ISIN", "Sector", "Quantity Available", "Average Price"],

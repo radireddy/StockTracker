@@ -26,8 +26,8 @@ describe("import types", () => {
   it("HoldingsParseResult composes holdings, metadata and errors", () => {
     const meta: BrokerMetadata = {
       broker: "zerodha",
-      client_id: "YY7859",
-      account_label: "YY7859 (Zerodha)",
+      client_id: "AB1234",
+      account_label: "AB1234 (Zerodha)",
       statement_date: "2025-03-31",
     };
     const err: ParseError = { row: 5, symbol: "XYZ", message: "bad row", severity: "warning" };
@@ -36,7 +36,7 @@ describe("import types", () => {
       metadata: meta,
       errors: [err],
     };
-    expect(result.metadata.client_id).toBe("YY7859");
+    expect(result.metadata.client_id).toBe("AB1234");
     expect(result.errors[0].severity).toBe("warning");
   });
 
@@ -45,7 +45,7 @@ describe("import types", () => {
       status: "completed",
       is_reimport: false,
       account_id: "acc-1",
-      account_label: "YY7859 (Zerodha)",
+      account_label: "AB1234 (Zerodha)",
       imported_count: 5,
       skipped_count: 2,
       companies_count: 5,
@@ -53,7 +53,7 @@ describe("import types", () => {
       symbols_imported: ["RELIANCE"],
       symbols_skipped: ["INFY"],
       statement_date: "2025-03-31",
-      client_id: "YY7859",
+      client_id: "AB1234",
       errors: [],
     };
     expect(result.status).toBe("completed");

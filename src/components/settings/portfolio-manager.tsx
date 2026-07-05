@@ -81,6 +81,10 @@ export function PortfolioManager({
       setPortfolios((prev) =>
         prev.map((p) => ({ ...p, is_default: p.id === id }))
       );
+      // Refetch the shared layout's server data so the authenticated shell
+      // receives the new default — the dashboard then follows it without a
+      // manual page reload.
+      router.refresh();
     } catch {
       // silently fail
     } finally {
