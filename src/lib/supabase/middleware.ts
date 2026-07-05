@@ -74,6 +74,9 @@ export async function updateSession(request: NextRequest) {
     "/intrinsic-value-margin-of-safety",
     "/portfolio-allocation",
     "/watchlist-buy-signal",
+    "/quarterly-earnings-timeline",
+    "/stock-research-organizer",
+    "/stock-valuation-model",
   ];
   const isPublicPath =
     pathname === "/" ||

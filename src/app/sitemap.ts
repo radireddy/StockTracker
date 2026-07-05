@@ -7,6 +7,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/intrinsic-value-margin-of-safety",
     "/portfolio-allocation",
     "/watchlist-buy-signal",
+    "/quarterly-earnings-timeline",
+    "/stock-research-organizer",
+    "/stock-valuation-model",
   ];
   return [
     {

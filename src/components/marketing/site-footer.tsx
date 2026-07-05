@@ -9,6 +9,7 @@ const LINKS = [
     label: "Intrinsic value & margin of safety",
   },
   { href: "/portfolio-allocation", label: "Portfolio allocation" },
+  { href: "/watchlist-buy-signal", label: "Watchlist buy signal" },
 ];
 
 /** Shared marketing footer with internal SEO links to the product pages. */
