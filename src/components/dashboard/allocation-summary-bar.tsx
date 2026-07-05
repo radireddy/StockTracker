@@ -29,7 +29,7 @@ export function AllocationSummaryBar({
 
   const starGroups = useMemo(() => {
     let totalValue = 0;
-    const groupValues: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    const groupValues: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
 
     for (const c of companies) {
       const qty = c.quantity;
@@ -37,17 +37,17 @@ export function AllocationSummaryBar({
       if (!qty || !price) continue;
       const value = qty * price;
       totalValue += value;
-      const star = c.star_rating ?? 1;
-      if (star >= 1 && star <= 4) groupValues[star] += value;
+      const star = c.star_rating ?? 0;
+      if (star >= 0 && star <= 4) groupValues[star] += value;
     }
 
     if (totalValue === 0) return null;
 
-    return [4, 3, 2, 1].map((star) => {
+    return [4, 3, 2, 1, 0].map((star) => {
       const pct = (groupValues[star] / totalValue) * 100;
       const range = ranges[String(star)] ?? { min: 0, max: 2 };
       const count = companies.filter(
-        (c) => (c.star_rating ?? 1) === star && c.quantity && c.quantity > 0
+        (c) => (c.star_rating ?? 0) === star && c.quantity && c.quantity > 0
       ).length;
       const groupMin = range.min * count;
       const groupMax = range.max * count;
@@ -81,9 +81,15 @@ export function AllocationSummaryBar({
           <div
             key={star}
             className="flex items-center gap-3"
-            aria-label={`${star} star: ${pct.toFixed(1)}% of portfolio, target ${groupMin.toFixed(0)}–${groupMax.toFixed(0)}%, ${STATUS_LABEL[status]}`}
+            aria-label={`${star === 0 ? "Not rated" : `${star} star`}: ${pct.toFixed(1)}% of portfolio, target ${groupMin.toFixed(0)}–${groupMax.toFixed(0)}%, ${STATUS_LABEL[status]}`}
           >
-            <Stars rating={star} className="w-[62px] shrink-0 text-[0.76rem]" />
+            {star === 0 ? (
+              <span className="w-[62px] shrink-0 text-[0.72rem] text-muted-foreground">
+                Not rated
+              </span>
+            ) : (
+              <Stars rating={star} className="w-[62px] shrink-0 text-[0.76rem]" />
+            )}
             <div className="relative h-5 flex-1 overflow-hidden rounded-md bg-muted">
               <div
                 className="absolute inset-y-0 left-0 rounded-md"
@@ -109,7 +115,7 @@ export function AllocationSummaryBar({
       })}
       {unratedCount > 0 && (
         <p className="text-[0.72rem] text-muted-foreground">
-          {unratedCount} {unratedCount === 1 ? "company is" : "companies are"} not yet rated — they&rsquo;re assumed 1★ until you rate them.
+          {unratedCount} {unratedCount === 1 ? "company isn't" : "companies aren't"} rated yet — un-rated holdings count as over-allocated until you rate them.
         </p>
       )}
     </div>
