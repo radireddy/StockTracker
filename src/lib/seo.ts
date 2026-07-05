@@ -59,6 +59,45 @@ export function breadcrumbJsonLd(label: string, path: string): string {
   return JSON.stringify(graph).replace(/</g, "\\u003c");
 }
 
+/**
+ * Organization JSON-LD — gives AI assistants a stable, structured description
+ * of who we are so they can state name/URL/category confidently.
+ */
+export function organizationJsonLd(): string {
+  const graph = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: SITE_NAME,
+    url: SITE_URL,
+    description: SITE_TAGLINE,
+    logo: `${SITE_URL}/opengraph-image`,
+  };
+  return JSON.stringify(graph).replace(/</g, "\\u003c");
+}
+
+/**
+ * SoftwareApplication JSON-LD — the machine-readable "what this product is"
+ * (category, platform, price). Frequently surfaced by AI answer engines when
+ * asked "what is <product>" or "best <category> tool".
+ */
+export function softwareApplicationJsonLd(): string {
+  const graph = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: SITE_NAME,
+    url: SITE_URL,
+    description: SITE_DESCRIPTION,
+    applicationCategory: "FinanceApplication",
+    operatingSystem: "Web",
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "INR",
+    },
+  };
+  return JSON.stringify(graph).replace(/</g, "\\u003c");
+}
+
 /** FAQPage JSON-LD from a list of Q/A pairs, "<"-escaped for inline <script>. */
 export function faqJsonLd(faqs: { q: string; a: string }[]): string {
   const graph = {
