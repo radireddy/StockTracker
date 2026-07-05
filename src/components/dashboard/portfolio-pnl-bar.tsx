@@ -6,64 +6,88 @@ type CompanyWithStock = {
   indian_stocks: { price: number | null } | null;
 };
 
+function fmtINR(n: number): string {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
+/**
+ * Summary hero card for a holdings portfolio: the current market value up top,
+ * an all-time P&L pill, and a footer of Invested / Companies / Accounts.
+ * No "Today" and no XIRR — we don't have that data.
+ */
 export function PortfolioPnlBar({
   companies,
+  accountsCount,
 }: {
   companies: CompanyWithStock[];
+  accountsCount: number;
 }) {
   let totalInvested = 0;
   let totalCurrent = 0;
+  let held = 0;
 
   for (const c of companies) {
     const qty = c.quantity;
     const avgBuy = c.avg_buy_price;
     if (!qty || !avgBuy) continue;
-
     const currentPrice = c.indian_stocks?.price ?? null;
     if (currentPrice == null) continue;
-
     totalInvested += qty * avgBuy;
     totalCurrent += qty * currentPrice;
+    held += 1;
   }
 
   if (totalInvested === 0) return null;
 
   const pnl = totalCurrent - totalInvested;
   const pnlPct = (pnl / totalInvested) * 100;
-  const isProfit = pnl >= 0;
-
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(n);
+  const up = pnl >= 0;
 
   return (
-    <div className="flex items-center gap-6 rounded-lg border border-border/60 bg-muted/20 px-4 py-2.5 text-sm">
+    <div className="flex flex-col justify-center gap-4 rounded-2xl border bg-card p-6 shadow-soft">
       <div>
-        <span className="text-muted-foreground">Invested</span>{" "}
-        <span className="font-medium">{fmt(totalInvested)}</span>
-      </div>
-      <div>
-        <span className="text-muted-foreground">Current</span>{" "}
-        <span className="font-medium">{fmt(totalCurrent)}</span>
-      </div>
-      <div>
-        <span className="text-muted-foreground">P&L</span>{" "}
-        <span
-          aria-label={`${isProfit ? "Profit" : "Loss"}: ${isProfit ? "+" : ""}${fmt(pnl)} (${isProfit ? "+" : ""}${pnlPct.toFixed(1)}%)`}
-          className={`font-semibold ${
-            isProfit ? "text-green-600" : "text-red-600"
-          }`}
-        >
-          <span aria-hidden="true">
-            {isProfit ? "+" : ""}
-            {fmt(pnl)} ({isProfit ? "+" : ""}
-            {pnlPct.toFixed(1)}%)
+        <div className="text-[0.72rem] font-semibold uppercase tracking-[0.07em] text-muted-foreground">
+          Current value
+        </div>
+        <div className="mt-1.5 font-mono text-4xl font-bold leading-none tracking-tight tabular-nums">
+          {fmtINR(totalCurrent)}
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+          <span
+            aria-label={`All-time ${up ? "profit" : "loss"}: ${up ? "+" : "−"}${fmtINR(Math.abs(pnl))}, ${up ? "+" : ""}${pnlPct.toFixed(1)}%`}
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.82rem] font-semibold ${
+              up ? "bg-positive/[0.14] text-positive" : "bg-destructive/[0.12] text-destructive"
+            }`}
+          >
+            <span aria-hidden="true">{up ? "▲" : "▼"}</span>
+            <span aria-hidden="true">
+              {up ? "+" : "−"}
+              {fmtINR(Math.abs(pnl))} · {up ? "+" : ""}
+              {pnlPct.toFixed(1)}%
+            </span>
           </span>
-        </span>
+          <span className="text-sm text-muted-foreground">all-time P&amp;L</span>
+        </div>
       </div>
+
+      <dl className="flex flex-wrap gap-x-9 gap-y-2 border-t border-border/70 pt-3">
+        <div>
+          <dd className="font-mono text-base font-semibold tabular-nums">{fmtINR(totalInvested)}</dd>
+          <dt className="text-[0.72rem] uppercase tracking-[0.06em] text-muted-foreground">Invested</dt>
+        </div>
+        <div>
+          <dd className="font-mono text-base font-semibold tabular-nums">{held}</dd>
+          <dt className="text-[0.72rem] uppercase tracking-[0.06em] text-muted-foreground">Companies</dt>
+        </div>
+        <div>
+          <dd className="font-mono text-base font-semibold tabular-nums">{accountsCount}</dd>
+          <dt className="text-[0.72rem] uppercase tracking-[0.06em] text-muted-foreground">Accounts</dt>
+        </div>
+      </dl>
     </div>
   );
 }
