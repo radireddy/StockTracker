@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { AccountSelect, NEW_ACCOUNT } from "@/components/account/account-select";
+import { AccountSelect } from "@/components/account/account-select";
 import { StockSearch } from "@/components/company/stock-search";
 import { createCompany } from "@/app/(authenticated)/actions/company-actions";
 import { createCompanyWithHolding } from "@/app/(authenticated)/actions/holdings-actions";
@@ -36,7 +36,6 @@ export function CompanyForm() {
   // Position (holdings only)
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountId, setAccountId] = useState("");
-  const [newAccountLabel, setNewAccountLabel] = useState("");
   const [quantity, setQuantity] = useState("");
   const [avgPrice, setAvgPrice] = useState("");
 
@@ -55,7 +54,6 @@ export function CompanyForm() {
     } else {
       Promise.resolve().then(() => {
         setAccountId("");
-        setNewAccountLabel("");
         setQuantity("");
         setAvgPrice("");
       });
@@ -92,11 +90,8 @@ export function CompanyForm() {
     }
 
     // Holdings: account is mandatory; quantity & avg price can be added later.
-    const accountOk =
-      (accountId && accountId !== NEW_ACCOUNT) ||
-      (accountId === NEW_ACCOUNT && newAccountLabel.trim());
-    if (!accountOk) {
-      toast.error("Account is required.", { description: "Choose an account, or add a new one." });
+    if (!accountId) {
+      toast.error("Account is required.", { description: "Select an account, or add one in Settings." });
       return;
     }
     if (quantity && !(Number(quantity) > 0)) {
@@ -107,8 +102,7 @@ export function CompanyForm() {
       toast.error("Average price cannot be negative.", { description: "Enter a price of zero or more." });
       return;
     }
-    if (accountId === NEW_ACCOUNT) fd.set("new_account_label", newAccountLabel.trim());
-    else fd.set("account_id", accountId);
+    fd.set("account_id", accountId);
     if (quantity) fd.set("quantity", quantity);
     if (avgPrice) fd.set("avg_buy_price", avgPrice);
 
@@ -224,8 +218,6 @@ export function CompanyForm() {
                     accounts={accounts}
                     value={accountId}
                     onChange={setAccountId}
-                    newLabel={newAccountLabel}
-                    onNewLabelChange={setNewAccountLabel}
                   />
                 </div>
                 <div className="space-y-1.5">

@@ -10,10 +10,10 @@ import {
   updateHolding,
   deleteHolding,
 } from "@/app/(authenticated)/actions/holdings-actions";
-import { getAccounts, createAccount } from "@/app/(authenticated)/actions/account-actions";
+import { getAccounts } from "@/app/(authenticated)/actions/account-actions";
 import type { Holding, Account } from "@/types/database";
 import { Pencil, Trash2, Check, X, Plus, Loader2, Info } from "lucide-react";
-import { AccountSelect, NEW_ACCOUNT } from "@/components/account/account-select";
+import { AccountSelect } from "@/components/account/account-select";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
 
@@ -44,7 +44,6 @@ export function HoldingsTab({
 
   const [showAdd, setShowAdd] = useState(false);
   const [addAccountId, setAddAccountId] = useState("");
-  const [newAccountLabel, setNewAccountLabel] = useState("");
   const [addQty, setAddQty] = useState("");
   const [addPrice, setAddPrice] = useState("");
 
@@ -75,10 +74,9 @@ export function HoldingsTab({
 
   // A holding this account already has for this stock. Adding to it merges the
   // new lot in (quantity summed, avg buy price recalculated as a weighted avg).
-  const existingLot =
-    addAccountId && addAccountId !== NEW_ACCOUNT
-      ? holdings.find((h) => h.account_id === addAccountId) ?? null
-      : null;
+  const existingLot = addAccountId
+    ? holdings.find((h) => h.account_id === addAccountId) ?? null
+    : null;
 
   const handleUpdate = async (id: string) => {
     const qty = parseFloat(editQty);
@@ -118,31 +116,18 @@ export function HoldingsTab({
       return;
     }
 
-    let accountId = addAccountId;
-    if (accountId === NEW_ACCOUNT && !newAccountLabel.trim()) {
-      toast.error("Enter a name for the new account.", { description: "The account needs a label." });
-      return;
-    }
+    const accountId = addAccountId;
     if (!accountId) {
-      toast.error("Select an account.", { description: "Choose which account this holding belongs to." });
+      toast.error("Select an account.", { description: "Choose which account this holding belongs to, or add one in Settings." });
       return;
     }
 
     setBusy(true);
-    if (accountId === NEW_ACCOUNT) {
-      const created = await createAccount({ label: newAccountLabel.trim(), broker: "manual" });
-      if (!created.ok) {
-        setBusy(false);
-        return toastError(created);
-      }
-      accountId = created.data.id;
-    }
     const res = await addHolding(portfolioId, { account_id: accountId, isin, quantity: qty, avg_buy_price: price });
     setBusy(false);
     if (!res.ok) return toastError(res);
     setShowAdd(false);
     setAddAccountId("");
-    setNewAccountLabel("");
     setAddQty("");
     setAddPrice("");
     refresh();
@@ -293,8 +278,6 @@ export function HoldingsTab({
                       accounts={accounts}
                       value={addAccountId}
                       onChange={setAddAccountId}
-                      newLabel={newAccountLabel}
-                      onNewLabelChange={setNewAccountLabel}
                     />
                   </div>
                   <div className="space-y-1">
@@ -330,7 +313,6 @@ export function HoldingsTab({
                   onClick={() => {
                     setShowAdd(false);
                     setAddAccountId("");
-                    setNewAccountLabel("");
                     setAddQty("");
                     setAddPrice("");
                   }}

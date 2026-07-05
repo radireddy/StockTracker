@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { AccountSelect, NEW_ACCOUNT } from "@/components/account/account-select";
+import { AccountSelect } from "@/components/account/account-select";
 import { getAccounts } from "@/app/(authenticated)/actions/account-actions";
 import { requiresAccountForMove } from "@/lib/holdings";
 import { moveCompany } from "@/app/(authenticated)/actions/company-actions";
@@ -44,7 +44,6 @@ export function MoveStockDialog({
   const [error, setError] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountId, setAccountId] = useState<string>("");
-  const [newAccountLabel, setNewAccountLabel] = useState<string>("");
   const [quantity, setQuantity] = useState<string>("");
   const [avgPrice, setAvgPrice] = useState<string>("");
   const invalidate = useInvalidateDashboard();
@@ -74,14 +73,11 @@ export function MoveStockDialog({
     if (!targetId) return;
 
     let position:
-      | { account_id?: string; new_account_label?: string; quantity?: number; avg_buy_price?: number }
+      | { account_id?: string; quantity?: number; avg_buy_price?: number }
       | undefined;
 
     if (needsAccount) {
-      const accountOk =
-        (accountId && accountId !== NEW_ACCOUNT) ||
-        (accountId === NEW_ACCOUNT && newAccountLabel.trim());
-      if (!accountOk) {
+      if (!accountId) {
         setError("Account is required");
         return;
       }
@@ -94,9 +90,7 @@ export function MoveStockDialog({
         return;
       }
       position = {
-        ...(accountId === NEW_ACCOUNT
-          ? { new_account_label: newAccountLabel.trim() }
-          : { account_id: accountId }),
+        account_id: accountId,
         ...(quantity ? { quantity: Number(quantity) } : {}),
         ...(avgPrice ? { avg_buy_price: Number(avgPrice) } : {}),
       };
@@ -168,8 +162,6 @@ export function MoveStockDialog({
                   accounts={accounts}
                   value={accountId}
                   onChange={setAccountId}
-                  newLabel={newAccountLabel}
-                  onNewLabelChange={setNewAccountLabel}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -217,9 +209,7 @@ export function MoveStockDialog({
             disabled={
               pending ||
               !targetId ||
-              (needsAccount &&
-                (!accountId ||
-                  (accountId === NEW_ACCOUNT && !newAccountLabel.trim())))
+              (needsAccount && !accountId)
             }
           >
             {pending ? "Moving..." : "Move Stock"}
