@@ -5,7 +5,7 @@ import { ValuePoints } from "@/components/marketing/value-points";
 import { ProofShot } from "@/components/marketing/proof-shot";
 import { HowTo } from "@/components/marketing/how-to";
 import { UnifiedCompanyDemo } from "@/components/marketing/demos/unified-company-demo";
-import { ResearchOrganizerProof } from "@/components/marketing/demos/research-organizer-proof";
+import { ThesisProof } from "@/components/marketing/demos/thesis-proof";
 import type { Faq } from "@/components/marketing/faq";
 
 const PATH = "/stock-research-organizer";
@@ -101,10 +101,10 @@ export default function StockResearchOrganizerPage() {
         points={POINTS}
       />
       <ProofShot
-        alt="StockTracker company detail page: a masked company header showing CMP ₹2,841.5, target buy ₹2,272, margin of safety +25%, base IRR 18.4%, and a BUY ZONE badge with 3-star conviction. Below the header is a tab strip (Details / Thesis / Projections / Timeline / Highlights / Holdings) with the Thesis tab active, showing masked rich-text content and a Highlights panel. Company name and ticker are masked."
-        caption="A real company workspace in StockTracker — names masked for privacy. Numbers illustrative."
+        alt="StockTracker Thesis tab for a company. The tab strip shows Details, Holdings, Thesis (active), Projections & Valuations, Timeline, and Highlights. The rich-text editor contains a full investment thesis: heading with company name masked, a description of the business transformation into premium alco-bev, FY26 inflection point bullets (42% revenue growth, 31.5% EBITDA margin, capacity expansion complete, management guiding 60–70% FY27 growth), key long-term drivers, key risks, and a closing conviction summary. Company name is redacted throughout. A Save Thesis button is visible at the bottom."
+        caption="Real StockTracker thesis editor — company name masked for privacy. Thesis content is illustrative."
       >
-        <ResearchOrganizerProof />
+        <ThesisProof />
       </ProofShot>
       <HowTo
         sub="From scattered notes and spreadsheets to one workspace that does the heavy lifting."

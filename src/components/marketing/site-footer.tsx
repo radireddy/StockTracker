@@ -16,6 +16,15 @@ const LINKS = [
   },
   { href: "/stock-research-organizer", label: "Stock research organizer" },
   { href: "/stock-valuation-model", label: "Stock valuation model" },
+  {
+    href: "/family-portfolio-multiple-demat",
+    label: "Family portfolio & multiple demat",
+  },
+  {
+    href: "/stock-portfolio-excel-alternative",
+    label: "Stock portfolio — Excel alternative",
+  },
+  { href: "/living-research-report", label: "Living research report" },
 ];
 
 /** Shared marketing footer with internal SEO links to the product pages. */

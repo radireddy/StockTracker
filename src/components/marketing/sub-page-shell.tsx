@@ -27,6 +27,15 @@ const ALL = [
   },
   { href: "/stock-research-organizer", label: "Stock research organizer" },
   { href: "/stock-valuation-model", label: "Stock valuation model" },
+  {
+    href: "/family-portfolio-multiple-demat",
+    label: "Family portfolio & multiple demat accounts",
+  },
+  {
+    href: "/stock-portfolio-excel-alternative",
+    label: "Stock portfolio tracker — Excel alternative",
+  },
+  { href: "/living-research-report", label: "Living research report" },
 ];
 
 /**

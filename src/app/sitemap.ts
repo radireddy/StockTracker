@@ -10,6 +10,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/quarterly-earnings-timeline",
     "/stock-research-organizer",
     "/stock-valuation-model",
+    "/family-portfolio-multiple-demat",
+    "/stock-portfolio-excel-alternative",
+    "/living-research-report",
   ];
   return [
     {
