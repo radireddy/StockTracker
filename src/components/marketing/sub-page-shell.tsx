@@ -20,6 +20,7 @@ const ALL = [
     label: "Intrinsic value & margin of safety",
   },
   { href: "/portfolio-allocation", label: "Portfolio allocation" },
+  { href: "/watchlist-buy-signal", label: "Watchlist & buy signal" },
 ];
 
 /**

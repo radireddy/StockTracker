@@ -73,6 +73,7 @@ export async function updateSession(request: NextRequest) {
     "/zerodha-portfolio-tracker",
     "/intrinsic-value-margin-of-safety",
     "/portfolio-allocation",
+    "/watchlist-buy-signal",
   ];
   const isPublicPath =
     pathname === "/" ||

@@ -6,6 +6,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/zerodha-portfolio-tracker",
     "/intrinsic-value-margin-of-safety",
     "/portfolio-allocation",
+    "/watchlist-buy-signal",
   ];
   return [
     {
