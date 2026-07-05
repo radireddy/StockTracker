@@ -156,7 +156,7 @@ export function CompanyForm() {
   );
 
   return (
-    <div className="max-w-2xl">
+    <div className="mx-auto max-w-2xl">
       {/* Header with destination + inline switcher */}
       <div className="mb-6 rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/15 p-6">
         <div className="flex items-center gap-3">
