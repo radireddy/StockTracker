@@ -24,18 +24,30 @@ export function CreatePortfolioDialog({
   open,
   onOpenChange,
   onCreated,
+  defaultType = "holdings",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated?: (portfolioId: string) => void;
+  /** Portfolio type the form starts on when the dialog opens. */
+  defaultType?: "holdings" | "watchlist";
 }) {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [type, setType] = useState<"holdings" | "watchlist">("holdings");
+  const [type, setType] = useState<"holdings" | "watchlist">(defaultType);
   const [color, setColor] = useState(COLORS[0]);
   const [description, setDescription] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Re-seed the type each time the dialog is opened so callers can steer it
+  // (e.g. the watchlist empty-state opens straight into "watchlist"). Done as a
+  // render-phase adjustment rather than an effect to avoid a cascading render.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setType(defaultType);
+  }
 
   async function handleSubmit() {
     if (!name.trim()) return;
@@ -52,7 +64,7 @@ export function CreatePortfolioDialog({
       onOpenChange(false);
       setName("");
       setDescription("");
-      setType("holdings");
+      setType(defaultType);
       setColor(COLORS[0]);
       router.refresh();
       onCreated?.(portfolio.id);
