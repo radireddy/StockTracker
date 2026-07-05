@@ -527,7 +527,11 @@ export function CompaniesTable({
         )}
         <Select value={starFilter} onValueChange={(v) => setStarFilter(v ?? "all")}>
           <SelectTrigger className="h-8 w-28 rounded-lg text-sm">
-            <SelectValue placeholder="Stars" />
+            <SelectValue placeholder="Stars">
+              {(value) =>
+                value === "all" ? "All Stars" : `${value} Star${value === "1" ? "" : "s"}`
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Stars</SelectItem>
@@ -541,7 +545,11 @@ export function CompaniesTable({
         {!showAllocationView && isHoldings && (
           <Select value={strategyFilter} onValueChange={(v) => setStrategyFilter(v ?? "all")}>
             <SelectTrigger className="h-8 w-28 rounded-lg text-sm">
-              <SelectValue placeholder="Strategy" />
+              <SelectValue placeholder="Strategy">
+                {(value) =>
+                  value === "core" ? "Core" : value === "satellite" ? "Satellite" : "All"
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
@@ -553,7 +561,17 @@ export function CompaniesTable({
         {showAllocationView && (
           <Select value={allocationStatusFilter} onValueChange={(v) => setAllocationStatusFilter(v ?? "all")}>
             <SelectTrigger className="h-8 w-32 rounded-lg text-sm">
-              <SelectValue placeholder="Status" />
+              <SelectValue placeholder="Status">
+                {(value) =>
+                  value === "over"
+                    ? "Over-allocated"
+                    : value === "in_range"
+                      ? "In Range"
+                      : value === "under"
+                        ? "Under-allocated"
+                        : "All Status"
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
@@ -602,6 +620,7 @@ export function CompaniesTable({
               thCenter={thCenter}
               router={router}
               hasCompanies={companies.length > 0}
+              colHidden={colHidden}
             />
           ) : (
             <table className="w-full border-collapse text-sm" role="table" aria-label="Companies portfolio table">
@@ -1032,6 +1051,7 @@ function AllocationTable({
   thCenter,
   router,
   hasCompanies,
+  colHidden,
 }: {
   filtered: CompanyWithProjections[];
   getAllocationData: (c: CompanyWithProjections) => AllocData;
@@ -1046,6 +1066,7 @@ function AllocationTable({
   thCenter: string;
   router: ReturnType<typeof useRouter>;
   hasCompanies: boolean;
+  colHidden: (key: string) => string;
 }) {
   const basisLabel = allocationBasis === "invested" ? "Invested" : "Current";
   const activeTotal = allocationBasis === "invested" ? totalCost : totalValue;
@@ -1063,19 +1084,19 @@ function AllocationTable({
     .filter((g) => g.members.length > 0);
 
   return (
-    <table className="w-full border-collapse whitespace-nowrap text-sm" role="table" aria-label="Allocation analysis table">
+    <table className="w-full border-collapse text-sm" role="table" aria-label="Allocation analysis table">
       <thead>
         <tr className="border-b border-border">
           <th scope="col" className={`${thBase} text-left`} onClick={() => toggleSort("name")}>
             Company<SortIcon field="name" sortField={sortField} sortDir={sortDir} />
           </th>
-          <th scope="col" className={thCenter} onClick={() => toggleSort("star_rating")}>
+          <th scope="col" className={`${thCenter} ${colHidden("star")}`} onClick={() => toggleSort("star_rating")}>
             Star<SortIcon field="star_rating" sortField={sortField} sortDir={sortDir} />
           </th>
-          <th scope="col" className={thRight} onClick={() => toggleSort("current_price")}>
+          <th scope="col" className={`${thRight} ${colHidden("cmp")}`} onClick={() => toggleSort("current_price")}>
             CMP<SortIcon field="current_price" sortField={sortField} sortDir={sortDir} />
           </th>
-          <th scope="col" className={thRight} onClick={() => toggleSort("buy_price")}>
+          <th scope="col" className={`${thRight} ${colHidden("targetBuy")}`} onClick={() => toggleSort("buy_price")}>
             Target Buy<SortIcon field="buy_price" sortField={sortField} sortDir={sortDir} />
           </th>
           <th scope="col" className={thRight} onClick={() => toggleSort("cost_pct")}>
@@ -1084,7 +1105,7 @@ function AllocationTable({
           <th scope="col" className={thRight} onClick={() => toggleSort("value_pct")}>
             Cur %<SortIcon field="value_pct" sortField={sortField} sortDir={sortDir} />
           </th>
-          <th scope="col" className={thCenter}>Target</th>
+          <th scope="col" className={`${thCenter} ${colHidden("target")}`}>Target</th>
           <th scope="col" className={thCenter}>{basisLabel} Status</th>
           <th scope="col" className={thCenter} onClick={() => toggleSort("alloc_status")}>
             Status<SortIcon field="alloc_status" sortField={sortField} sortDir={sortDir} />
@@ -1092,7 +1113,7 @@ function AllocationTable({
           <th scope="col" className={thRight} onClick={() => toggleSort("alloc_delta")}>
             Delta<SortIcon field="alloc_delta" sortField={sortField} sortDir={sortDir} />
           </th>
-          <th scope="col" className={thRight} onClick={() => toggleSort("mos")}>
+          <th scope="col" className={`${thRight} ${colHidden("mos")}`} onClick={() => toggleSort("mos")}>
             MoS%<SortIcon field="mos" sortField={sortField} sortDir={sortDir} />
           </th>
         </tr>
@@ -1170,7 +1191,7 @@ function AllocationTable({
                         />
                         <Fav name={name} />
                         <div className="min-w-0">
-                          <div className="truncate font-semibold tracking-tight">{name}</div>
+                          <div className="break-words font-semibold tracking-tight">{name}</div>
                           {company.indian_stocks?.nse_symbol && (
                             <div className="text-[0.7rem] tracking-wide text-muted-foreground">
                               {company.indian_stocks.nse_symbol}
@@ -1179,13 +1200,13 @@ function AllocationTable({
                         </div>
                       </div>
                     </td>
-                    <td className="px-2 py-2 text-center">
+                    <td className={`px-2 py-2 text-center ${colHidden("star")}`}>
                       <Stars rating={company.star_rating} className="text-[0.78rem]" />
                     </td>
-                    <td className="px-2.5 py-2 text-right font-mono tabular-nums">
+                    <td className={`px-2.5 py-2 text-right font-mono tabular-nums ${colHidden("cmp")}`}>
                       {fmtPriceShort(currentPrice)}
                     </td>
-                    <td className={`px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground ${isDefaulted ? "italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
+                    <td className={`px-2.5 py-2 text-right font-mono tabular-nums text-muted-foreground ${colHidden("targetBuy")} ${isDefaulted ? "italic" : ""}`} title={isDefaulted ? "Base case buy price (no manual override)" : undefined}>
                       {fmtPriceShort(buyPrice)}
                     </td>
                     <td className={`px-2.5 py-2 text-right font-mono tabular-nums ${allocationBasis === "invested" ? "" : "text-muted-foreground"}`}>
@@ -1194,7 +1215,7 @@ function AllocationTable({
                     <td className={`px-2.5 py-2 text-right font-mono tabular-nums ${allocationBasis === "current" ? "" : "text-muted-foreground"}`}>
                       {alloc.valuePct.toFixed(1)}%
                     </td>
-                    <td className="px-2 py-2 text-center font-mono tabular-nums text-muted-foreground">
+                    <td className={`px-2 py-2 text-center font-mono tabular-nums text-muted-foreground ${colHidden("target")}`}>
                       {alloc.range.min}-{alloc.range.max}%
                     </td>
                     <td className="px-2 py-2">
@@ -1224,7 +1245,7 @@ function AllocationTable({
                     <td className={`px-2.5 py-2 text-right font-mono font-semibold tabular-nums ${STATUS_TEXT[activeStatus]}`}>
                       {activeDelta === 0 ? "-" : `${activeDelta > 0 ? "+" : ""}${activeDelta.toFixed(1)}%`}
                     </td>
-                    <td className={`px-2.5 py-2 text-right font-mono font-semibold tabular-nums ${mosClass(mos)}`}>
+                    <td className={`px-2.5 py-2 text-right font-mono font-semibold tabular-nums ${colHidden("mos")} ${mosClass(mos)}`}>
                       {fmtPctShort(mos)}
                     </td>
                   </tr>
