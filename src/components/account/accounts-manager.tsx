@@ -86,7 +86,7 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
   };
 
   return (
-    <Card>
+    <Card className="shadow-soft">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
@@ -124,7 +124,7 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
                     className="h-8"
                   />
                   <Button size="icon" variant="ghost" aria-label="Save account name" className="h-8 w-8" disabled={busy} onClick={() => handleRename(a.id)}>
-                    <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
+                    <Check className="h-4 w-4 text-positive" aria-hidden="true" />
                   </Button>
                   <Button size="icon" variant="ghost" aria-label="Cancel editing" className="h-8 w-8" onClick={() => setEditingId(null)}>
                     <X className="h-4 w-4" aria-hidden="true" />

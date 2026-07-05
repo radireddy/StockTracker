@@ -253,8 +253,8 @@ export function PortfolioManager({
                 onClick={() => handleSetDefault(p.id)}
                 className={`p-1 ${
                   p.is_default
-                    ? "text-yellow-500"
-                    : "text-muted-foreground hover:text-yellow-500"
+                    ? "text-amber"
+                    : "text-muted-foreground hover:text-amber"
                 }`}
                 title={p.is_default ? "Default portfolio" : "Set as default"}
                 disabled={p.is_default}

@@ -227,7 +227,7 @@ export function HoldingsTab({
                             <td className="px-3 py-2 text-right">
                               <div className="inline-flex gap-1">
                                 <Button size="icon" variant="ghost" aria-label="Save holding" className="h-8 w-8" disabled={busy} onClick={() => handleUpdate(h.id)}>
-                                  <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
+                                  <Check className="h-4 w-4 text-positive" aria-hidden="true" />
                                 </Button>
                                 <Button size="icon" variant="ghost" aria-label="Cancel editing" className="h-8 w-8" onClick={() => setEditingId(null)}>
                                   <X className="h-4 w-4" aria-hidden="true" />
@@ -308,7 +308,7 @@ export function HoldingsTab({
                 </div>
               </fieldset>
               {existingLot && (
-                <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-300">
+                <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
                   <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                   <span>
                     This account already holds{" "}
