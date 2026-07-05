@@ -9,9 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+import { ResearchFields, FieldLabel, MoneyInput } from "@/components/company/research-fields";
 import { AccountSelect } from "@/components/account/account-select";
 import { StockSearch } from "@/components/company/stock-search";
 import { createCompany } from "@/app/(authenticated)/actions/company-actions";
@@ -20,8 +18,46 @@ import { getAccounts } from "@/app/(authenticated)/actions/account-actions";
 import { usePortfolioContext } from "@/hooks/use-portfolio-context";
 import { roundPrice } from "@/lib/utils/calculations";
 import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
+import { cn } from "@/lib/utils";
 import type { IndianStock, Account } from "@/types/database";
-import { Building2, TrendingUp, Star, Wallet } from "lucide-react";
+import {
+  Building2,
+  Check,
+  ChevronDown,
+  Search,
+  Sparkles,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
+
+/** Section header: tinted icon badge + title + optional hint. One definition,
+ *  reused for every card so the flow reads as consistent steps. */
+function SectionHeader({
+  icon: Icon,
+  title,
+  hint,
+  required,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  hint?: string;
+  required?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <Icon className="h-4.5 w-4.5" />
+      </div>
+      <div className="min-w-0">
+        <h2 className="text-sm font-semibold text-foreground">
+          {title}
+          {required && <span className="ml-1 text-destructive">*</span>}
+        </h2>
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      </div>
+    </div>
+  );
+}
 
 export function CompanyForm() {
   const router = useRouter();
@@ -38,6 +74,10 @@ export function CompanyForm() {
   const [accountId, setAccountId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [avgPrice, setAvgPrice] = useState("");
+
+  // Research (shared with the Details editor's controls)
+  const [starRating, setStarRating] = useState(2);
+  const [strategy, setStrategy] = useState("core");
 
   const loadAccounts = useCallback(function loadAccounts() {
     getAccounts()
@@ -113,63 +153,51 @@ export function CompanyForm() {
   };
 
   const researchFields = (
-    <div className="grid grid-cols-2 gap-4">
-      <div className="space-y-1.5">
-        <Label htmlFor="buy_price" className="text-sm">Target Buy Price (₹)</Label>
-        <Input id="buy_price" name="buy_price" type="number" step="0.01" placeholder="Target buy price" className="bg-background" />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="star_rating" className="text-sm">Star Rating</Label>
-        <Select name="star_rating" defaultValue="2">
-          <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
-          <SelectContent>
-            {[1, 2, 3, 4].map((s) => (
-              <SelectItem key={s} value={String(s)}>
-                {"★".repeat(s)}{"☆".repeat(4 - s)} ({s})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="strategy" className="text-sm">Strategy</Label>
-        <Select name="strategy" defaultValue="core">
-          <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="core">Core</SelectItem>
-            <SelectItem value="satellite">Satellite</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="investment_horizon_years" className="text-sm">Horizon (years)</Label>
-        <Input id="investment_horizon_years" name="investment_horizon_years" type="number" min="0" step="1" placeholder="e.g. 3" className="bg-background" />
-        <p className="text-xs text-muted-foreground">Sets default estimate years in Financial Model</p>
-      </div>
-    </div>
+    <ResearchFields
+      starRating={starRating}
+      onStarRatingChange={setStarRating}
+      strategy={strategy}
+      onStrategyChange={setStrategy}
+      horizon={{ editable: true }}
+    />
   );
+
+  const portfolioColor = selectedPortfolio?.color ?? null;
 
   return (
     <div className="mx-auto max-w-2xl">
-      {/* Header with destination + inline switcher */}
-      <div className="mb-6 rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/15 p-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/15 text-primary">
-            <Building2 className="h-5 w-5" />
+      {/* Hero — destination + inline switcher */}
+      <div className="mb-6 overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/12 via-primary/5 to-transparent p-6">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary shadow-soft">
+            <Building2 className="h-6 w-6" />
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-semibold text-foreground">Add New Company</h1>
-            <div className="mt-1 flex items-center gap-2 text-sm">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">Add a Company</h1>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
               <span className="text-muted-foreground">Adding to</span>
-              <select
-                value={selectedId}
-                onChange={(e) => select(e.target.value)}
-                className="h-7 rounded-lg border border-input bg-background px-2 text-sm font-medium outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-              >
-                {portfolios.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+              <div className="relative inline-flex items-center">
+                {portfolioColor && (
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-2.5 h-2 w-2 rounded-full"
+                    style={{ backgroundColor: portfolioColor }}
+                  />
+                )}
+                <select
+                  value={selectedId}
+                  onChange={(e) => select(e.target.value)}
+                  className={cn(
+                    "h-8 appearance-none rounded-lg border border-input bg-card pr-7 text-sm font-medium outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                    portfolioColor ? "pl-6" : "pl-2.5"
+                  )}
+                >
+                  {portfolios.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 h-3.5 w-3.5 text-muted-foreground" />
+              </div>
               <Badge variant={isHoldings ? "default" : "secondary"} className="capitalize">
                 {isHoldings ? "Holdings" : "Watchlist"}
               </Badge>
@@ -179,10 +207,10 @@ export function CompanyForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Stock Search */}
-        <Card className="border-primary/10 shadow-soft overflow-visible">
-          <CardContent className="pt-5 pb-5">
-            <Label htmlFor="stock-search" className="text-sm font-medium mb-2 block">Stock <span className="text-destructive">*</span></Label>
+        {/* Step 1 — Stock */}
+        <Card className="shadow-soft overflow-visible">
+          <CardContent className="space-y-4 px-5 py-5">
+            <SectionHeader icon={Search} title="Select stock" hint="Search the NSE by name or symbol" required />
             <StockSearch
               inputId="stock-search"
               onSelect={setSelectedStock}
@@ -190,8 +218,8 @@ export function CompanyForm() {
               onClear={() => setSelectedStock(null)}
             />
             {selectedStock && (
-              <div className="mt-3 flex items-center gap-2 rounded-lg bg-primary/5 border border-primary/10 px-3 py-2 text-sm">
-                <TrendingUp className="h-4 w-4 text-primary" />
+              <div className="flex items-center gap-2 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2 text-sm">
+                <TrendingUp className="h-4 w-4 shrink-0 text-primary" />
                 <span className="font-medium">{selectedStock.name}</span>
                 {selectedStock.nse_symbol && (
                   <span className="text-muted-foreground">({selectedStock.nse_symbol})</span>
@@ -201,69 +229,61 @@ export function CompanyForm() {
           </CardContent>
         </Card>
 
-        {/* Holdings: Position card (required) */}
+        {/* Step 2 — Position (holdings only) */}
         {isHoldings && (
           <Card className="shadow-soft">
-            <CardContent className="pt-5 pb-5 space-y-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Wallet className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">Position</span>
-                <span className="text-xs text-muted-foreground">(account required; qty &amp; price can be added later)</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="position-account" className="text-sm">Account <span className="text-destructive">*</span></Label>
-                  <AccountSelect
-                    id="position-account"
-                    accounts={accounts}
-                    value={accountId}
-                    onChange={setAccountId}
-                  />
+            <CardContent className="space-y-4 px-5 py-5">
+              <SectionHeader
+                icon={Wallet}
+                title="Position"
+                hint="Account is required; quantity & price can be added later"
+                required
+              />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="position-account" className="p-0"><FieldLabel>Account</FieldLabel></Label>
+                  <AccountSelect id="position-account" accounts={accounts} value={accountId} onChange={setAccountId} />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="position-quantity" className="text-sm">Quantity</Label>
-                  <Input id="position-quantity" value={quantity} onChange={(e) => setQuantity(e.target.value)} inputMode="decimal" placeholder="e.g. 100" className="bg-background" />
+                <div className="space-y-2">
+                  <Label htmlFor="position-quantity" className="p-0"><FieldLabel>Quantity</FieldLabel></Label>
+                  <Input id="position-quantity" value={quantity} onChange={(e) => setQuantity(e.target.value)} inputMode="decimal" placeholder="e.g. 100" className="h-10 text-base tabular-nums" />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="position-avg-price" className="text-sm">Avg Buy Price (₹)</Label>
-                  <Input id="position-avg-price" value={avgPrice} onChange={(e) => setAvgPrice(e.target.value)} inputMode="decimal" placeholder="e.g. 245.50" className="bg-background" />
+                <div className="space-y-2">
+                  <Label htmlFor="position-avg-price" className="p-0"><FieldLabel>Avg Buy Price</FieldLabel></Label>
+                  <MoneyInput id="position-avg-price" value={avgPrice} onChange={(e) => setAvgPrice(e.target.value)} inputMode="decimal" placeholder="245.50" />
                 </div>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Research fields: always shown for watchlist; collapsed for holdings */}
-        {isHoldings ? (
-          <Card className="shadow-soft">
-            <CardContent className="pt-4 pb-4">
-              <details>
-                <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium">
-                  <Star className="h-4 w-4 text-primary" />
-                  Add research details (optional)
+        {/* Step 3 — Research (collapsible for holdings, always shown for watchlist) */}
+        <Card className="shadow-soft">
+          <CardContent className="px-5 py-5">
+            {isHoldings ? (
+              <details className="group">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                  <SectionHeader icon={Sparkles} title="Research details" hint="Optional — your thesis and conviction" />
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
                 </summary>
-                <div className="pt-4">{researchFields}</div>
+                <div className="mt-5 border-t border-border/60 pt-5">{researchFields}</div>
               </details>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="shadow-soft">
-            <CardContent className="pt-5 pb-5 space-y-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Star className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">Company Details</span>
+            ) : (
+              <div className="space-y-5">
+                <SectionHeader icon={Sparkles} title="Research details" hint="Your thesis and conviction" />
+                {researchFields}
               </div>
-              {researchFields}
-            </CardContent>
-          </Card>
-        )}
+            )}
+          </CardContent>
+        </Card>
 
         {/* Actions */}
-        <div className="flex gap-3 pt-2">
-          <Button type="submit" disabled={pending || !selectedStock} className="px-6">
-            {pending ? "Creating..." : isHoldings ? "Add to Holdings" : "Add to Watchlist"}
+        <div className="flex items-center gap-3 pt-1">
+          <Button type="submit" size="lg" disabled={pending || !selectedStock} className="gap-1.5 px-6">
+            <Check className="h-4 w-4" />
+            {pending ? "Creating…" : isHoldings ? "Add to Holdings" : "Add to Watchlist"}
           </Button>
-          <Button type="button" variant="outline" onClick={() => router.back()}>
+          <Button type="button" variant="ghost" size="lg" onClick={() => router.back()}>
             Cancel
           </Button>
         </div>

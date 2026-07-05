@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { createPortfolio } from "@/app/(authenticated)/actions/portfolio-actions";
+import { Check } from "lucide-react";
 
 const COLORS = [
   "#22c55e", "#3b82f6", "#eab308", "#f97316",
@@ -24,18 +25,30 @@ export function CreatePortfolioDialog({
   open,
   onOpenChange,
   onCreated,
+  defaultType = "holdings",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated?: (portfolioId: string) => void;
+  /** Portfolio type the form starts on when the dialog opens. */
+  defaultType?: "holdings" | "watchlist";
 }) {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [type, setType] = useState<"holdings" | "watchlist">("holdings");
+  const [type, setType] = useState<"holdings" | "watchlist">(defaultType);
   const [color, setColor] = useState(COLORS[0]);
   const [description, setDescription] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Re-seed the type each time the dialog is opened so callers can steer it
+  // (e.g. the watchlist empty-state opens straight into "watchlist"). Done as a
+  // render-phase adjustment rather than an effect to avoid a cascading render.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setType(defaultType);
+  }
 
   async function handleSubmit() {
     if (!name.trim()) return;
@@ -52,7 +65,7 @@ export function CreatePortfolioDialog({
       onOpenChange(false);
       setName("");
       setDescription("");
-      setType("holdings");
+      setType(defaultType);
       setColor(COLORS[0]);
       router.refresh();
       onCreated?.(portfolio.id);
@@ -101,22 +114,35 @@ export function CreatePortfolioDialog({
 
           <div className="space-y-2">
             <Label>Color</Label>
-            <div className="flex gap-2">
-              {COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  aria-label={`Color ${c}`}
-                  aria-pressed={color === c}
-                  className={`h-7 w-7 rounded-full border-2 transition-all ${
-                    color === c
-                      ? "border-foreground scale-110"
-                      : "border-transparent"
-                  }`}
-                  style={{ backgroundColor: c }}
-                  onClick={() => setColor(c)}
-                />
-              ))}
+            <div className="flex flex-wrap gap-2.5">
+              {COLORS.map((c) => {
+                const selected = color === c;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-label={`Color ${c}`}
+                    aria-pressed={selected}
+                    className="group grid h-8 w-8 place-items-center rounded-full transition-transform duration-150 ease-out hover:scale-110 focus-visible:outline-none active:scale-95"
+                    style={{
+                      backgroundColor: c,
+                      boxShadow: selected
+                        ? `0 0 0 2px var(--popover), 0 0 0 4px ${c}`
+                        : "inset 0 0 0 1px rgb(0 0 0 / 0.12)",
+                    }}
+                    onClick={() => setColor(c)}
+                  >
+                    <Check
+                      strokeWidth={3}
+                      className={`h-4 w-4 text-white drop-shadow-[0_1px_1px_rgb(0_0_0/0.35)] transition-all duration-150 ${
+                        selected
+                          ? "scale-100 opacity-100"
+                          : "scale-50 opacity-0 group-hover:opacity-40 group-hover:scale-75"
+                      }`}
+                    />
+                  </button>
+                );
+              })}
             </div>
           </div>
 

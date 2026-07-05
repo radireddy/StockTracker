@@ -3,16 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ResearchFields } from "@/components/company/research-fields";
 import { Save } from "lucide-react";
 import { updateCompany } from "@/app/(authenticated)/actions/company-actions";
 import { roundPrice } from "@/lib/utils/calculations";
@@ -23,8 +16,20 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const invalidate = useInvalidateDashboard();
-  const [starRating, setStarRating] = useState(String(company.star_rating ?? 2));
-  const [strategy, setStrategy] = useState(company.strategy ?? "");
+  const [starRating, setStarRating] = useState<number>(company.star_rating ?? 2);
+  const [strategy, setStrategy] = useState<string>(company.strategy ?? "");
+
+  const currentPrice = company.indian_stocks?.price ?? null;
+  const symbol = company.indian_stocks?.nse_symbol ?? null;
+  const sector = company.indian_stocks?.sector ?? null;
+  const horizon = company.investment_horizon_years ?? 0;
+
+  const buyPriceHint =
+    company.buy_price == null && baseCaseBuyPrice != null
+      ? `Defaults to base case ₹${roundPrice(baseCaseBuyPrice).toLocaleString("en-IN")}`
+      : currentPrice != null
+        ? `Trading at ₹${roundPrice(currentPrice).toLocaleString("en-IN")} now`
+        : null;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -33,7 +38,7 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
     try {
       await updateCompany(company.id, {
         buy_price: fd.get("buy_price") ? roundPrice(Number(fd.get("buy_price"))) : null,
-        star_rating: Number(starRating) || 2,
+        star_rating: starRating || 2,
         strategy: (strategy as "core" | "satellite") || null,
       });
       invalidate();
@@ -44,105 +49,49 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
   };
 
   return (
-    <div className="max-w-2xl">
-      <div>
-        {/* Read-only stock info */}
-        <div className="rounded-md border border-input bg-muted/50 px-3 py-2 mb-4">
-          <div className="flex flex-wrap items-baseline gap-x-2">
-            <span className="font-medium">{company.indian_stocks?.name ?? "Unknown"}</span>
-            {company.indian_stocks?.nse_symbol && (
-              <span className="text-sm text-muted-foreground">
-                (NSE: {company.indian_stocks.nse_symbol})
-              </span>
-            )}
+    <form onSubmit={handleSubmit} className="max-w-2xl">
+      <Card className="shadow-soft overflow-hidden">
+        {/* Editor header — grounds the form without repeating the page title */}
+        <div className="flex items-start justify-between gap-4 border-b border-border/60 bg-muted/30 px-5 py-4">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Investment Profile</h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Your entry target, conviction and strategy.
+            </p>
           </div>
-          {company.indian_stocks?.sector && (
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {company.indian_stocks.sector}
-            </p>
-          )}
-          {company.indian_stocks?.price != null && (
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Current Price: ₹{roundPrice(company.indian_stocks.price).toLocaleString("en-IN")}
-            </p>
+          {(symbol || sector) && (
+            <div className="text-right">
+              {symbol && (
+                <span className="inline-flex items-center rounded-full border border-border bg-card px-2.5 py-0.5 text-xs font-semibold text-foreground">
+                  NSE: {symbol}
+                </span>
+              )}
+              {sector && <p className="mt-1 text-xs text-muted-foreground">{sector}</p>}
+            </div>
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="edit-buy_price">Buy Price (₹)</Label>
-              <Input
-                id="edit-buy_price"
-                name="buy_price"
-                type="number"
-                step="0.01"
-                defaultValue={company.buy_price != null ? roundPrice(company.buy_price) : ""}
-                placeholder={baseCaseBuyPrice != null ? `${roundPrice(baseCaseBuyPrice)} (base case)` : undefined}
-              />
-              {company.buy_price == null && baseCaseBuyPrice != null && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Defaults to base case: ₹{roundPrice(baseCaseBuyPrice).toLocaleString("en-IN")}
-                </p>
-              )}
-            </div>
-            <div>
-              <Label htmlFor="edit-star_rating">Star Rating <span className="text-destructive">*</span></Label>
-              <Select
-                value={starRating}
-                onValueChange={(v) => setStarRating(v ?? "2")}
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3, 4].map((s) => (
-                    <SelectItem key={s} value={String(s)}>
-                      {s} Star{s > 1 ? "s" : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="edit-strategy">Strategy</Label>
-              <Select
-                value={strategy}
-                onValueChange={(v) => setStrategy(v ?? "")}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="core">Core</SelectItem>
-                  <SelectItem value="satellite">Satellite</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="edit-horizon">Horizon (years)</Label>
-              <Input
-                id="edit-horizon"
-                type="number"
-                value={company.investment_horizon_years ?? 0}
-                readOnly
-                disabled
-                className="bg-muted cursor-not-allowed"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Auto-calculated from Financial Model estimates
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button type="submit" disabled={saving} size="sm" className="gap-1.5">
-              <Save className="h-3.5 w-3.5" />
-              {saving ? "Saving..." : "Save Changes"}
+        <CardContent className="px-5 py-6">
+          <ResearchFields
+            starRating={starRating}
+            onStarRatingChange={setStarRating}
+            strategy={strategy}
+            onStrategyChange={setStrategy}
+            buyPriceDefaultValue={company.buy_price != null ? roundPrice(company.buy_price) : ""}
+            buyPricePlaceholder={baseCaseBuyPrice != null ? String(roundPrice(baseCaseBuyPrice)) : "0.00"}
+            buyPriceHint={buyPriceHint}
+            starRequired
+            horizon={{ editable: false, years: horizon }}
+          />
+
+          <div className="mt-7 flex items-center gap-3 border-t border-border/60 pt-5">
+            <Button type="submit" disabled={saving} className="gap-1.5">
+              <Save className="h-4 w-4" />
+              {saving ? "Saving…" : "Save Changes"}
             </Button>
           </div>
-        </form>
-      </div>
-    </div>
+        </CardContent>
+      </Card>
+    </form>
   );
 }

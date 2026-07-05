@@ -33,19 +33,19 @@ export function ThemeToggle() {
   useEffect(() => setMounted(true), []);
 
   return (
-    <>
-      <DropdownMenuLabel>Theme</DropdownMenuLabel>
-      <DropdownMenuRadioGroup
-        value={mounted ? theme : undefined}
-        onValueChange={setTheme}
-      >
-        {OPTIONS.map(({ value, label, icon: Icon }) => (
-          <DropdownMenuRadioItem key={value} value={value}>
-            <Icon aria-hidden="true" />
-            {label}
-          </DropdownMenuRadioItem>
-        ))}
-      </DropdownMenuRadioGroup>
-    </>
+    <DropdownMenuRadioGroup
+      value={mounted ? theme : undefined}
+      onValueChange={setTheme}
+    >
+      <DropdownMenuLabel className="px-2 pt-1 pb-0.5 uppercase tracking-wide">
+        Theme
+      </DropdownMenuLabel>
+      {OPTIONS.map(({ value, label, icon: Icon }) => (
+        <DropdownMenuRadioItem key={value} value={value} className="gap-2.5 py-2">
+          <Icon className="text-muted-foreground" aria-hidden="true" />
+          {label}
+        </DropdownMenuRadioItem>
+      ))}
+    </DropdownMenuRadioGroup>
   );
 }
