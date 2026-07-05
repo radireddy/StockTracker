@@ -11,17 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { usePortfolioContext } from "@/hooks/use-portfolio-context";
 import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
 import { getAccounts } from "@/app/(authenticated)/actions/account-actions";
@@ -175,7 +164,13 @@ export default function ImportPage() {
             case "matched":
               return { mode: "matched" };
             case "unmatched":
-              return { mode: "create", accountLabel: `${d.client_id} (${capitalize(d.broker ?? "broker")})` };
+              // Client ID present but no confident account match. Default to linking
+              // (blank, user must choose) rather than creating, so holdings aren't
+              // silently imported into a wrong/new account. Fall back to create only
+              // when there are no accounts to link to.
+              return accts.length > 0
+                ? { mode: "link", accountId: "" }
+                : { mode: "create", accountLabel: `${d.client_id} (${capitalize(d.broker ?? "broker")})` };
             case "no-client-id":
               return { mode: "link", accountId: "" };
           }
@@ -535,7 +530,6 @@ function ReviewList({
   onBack: () => void;
   onConfirm: () => void;
 }) {
-  const anyReimport = detections.some((d) => d.matched_account);
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
@@ -663,37 +657,10 @@ function ReviewList({
         <Button variant="outline" className="flex-1" onClick={onBack}>
           Back
         </Button>
-        <AlertDialog>
-          <AlertDialogTrigger render={<Button className="flex-1" />} disabled={!commitReady}>
-            Import
-            <ArrowRight className="h-4 w-4 ml-2" />
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Import holdings?</AlertDialogTitle>
-              <AlertDialogDescription>
-                {anyReimport ? (
-                  <>
-                    Re-importing an account <strong>replaces</strong> its existing holdings,
-                    including any manual edits you&rsquo;ve made for that account.
-                    <span className="mt-2 block font-semibold text-destructive">This can&rsquo;t be undone.</span>
-                  </>
-                ) : (
-                  <>New accounts will be created or linked as selected above, and their holdings written.</>
-                )}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={onConfirm}
-                className={anyReimport ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
-              >
-                {anyReimport ? "Replace & import" : "Import"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <Button className="flex-1" disabled={!commitReady} onClick={onConfirm}>
+          Import
+          <ArrowRight className="h-4 w-4 ml-2" />
+        </Button>
       </div>
     </div>
   );

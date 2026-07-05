@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { DEFAULT_ALLOCATION_RANGES } from "@/types/database";
 
 describe("DEFAULT_ALLOCATION_RANGES", () => {
-  it("has 4 star levels", () => {
-    expect(Object.keys(DEFAULT_ALLOCATION_RANGES)).toHaveLength(4);
+  it("has 5 star levels (0–4)", () => {
+    expect(Object.keys(DEFAULT_ALLOCATION_RANGES)).toHaveLength(5);
   });
 
   it("has correct ranges for each star", () => {
@@ -22,9 +22,11 @@ describe("DEFAULT_ALLOCATION_RANGES", () => {
     }
   });
 
-  it("each range has min < max", () => {
+  it("each range has min <= max (0★ is a degenerate {0,0} range)", () => {
     for (const range of Object.values(DEFAULT_ALLOCATION_RANGES)) {
-      expect(range.min).toBeLessThan(range.max);
+      expect(range.min).toBeLessThanOrEqual(range.max);
     }
+    // 0★ is specifically a collapsed band — any positive value reads as over-allocated
+    expect(DEFAULT_ALLOCATION_RANGES["0"]).toEqual({ min: 0, max: 0 });
   });
 });

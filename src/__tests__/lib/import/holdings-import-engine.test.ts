@@ -85,8 +85,8 @@ function makeParseResult(
     holdings,
     metadata: {
       broker: "zerodha",
-      client_id: "YY7859",
-      account_label: "YY7859 (Zerodha)",
+      client_id: "AB1234",
+      account_label: "AB1234 (Zerodha)",
       statement_date: "2025-03-31",
     },
     errors,
@@ -174,7 +174,7 @@ const ARGS = {
   userId: "user-1",
   portfolioId: "portfolio-1",
   accountId: "account-1",
-  accountLabel: "YY7859 (Zerodha)",
+  accountLabel: "AB1234 (Zerodha)",
   importHoldingId: "import-1",
 };
 
@@ -256,7 +256,7 @@ describe("executeHoldingsImport", () => {
     });
     const summary = captured.importUpdate!.summary as Record<string, unknown>;
     expect(summary.statement_date).toBe("2025-03-31");
-    expect(summary.client_id).toBe("YY7859");
+    expect(summary.client_id).toBe("AB1234");
     expect(summary.symbols_imported).toEqual(["RELIANCE"]);
   });
 
@@ -286,9 +286,9 @@ describe("executeHoldingsImport", () => {
 
     expect(result.is_reimport).toBe(true);
     expect(result.account_id).toBe("account-1");
-    expect(result.account_label).toBe("YY7859 (Zerodha)");
+    expect(result.account_label).toBe("AB1234 (Zerodha)");
     expect(result.statement_date).toBe("2025-03-31");
-    expect(result.client_id).toBe("YY7859");
+    expect(result.client_id).toBe("AB1234");
   });
 
   it("surfaces parse errors (severity=error) and marks an all-error import as failed", async () => {

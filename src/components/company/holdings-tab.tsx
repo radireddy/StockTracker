@@ -5,6 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   getHoldingsForCompany,
   addHolding,
   updateHolding,
@@ -46,6 +56,8 @@ export function HoldingsTab({
   const [addAccountId, setAddAccountId] = useState("");
   const [addQty, setAddQty] = useState("");
   const [addPrice, setAddPrice] = useState("");
+
+  const [deleteTarget, setDeleteTarget] = useState<Holding | null>(null);
 
   const refresh = useCallback(function refresh() {
     setLoading(true);
@@ -96,12 +108,13 @@ export function HoldingsTab({
     toast.success("Holding updated");
   };
 
-  const handleDelete = async (h: Holding) => {
-    if (!confirm(`Remove this stock from ${h.accounts?.label ?? "this account"}?`)) return;
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
     setBusy(true);
-    const res = await deleteHolding(h.id);
+    const res = await deleteHolding(deleteTarget.id);
     setBusy(false);
     if (!res.ok) return toastError(res);
+    setDeleteTarget(null);
     refresh();
     toast.success("Holding removed");
   };
@@ -250,7 +263,7 @@ export function HoldingsTab({
                                   aria-label={`Remove holding in ${h.accounts?.label ?? "account"}`}
                                   className="h-8 w-8 text-muted-foreground hover:text-destructive"
                                   disabled={busy}
-                                  onClick={() => handleDelete(h)}
+                                  onClick={() => setDeleteTarget(h)}
                                 >
                                   <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                                 </Button>
@@ -324,6 +337,34 @@ export function HoldingsTab({
           )}
         </>
       )}
+
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this holding?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the stock from{" "}
+              <strong>{deleteTarget?.accounts?.label ?? "this account"}</strong>.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={busy}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {busy ? "Removing..." : "Remove Holding"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

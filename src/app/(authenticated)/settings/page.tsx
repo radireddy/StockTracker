@@ -1,6 +1,12 @@
 import { getAuthUser } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { PortfolioManager } from "@/components/settings/portfolio-manager";
@@ -57,6 +63,11 @@ export default async function SettingsPage() {
       <Card className="shadow-soft">
         <CardHeader>
           <CardTitle>Portfolios</CardTitle>
+          <CardDescription>
+            Star a portfolio to make it the default — it&rsquo;s the one your
+            dashboard opens on. Only one portfolio (holdings or watchlist) can
+            be the default.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <PortfolioManager portfolios={portfolios} />

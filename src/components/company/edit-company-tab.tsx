@@ -16,7 +16,9 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const invalidate = useInvalidateDashboard();
-  const [starRating, setStarRating] = useState<number>(company.star_rating ?? 2);
+  // Un-rated companies show as "Not rated" (0 = all stars muted), not a filled
+  // default — on the dashboard they land in the 0★ bucket (0% target).
+  const [starRating, setStarRating] = useState<number>(company.star_rating ?? 0);
   const [strategy, setStrategy] = useState<string>(company.strategy ?? "");
 
   const currentPrice = company.indian_stocks?.price ?? null;
@@ -38,7 +40,9 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
     try {
       await updateCompany(company.id, {
         buy_price: fd.get("buy_price") ? roundPrice(Number(fd.get("buy_price"))) : null,
-        star_rating: starRating || 2,
+        // Keep un-rated companies null so the dashboard groups them under 0★
+        // and nudges — never silently persist a rating the user didn't pick.
+        star_rating: starRating || null,
         strategy: (strategy as "core" | "satellite") || null,
       });
       invalidate();

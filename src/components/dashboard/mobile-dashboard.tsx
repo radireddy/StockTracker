@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Search, SlidersHorizontal, Upload, Plus, Eye } from "lucide-react";
+import { Search, SlidersHorizontal, Upload, Plus, Eye, BarChart3 } from "lucide-react";
 import type { AllocationRanges } from "@/types/database";
 import type { DashboardAccount, DashboardCompanyRow } from "@/hooks/use-dashboard-data";
 import {
@@ -143,6 +143,21 @@ function PortfolioSummary({ companies }: { companies: DashboardCompanyRow[] }) {
   );
 }
 
+function MobileResearchGuidance() {
+  return (
+    <div className="rounded-[18px] border bg-card p-4 shadow-soft">
+      <div className="flex items-center gap-2 text-[0.85rem] font-semibold">
+        <BarChart3 size={15} aria-hidden="true" className="text-primary" />
+        Unlock allocation &amp; valuation
+      </div>
+      <p className="mt-1 text-[0.75rem] text-muted-foreground">
+        Tap a company to add a conviction rating, target buy price, or valuation.
+        Allocation health, MoS % and fair-value targets turn on automatically.
+      </p>
+    </div>
+  );
+}
+
 export function MobileDashboard({
   companies,
   portfolioType,
@@ -150,6 +165,7 @@ export function MobileDashboard({
   accounts = [],
   accountFilter = "all",
   onAccountFilterChange,
+  hasResearchData = true,
 }: {
   companies: DashboardCompanyRow[];
   portfolioType: "holdings" | "watchlist";
@@ -157,6 +173,7 @@ export function MobileDashboard({
   accounts?: DashboardAccount[];
   accountFilter?: string;
   onAccountFilterChange?: (value: string) => void;
+  hasResearchData?: boolean;
 }) {
   const router = useRouter();
   const { portfolios, selectedId, select, selectedPortfolio } = usePortfolioContext();
@@ -241,6 +258,7 @@ export function MobileDashboard({
       )}
 
       {isHoldings && !isEmpty && <PortfolioSummary companies={companies} />}
+      {isHoldings && !isEmpty && !hasResearchData && <MobileResearchGuidance />}
 
       {!isEmpty && (
         <button
@@ -309,6 +327,7 @@ export function MobileDashboard({
               company={company}
               metrics={metrics}
               portfolioType={portfolioType}
+              hasResearchData={hasResearchData}
               onOpen={(id) => router.push(`/company/${id}`)}
             />
           ))
@@ -356,13 +375,15 @@ export function MobileDashboard({
           </SheetSection>
 
           {isHoldings ? (
-            <SheetSection title="Allocation">
-              {ALLOC_OPTS.map((o) => (
-                <Chip key={o.value} active={allocFilter === o.value} dot={o.dot} onClick={() => setAllocFilter(o.value)}>
-                  {o.label}
-                </Chip>
-              ))}
-            </SheetSection>
+            hasResearchData ? (
+              <SheetSection title="Allocation">
+                {ALLOC_OPTS.map((o) => (
+                  <Chip key={o.value} active={allocFilter === o.value} dot={o.dot} onClick={() => setAllocFilter(o.value)}>
+                    {o.label}
+                  </Chip>
+                ))}
+              </SheetSection>
+            ) : null
           ) : (
             <SheetSection title="Filter">
               <Chip active={buyOnly} onClick={() => setBuyOnly((v) => !v)}>

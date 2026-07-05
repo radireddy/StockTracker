@@ -8,6 +8,8 @@ import { MobileDashboard } from "@/components/dashboard/mobile-dashboard";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { PortfolioPnlBar } from "@/components/dashboard/portfolio-pnl-bar";
 import { AllocationSummaryBar } from "@/components/dashboard/allocation-summary-bar";
+import { ResearchGuidanceCard } from "@/components/dashboard/research-guidance-card";
+import { hasResearchData } from "@/lib/utils/research-data";
 import { PortfolioNav } from "@/components/portfolio/portfolio-nav";
 import { Button } from "@/components/ui/button";
 import { usePortfolioContext } from "@/hooks/use-portfolio-context";
@@ -30,6 +32,13 @@ export default function DashboardPage() {
     if (!data) return [];
     return consolidateHoldings(data.companies, data.allHoldings, accountFilter);
   }, [data, accountFilter]);
+
+  // Detect research data across the WHOLE portfolio (not the account-filtered
+  // subset) so toggling the account filter never changes what's shown.
+  const researchPresent = useMemo(
+    () => isHoldings && hasResearchData(data?.companies ?? []),
+    [isHoldings, data]
+  );
 
   // Reset the account filter when switching portfolios (accounts differ per
   // one). Adjust-state-during-render pattern — no effect needed.
@@ -98,7 +107,11 @@ export default function DashboardPage() {
       {isHoldings && !isLoading && companies.length > 0 && (
         <div className="hidden gap-4 lg:grid lg:grid-cols-[1fr_1.15fr]">
           <PortfolioPnlBar companies={companies} accountsCount={accounts.length} />
-          <AllocationSummaryBar companies={companies} allocationRanges={allocationRanges} />
+          {researchPresent ? (
+            <AllocationSummaryBar companies={companies} allocationRanges={allocationRanges} />
+          ) : (
+            <ResearchGuidanceCard companiesCount={companies.length} accountsCount={accounts.length} />
+          )}
         </div>
       )}
 
@@ -118,6 +131,7 @@ export default function DashboardPage() {
               accounts={accounts}
               accountFilter={accountFilter}
               onAccountFilterChange={setAccountFilter}
+              hasResearchData={researchPresent}
             />
           </div>
           {/* Mobile / small screens: card layout */}
@@ -129,6 +143,7 @@ export default function DashboardPage() {
               accounts={accounts}
               accountFilter={accountFilter}
               onAccountFilterChange={setAccountFilter}
+              hasResearchData={researchPresent}
             />
           </div>
         </>
