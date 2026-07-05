@@ -525,7 +525,7 @@ export function ProjectionsValuationTab({
                 )}
                 <span className="font-semibold text-sm text-foreground">{strategy.label}</span>
                 {ms.model.is_default && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded">
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-amber/15 text-amber px-1.5 py-0.5 rounded">
                     Default
                   </span>
                 )}
@@ -537,7 +537,7 @@ export function ProjectionsValuationTab({
                       className="p-1.5 rounded hover:bg-muted transition-colors"
                       title="Set as default"
                     >
-                      <Star className="h-3.5 w-3.5 text-muted-foreground hover:text-amber-500" />
+                      <Star className="h-3.5 w-3.5 text-muted-foreground hover:text-amber" />
                     </button>
                   )}
                   {!ms.model.is_default && (
@@ -547,7 +547,7 @@ export function ProjectionsValuationTab({
                       className="p-1.5 rounded hover:bg-muted transition-colors"
                       title="Delete model"
                     >
-                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-red-500" />
+                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
                     </button>
                   )}
                 </div>
@@ -613,7 +613,7 @@ export function ProjectionsValuationTab({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteModel}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
             </AlertDialogAction>

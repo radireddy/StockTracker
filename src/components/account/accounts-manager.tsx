@@ -21,8 +21,12 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
+  const [editBroker, setEditBroker] = useState("");
+  const [editClientId, setEditClientId] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [newLabel, setNewLabel] = useState("");
+  const [newBroker, setNewBroker] = useState("");
+  const [newClientId, setNewClientId] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async function load() {
@@ -52,15 +56,19 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
     onChanged?.();
   };
 
-  const handleRename = async (id: string) => {
+  const handleSaveEdit = async (id: string) => {
     if (!editLabel.trim()) return;
     setBusy(true);
-    const res = await updateAccount(id, { label: editLabel.trim() });
+    const res = await updateAccount(id, {
+      label: editLabel.trim(),
+      broker: editBroker.trim() || undefined,
+      client_id: editClientId.trim(),
+    });
     setBusy(false);
     if (!res.ok) return toastError(res);
     setEditingId(null);
     await refresh();
-    toast.success("Account renamed");
+    toast.success("Account updated");
   };
 
   const handleDelete = async (acct: Account) => {
@@ -76,17 +84,23 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
   const handleCreate = async () => {
     if (!newLabel.trim()) return;
     setBusy(true);
-    const res = await createAccount({ label: newLabel.trim(), broker: "manual" });
+    const res = await createAccount({
+      label: newLabel.trim(),
+      broker: newBroker.trim() || "manual",
+      client_id: newClientId.trim() || undefined,
+    });
     setBusy(false);
     if (!res.ok) return toastError(res);
     setNewLabel("");
+    setNewBroker("");
+    setNewClientId("");
     setShowCreate(false);
     await refresh();
     toast.success("Account created");
   };
 
   return (
-    <Card>
+    <Card className="shadow-soft">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
@@ -113,25 +127,46 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
           </p>
         ) : (
           accounts.map((a) => (
-            <div key={a.id} className="flex items-center gap-2 rounded-md border border-border/60 px-3 py-2">
+            <div key={a.id} className="rounded-md border border-border/60 px-3 py-2">
               {editingId === a.id ? (
-                <>
-                  <Input
-                    value={editLabel}
-                    onChange={(e) => setEditLabel(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleRename(a.id)}
-                    autoFocus
-                    className="h-8"
-                  />
-                  <Button size="icon" variant="ghost" aria-label="Save account name" className="h-8 w-8" disabled={busy} onClick={() => handleRename(a.id)}>
-                    <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
-                  </Button>
-                  <Button size="icon" variant="ghost" aria-label="Cancel editing" className="h-8 w-8" onClick={() => setEditingId(null)}>
-                    <X className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                </>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={editLabel}
+                      onChange={(e) => setEditLabel(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleSaveEdit(a.id)}
+                      placeholder="Account label"
+                      autoFocus
+                      className="h-8"
+                    />
+                    <Button size="icon" variant="ghost" aria-label="Save account" className="h-8 w-8" disabled={busy} onClick={() => handleSaveEdit(a.id)}>
+                      <Check className="h-4 w-4 text-positive" aria-hidden="true" />
+                    </Button>
+                    <Button size="icon" variant="ghost" aria-label="Cancel editing" className="h-8 w-8" onClick={() => setEditingId(null)}>
+                      <X className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={editBroker}
+                      onChange={(e) => setEditBroker(e.target.value)}
+                      placeholder="Broker (e.g. zerodha)"
+                      className="h-8"
+                    />
+                    <Input
+                      value={editClientId}
+                      onChange={(e) => setEditClientId(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleSaveEdit(a.id)}
+                      placeholder="Client ID (e.g. YY7859)"
+                      className="h-8"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Set the broker + Client ID so imports auto-detect this account.
+                  </p>
+                </div>
               ) : (
-                <>
+                <div className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{a.label}</p>
                     <p className="text-xs text-muted-foreground capitalize">
@@ -147,6 +182,8 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
                     onClick={() => {
                       setEditingId(a.id);
                       setEditLabel(a.label);
+                      setEditBroker(a.broker === "manual" ? "" : a.broker);
+                      setEditClientId(a.client_id ?? "");
                     }}
                   >
                     <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
@@ -161,14 +198,14 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
                   >
                     <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
-                </>
+                </div>
               )}
             </div>
           ))
         )}
 
         {showCreate && (
-          <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
+          <div className="space-y-2 rounded-md border bg-muted/30 px-3 py-2">
             <Input
               placeholder="Account label (e.g. Wife – Groww)"
               value={newLabel}
@@ -177,20 +214,42 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
               autoFocus
               className="h-8"
             />
-            <Button size="sm" disabled={!newLabel.trim() || busy} onClick={handleCreate}>
-              {busy && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-              Create
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setShowCreate(false);
-                setNewLabel("");
-              }}
-            >
-              Cancel
-            </Button>
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Broker (e.g. zerodha)"
+                value={newBroker}
+                onChange={(e) => setNewBroker(e.target.value)}
+                className="h-8"
+              />
+              <Input
+                placeholder="Client ID (e.g. YY7859)"
+                value={newClientId}
+                onChange={(e) => setNewClientId(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                className="h-8"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Set the broker + Client ID so imports auto-detect this account.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button size="sm" disabled={!newLabel.trim() || busy} onClick={handleCreate}>
+                {busy && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                Create
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setShowCreate(false);
+                  setNewLabel("");
+                  setNewBroker("");
+                  setNewClientId("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>

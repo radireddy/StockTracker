@@ -1,7 +1,8 @@
 import { getAuthUserOrNull } from "@/lib/supabase/server";
-import { detectBroker, getBrokerAdapter } from "@/lib/import/broker-registry";
 import { executeHoldingsImport } from "@/lib/import/holdings-import-engine";
-import { MAX_HOLDINGS_PER_IMPORT, type BrokerType } from "@/lib/import/types";
+import { parseStatementBuffer } from "@/lib/import/parse-statement";
+import { shouldBackfillClientId } from "@/lib/accounts";
+import { type BrokerType } from "@/lib/import/types";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
@@ -51,53 +52,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Holdings can only be imported into holdings-type portfolios" }, { status: 400 });
   }
 
-  // Read & sanity-check the file
+  // Read, validate & parse the file (shared with the detect route).
   const buffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(buffer.slice(0, 4));
-  const isZip = bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
-  if (!isZip) {
-    return NextResponse.json({ error: "Invalid file format. Please upload a valid .xlsx file." }, { status: 400 });
-  }
-  const MAX_IMPORT_SIZE = 5 * 1024 * 1024;
-  if (buffer.byteLength > MAX_IMPORT_SIZE) {
-    return NextResponse.json({ error: "File too large. Maximum import file size is 5MB." }, { status: 400 });
-  }
-
-  const adapter = brokerHint ? getBrokerAdapter(brokerHint) : detectBroker(buffer);
-  if (!adapter) {
-    return NextResponse.json(
-      { error: "Could not identify the broker format. Ensure the file is a valid holdings statement." },
-      { status: 400 }
-    );
-  }
-
-  let parseResult;
-  try {
-    parseResult = adapter.parse(buffer);
-  } catch (err) {
-    log.error("Parse failed", { broker: adapter.broker, error: (err as Error).message });
-    return NextResponse.json(
-      { error: `Failed to parse ${adapter.displayName} holdings statement.` },
-      { status: 400 }
-    );
-  }
-
-  if (parseResult.holdings.length === 0) {
-    const fatal = parseResult.errors.find((e) => e.severity === "error");
-    return NextResponse.json(
-      { error: fatal?.message ?? "No equity holdings found in the file." },
-      { status: 400 }
-    );
-  }
-
-  if (parseResult.holdings.length > MAX_HOLDINGS_PER_IMPORT) {
-    return NextResponse.json(
-      {
-        error: `This statement has ${parseResult.holdings.length} stocks, which exceeds the current limit of ${MAX_HOLDINGS_PER_IMPORT} per import.`,
-      },
-      { status: 400 }
-    );
-  }
+  const parsed = parseStatementBuffer(buffer, brokerHint);
+  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
+  const { adapter, parseResult } = parsed;
 
   // ---- Resolve the target account -------------------------------------------
   const broker = adapter.broker;
@@ -110,12 +69,29 @@ export async function POST(request: Request) {
   if (explicitAccountId) {
     const { data: acct, error } = await supabase
       .from("accounts")
-      .select("id, label")
+      .select("id, label, client_id")
       .eq("id", explicitAccountId)
       .single();
     if (error || !acct) return NextResponse.json({ error: "Selected account not found" }, { status: 404 });
     accountId = acct.id;
     accountLabel = acct.label;
+
+    // Linking a statement to an account that has no Client ID yet: backfill it
+    // (and the broker) so future imports auto-detect this account. Never
+    // overwrite an existing, different Client ID.
+    if (shouldBackfillClientId(acct, clientId)) {
+      const { error: upErr } = await supabase
+        .from("accounts")
+        .update({ broker, client_id: clientId })
+        .eq("id", accountId);
+      if (upErr?.code === "23505") {
+        return NextResponse.json(
+          { error: "Another account already uses that Client ID for this broker. Rename or merge before linking." },
+          { status: 409 }
+        );
+      }
+      if (upErr) return NextResponse.json({ error: `Failed to link account: ${upErr.message}` }, { status: 500 });
+    }
   } else if (clientId) {
     const { data: acct } = await supabase
       .from("accounts")

@@ -55,7 +55,7 @@ export function AllocationRangesEditor({
           const range = ranges[String(star)] ?? { min: 0, max: 0 };
           return (
             <div key={star} className="flex items-center gap-3">
-              <span className="w-16 text-sm font-medium text-yellow-500" aria-label={`${star} star`}>
+              <span className="w-16 text-sm font-medium text-amber" aria-label={`${star} star`}>
                 <span aria-hidden="true">{"★".repeat(star)}</span>
               </span>
               <Input
@@ -93,7 +93,7 @@ export function AllocationRangesEditor({
           Reset to Defaults
         </Button>
         {saved && (
-          <span className="text-sm text-green-600">Saved!</span>
+          <span className="text-sm text-positive">Saved!</span>
         )}
       </div>
     </div>

@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { AccountSelect, NEW_ACCOUNT } from "@/components/account/account-select";
+import { AccountSelect } from "@/components/account/account-select";
 import { StockSearch } from "@/components/company/stock-search";
 import { createCompany } from "@/app/(authenticated)/actions/company-actions";
 import { createCompanyWithHolding } from "@/app/(authenticated)/actions/holdings-actions";
@@ -36,7 +36,6 @@ export function CompanyForm() {
   // Position (holdings only)
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountId, setAccountId] = useState("");
-  const [newAccountLabel, setNewAccountLabel] = useState("");
   const [quantity, setQuantity] = useState("");
   const [avgPrice, setAvgPrice] = useState("");
 
@@ -55,7 +54,6 @@ export function CompanyForm() {
     } else {
       Promise.resolve().then(() => {
         setAccountId("");
-        setNewAccountLabel("");
         setQuantity("");
         setAvgPrice("");
       });
@@ -92,11 +90,8 @@ export function CompanyForm() {
     }
 
     // Holdings: account is mandatory; quantity & avg price can be added later.
-    const accountOk =
-      (accountId && accountId !== NEW_ACCOUNT) ||
-      (accountId === NEW_ACCOUNT && newAccountLabel.trim());
-    if (!accountOk) {
-      toast.error("Account is required.", { description: "Choose an account, or add a new one." });
+    if (!accountId) {
+      toast.error("Account is required.", { description: "Select an account, or add one in Settings." });
       return;
     }
     if (quantity && !(Number(quantity) > 0)) {
@@ -107,8 +102,7 @@ export function CompanyForm() {
       toast.error("Average price cannot be negative.", { description: "Enter a price of zero or more." });
       return;
     }
-    if (accountId === NEW_ACCOUNT) fd.set("new_account_label", newAccountLabel.trim());
-    else fd.set("account_id", accountId);
+    fd.set("account_id", accountId);
     if (quantity) fd.set("quantity", quantity);
     if (avgPrice) fd.set("avg_buy_price", avgPrice);
 
@@ -156,7 +150,7 @@ export function CompanyForm() {
   );
 
   return (
-    <div className="max-w-2xl">
+    <div className="mx-auto max-w-2xl">
       {/* Header with destination + inline switcher */}
       <div className="mb-6 rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/15 p-6">
         <div className="flex items-center gap-3">
@@ -170,7 +164,7 @@ export function CompanyForm() {
               <select
                 value={selectedId}
                 onChange={(e) => select(e.target.value)}
-                className="h-7 rounded-md border border-input bg-background px-2 text-sm font-medium"
+                className="h-7 rounded-lg border border-input bg-background px-2 text-sm font-medium outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               >
                 {portfolios.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
@@ -186,7 +180,7 @@ export function CompanyForm() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Stock Search */}
-        <Card className="border-primary/10 shadow-sm overflow-visible">
+        <Card className="border-primary/10 shadow-soft overflow-visible">
           <CardContent className="pt-5 pb-5">
             <Label htmlFor="stock-search" className="text-sm font-medium mb-2 block">Stock <span className="text-destructive">*</span></Label>
             <StockSearch
@@ -209,7 +203,7 @@ export function CompanyForm() {
 
         {/* Holdings: Position card (required) */}
         {isHoldings && (
-          <Card className="shadow-sm">
+          <Card className="shadow-soft">
             <CardContent className="pt-5 pb-5 space-y-4">
               <div className="flex items-center gap-2 mb-1">
                 <Wallet className="h-4 w-4 text-primary" />
@@ -224,8 +218,6 @@ export function CompanyForm() {
                     accounts={accounts}
                     value={accountId}
                     onChange={setAccountId}
-                    newLabel={newAccountLabel}
-                    onNewLabelChange={setNewAccountLabel}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -243,7 +235,7 @@ export function CompanyForm() {
 
         {/* Research fields: always shown for watchlist; collapsed for holdings */}
         {isHoldings ? (
-          <Card className="shadow-sm">
+          <Card className="shadow-soft">
             <CardContent className="pt-4 pb-4">
               <details>
                 <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium">
@@ -255,7 +247,7 @@ export function CompanyForm() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="shadow-sm">
+          <Card className="shadow-soft">
             <CardContent className="pt-5 pb-5 space-y-4">
               <div className="flex items-center gap-2 mb-1">
                 <Star className="h-4 w-4 text-primary" />
