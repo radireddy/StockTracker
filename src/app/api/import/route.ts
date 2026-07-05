@@ -1,6 +1,7 @@
 import { getAuthUserOrNull } from "@/lib/supabase/server";
 import { executeHoldingsImport } from "@/lib/import/holdings-import-engine";
 import { parseStatementBuffer } from "@/lib/import/parse-statement";
+import { shouldBackfillClientId } from "@/lib/accounts";
 import { type BrokerType } from "@/lib/import/types";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
@@ -68,12 +69,29 @@ export async function POST(request: Request) {
   if (explicitAccountId) {
     const { data: acct, error } = await supabase
       .from("accounts")
-      .select("id, label")
+      .select("id, label, client_id")
       .eq("id", explicitAccountId)
       .single();
     if (error || !acct) return NextResponse.json({ error: "Selected account not found" }, { status: 404 });
     accountId = acct.id;
     accountLabel = acct.label;
+
+    // Linking a statement to an account that has no Client ID yet: backfill it
+    // (and the broker) so future imports auto-detect this account. Never
+    // overwrite an existing, different Client ID.
+    if (shouldBackfillClientId(acct, clientId)) {
+      const { error: upErr } = await supabase
+        .from("accounts")
+        .update({ broker, client_id: clientId })
+        .eq("id", accountId);
+      if (upErr?.code === "23505") {
+        return NextResponse.json(
+          { error: "Another account already uses that Client ID for this broker. Rename or merge before linking." },
+          { status: 409 }
+        );
+      }
+      if (upErr) return NextResponse.json({ error: `Failed to link account: ${upErr.message}` }, { status: 500 });
+    }
   } else if (clientId) {
     const { data: acct } = await supabase
       .from("accounts")
