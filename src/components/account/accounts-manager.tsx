@@ -9,6 +9,16 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { getAccounts, createAccount, updateAccount, deleteAccount } from "@/app/(authenticated)/actions/account-actions";
 import type { Account } from "@/types/database";
 import { Users, Plus, Loader2, Pencil, Trash2, Check, X } from "lucide-react";
@@ -28,6 +38,7 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
   const [newBroker, setNewBroker] = useState("");
   const [newClientId, setNewClientId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Account | null>(null);
 
   const load = useCallback(async function load() {
     setLoading(true);
@@ -71,12 +82,13 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
     toast.success("Account updated");
   };
 
-  const handleDelete = async (acct: Account) => {
-    if (!confirm(`Delete account "${acct.label}"? This removes its holdings from all portfolios.`)) return;
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
     setBusy(true);
-    const res = await deleteAccount(acct.id);
+    const res = await deleteAccount(deleteTarget.id);
     setBusy(false);
     if (!res.ok) return toastError(res);
+    setDeleteTarget(null);
     await refresh();
     toast.success("Account deleted");
   };
@@ -200,7 +212,7 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
                     aria-label={`Delete ${a.label}`}
                     className="h-8 w-8 text-muted-foreground hover:text-destructive"
                     disabled={busy}
-                    onClick={() => handleDelete(a)}
+                    onClick={() => setDeleteTarget(a)}
                   >
                     <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
@@ -259,6 +271,35 @@ export function AccountsManager({ onChanged }: { onChanged?: () => void }) {
           </div>
         )}
       </CardContent>
+
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete &ldquo;{deleteTarget?.label}&rdquo;?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes its holdings from all portfolios. This action cannot
+              be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={busy}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {busy ? "Deleting..." : "Delete Account"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
