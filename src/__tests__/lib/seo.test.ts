@@ -1,9 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   SITE_URL,
+  SITE_NAME,
   canonical,
   breadcrumbJsonLd,
   faqJsonLd,
+  organizationJsonLd,
+  softwareApplicationJsonLd,
 } from "@/lib/seo";
 
 describe("canonical", () => {
@@ -60,5 +63,28 @@ describe("faqJsonLd", () => {
     expect(json).not.toContain("<");
     const emptyJson = faqJsonLd([]);
     expect(JSON.parse(emptyJson).mainEntity).toEqual([]);
+  });
+});
+
+describe("organizationJsonLd", () => {
+  it("builds an Organization graph with name and site URL", () => {
+    const parsed = JSON.parse(organizationJsonLd());
+    expect(parsed["@type"]).toBe("Organization");
+    expect(parsed).toMatchObject({ name: SITE_NAME, url: SITE_URL });
+    expect(parsed.logo).toBe(`${SITE_URL}/opengraph-image`);
+  });
+});
+
+describe("softwareApplicationJsonLd", () => {
+  it("builds a free FinanceApplication graph", () => {
+    const parsed = JSON.parse(softwareApplicationJsonLd());
+    expect(parsed["@type"]).toBe("SoftwareApplication");
+    expect(parsed).toMatchObject({
+      name: SITE_NAME,
+      url: SITE_URL,
+      applicationCategory: "FinanceApplication",
+      operatingSystem: "Web",
+    });
+    expect(parsed.offers).toMatchObject({ price: "0", priceCurrency: "INR" });
   });
 });
