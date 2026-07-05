@@ -4,6 +4,7 @@ export type AllocationRange = { min: number; max: number };
 export type AllocationRanges = Record<string, AllocationRange>;
 
 export const DEFAULT_ALLOCATION_RANGES: AllocationRanges = {
+  "0": { min: 0, max: 0 },
   "1": { min: 0, max: 2 },
   "2": { min: 2, max: 4 },
   "3": { min: 4, max: 6 },

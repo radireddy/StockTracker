@@ -250,14 +250,14 @@ export function roundPrice(val: number): number {
 
 export type AllocationStatus = "under" | "in_range" | "over";
 
-/** Get the effective allocation ranges (user overrides or defaults) */
+/** Get the effective allocation ranges (user overrides or defaults). 0★ is always fixed at 0%. */
 export function getEffectiveRanges(userRanges: AllocationRanges | null): AllocationRanges {
-  return userRanges ?? DEFAULT_ALLOCATION_RANGES;
+  return { ...(userRanges ?? DEFAULT_ALLOCATION_RANGES), "0": { min: 0, max: 0 } };
 }
 
-/** Get allocation range for a star rating */
+/** Get allocation range for a star rating. null (un-rated) resolves to the fixed 0★ range. */
 export function getRangeForStar(star: number | null, ranges: AllocationRanges): AllocationRange {
-  const key = String(star ?? 1);
+  const key = String(star ?? 0);
   return ranges[key] ?? { min: 0, max: 2 };
 }
 
