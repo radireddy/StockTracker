@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { usePortfolioContext } from "@/hooks/use-portfolio-context";
 import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
-import { AccountsManager } from "@/components/account/accounts-manager";
 import { toast } from "sonner";
 import {
   Upload,
@@ -347,9 +346,6 @@ export default function ImportPage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Accounts management (self-fetches lazily after the form is shown) */}
-      <AccountsManager onChanged={() => { fetchHistory(); invalidateDashboard(); }} />
 
       {/* Import history — lazy-loaded; show a placeholder until it arrives */}
       {historyLoading ? (
