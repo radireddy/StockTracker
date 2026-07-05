@@ -166,7 +166,7 @@ export function HeroCarousel() {
                   aria-hidden={!active}
                   className={[
                     "col-start-1 row-start-1 transition-opacity duration-700 motion-reduce:transition-none",
-                    active ? "opacity-100" : "pointer-events-none opacity-0",
+                    active ? "opacity-100" : "pointer-events-none opacity-0 max-lg:hidden",
                   ].join(" ")}
                 >
                   <Demo />
