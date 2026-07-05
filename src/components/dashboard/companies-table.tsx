@@ -1095,12 +1095,12 @@ function AllocationTable({
   const basisLabel = allocationBasis === "invested" ? "Invested" : "Current";
   const activeTotal = allocationBasis === "invested" ? totalCost : totalValue;
 
-  // Group the filtered rows by conviction (4★ → 1★), preserving sort order.
-  const groups = [4, 3, 2, 1]
+  // Group the filtered rows by conviction (4★ → 1★ → 0★ un-rated), preserving sort order.
+  const groups = [4, 3, 2, 1, 0]
     .map((star) => {
       const members = filtered.filter((c) => {
-        const s = c.star_rating ?? 1;
-        const bucket = s >= 1 && s <= 4 ? s : 1;
+        const s = c.star_rating ?? 0;
+        const bucket = s >= 0 && s <= 4 ? s : 0;
         return bucket === star;
       });
       return { star, members };
@@ -1168,7 +1168,13 @@ function AllocationTable({
               <tr className="border-y border-border bg-muted/40">
                 <td colSpan={11} className="px-2.5 py-2.5">
                   <div className="flex items-center gap-3.5">
-                    <Stars rating={star} className="w-[70px] shrink-0 text-[0.85rem]" />
+                    {star === 0 ? (
+                      <span className="w-[70px] shrink-0 text-[0.8rem] text-muted-foreground">
+                        Not rated
+                      </span>
+                    ) : (
+                      <Stars rating={star} className="w-[70px] shrink-0 text-[0.85rem]" />
+                    )}
                     <GroupBar pct={groupPct} min={groupMin} max={groupMax} status={groupStatus} />
                     <span className="font-mono text-[0.95rem] font-bold tabular-nums">{groupPct.toFixed(1)}%</span>
                     <StatusTag status={groupStatus} />
