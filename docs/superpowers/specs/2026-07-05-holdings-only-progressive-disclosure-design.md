@@ -35,21 +35,27 @@ saved on **any** company, the full research UI appears (all-or-nothing reveal).
 
 ### The detection signal
 
-Computed once per render, memoized on the companies array (no extra fetch, no
-re-render churn — derived in the same render pass so columns/filters cannot flip
-mid-scroll):
+A pure function `hasResearchData(companies)` returns true when **any** company
+carries **any** research field:
 
 ```ts
 hasResearchData = companies.some(c =>
   c.star_rating != null ||       // conviction 1–4
   c.strategy != null ||          // core / satellite
   c.buy_price != null ||         // target buy price
-  hasValuationScenarios(c)       // base / bare / IRR scenarios exist
+  // any valuation scenario with a non-null figure (base / bare / IRR)
+  c.projection_models.some(pm =>
+    pm.valuation_scenarios.some(s =>
+      s.target_market_cap != null || s.irr != null || s.buy_price != null))
 )
 ```
 
-This lives alongside the existing consolidation logic in
-`src/hooks/use-dashboard-data.ts` and is exposed to the dashboard components.
+It lives in a pure lib module (`src/lib/utils/research-data.ts`) so it is unit
+testable and counted by coverage (`src/lib/**`). The dashboard page computes it
+once against the **full portfolio** (`data.companies`, not the account-filtered
+subset, so switching the account filter never changes research presence) and
+passes the resulting boolean down as a prop. Because it is a prop derived in the
+same render pass, columns/filters cannot flip mid-scroll.
 
 ### State A — holdings-only (`hasResearchData === false`)
 
@@ -92,13 +98,21 @@ Current behavior, unchanged:
 
 | File | Change |
 | --- | --- |
-| `src/hooks/use-dashboard-data.ts` | Derive & expose `hasResearchData` (memoized). |
-| `src/components/dashboard/companies-table.tsx` | Gate the 6 research columns, the Star & Type filters, and the Allocation view toggle on `hasResearchData`. |
-| `src/components/dashboard/allocation-summary-bar.tsx` | When `hasResearchData` is false, render the guidance card; otherwise render the allocation bars (+ un-rated nudge). |
-| (new) guidance card | May be a small new component or a branch inside the allocation card component. |
+| `src/lib/utils/research-data.ts` (new) | Pure `hasResearchData(companies)` detector + its input type. |
+| `src/components/dashboard/research-guidance-card.tsx` (new) | The buttonless guidance card. |
+| `src/app/(authenticated)/dashboard/page.tsx` | Compute the flag from `data.companies`; render guidance card vs. `AllocationSummaryBar`; pass `hasResearchData` to `CompaniesTable` and `MobileDashboard`. |
+| `src/components/dashboard/companies-table.tsx` | Gate the 6 research columns, the Star & Type filters, and the Allocation view toggle on the flag (holdings only; watchlist unchanged). |
+| `src/components/dashboard/mobile-dashboard.tsx` | Gate the Allocation filter section; render a compact guidance card; pass the flag to `CompanyCard`. |
+| `src/components/dashboard/company-card.tsx` | When the flag is false, hide the research strip, allocation bar, and allocation status stripe. |
 
-No data-model, migration, or API changes are required — all needed fields are
-already loaded by `src/app/api/dashboard/route.ts`.
+Both the desktop (`CompaniesTable`) and mobile (`MobileDashboard` /
+`CompanyCard`) views are covered. `AllocationSummaryBar` itself is unchanged —
+the page chooses whether to render it. No data-model, migration, or API changes
+are required — all needed fields are already loaded by
+`src/app/api/dashboard/route.ts`.
+
+Watchlist portfolios are unaffected: the flag is applied only for
+`portfolioType === "holdings"`; watchlists always show research UI.
 
 ## Non-goals / YAGNI
 
@@ -111,10 +125,15 @@ already loaded by `src/app/api/dashboard/route.ts`.
 
 ## Testing
 
-- Unit-test the `hasResearchData` derivation: false when all research fields are
-  null/absent; true when any single field (star, strategy, buy_price, or a
-  valuation scenario) is present on any company.
-- Component tests: holdings-only portfolio omits the six research columns, the
-  two filters, and the Allocation tab, and renders the guidance card; a
-  portfolio with one starred company renders all columns, both filters, the
-  Allocation tab, and the allocation bars.
+The repo uses Vitest (jsdom) but has **no** React Testing Library, and coverage
+is scoped to `src/lib/**` / `src/types/**`. So:
+
+- **Automated (TDD):** Vitest unit tests for `hasResearchData` — false when all
+  research fields are null/absent across all companies; true when any single
+  field (star, strategy, buy_price, or a valuation scenario figure) is present
+  on any company; false for an empty list.
+- **Component changes** are verified with `npx tsc --noEmit`, `npm run lint`,
+  `npm run build`, and manual check in the running app (holdings-only portfolio
+  omits the six research columns / two filters / Allocation tab and shows the
+  guidance card; adding one star reveals all of them). No RTL tests are added —
+  that would be new tooling outside this scope.
