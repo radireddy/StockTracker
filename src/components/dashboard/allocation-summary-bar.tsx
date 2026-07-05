@@ -109,7 +109,7 @@ export function AllocationSummaryBar({
       })}
       {unratedCount > 0 && (
         <p className="text-[0.72rem] text-muted-foreground">
-          {unratedCount} {unratedCount === 1 ? "company is" : "companies are"} not yet rated — they're assumed 1★ until you rate them.
+          {unratedCount} {unratedCount === 1 ? "company is" : "companies are"} not yet rated — they&rsquo;re assumed 1★ until you rate them.
         </p>
       )}
     </div>
