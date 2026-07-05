@@ -89,8 +89,10 @@ Current behavior, unchanged:
 - All 13 columns render. Companies without a given field show `–` — acceptable
   now, because the user has opted into research.
 - The real **Allocation health** card renders. It should nudge the user to rate
-  any not-yet-rated companies (e.g. "18 companies not yet rated — rate them to
-  include").
+  any not-yet-rated companies. Wording must be accurate: un-rated holdings are
+  already counted in the card as an implicit 1★, so the nudge says they are
+  "assumed 1★ until you rate them" — NOT "rate them to include" (they are
+  already included).
 - The **Allocation** tab, **Star** filter, and **Core/Satellite** filter are
   all available.
 
