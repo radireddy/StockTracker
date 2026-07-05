@@ -85,7 +85,7 @@ export function ThesisProof() {
           <p className="mb-4 text-muted-foreground">
             The biggest trigger is the successful creation of Indri, which has rapidly become one of
             the fastest-growing Indian single malt brands globally and has already won multiple
-            international awards including "Best Whisky in the World". Unlike most Indian
+            international awards including &quot;Best Whisky in the World&quot;. Unlike most Indian
             distilleries that remain commodity ethanol or bulk alcohol players, <Mask /> is moving
             aggressively toward branded IMFL where margins are significantly higher.
           </p>

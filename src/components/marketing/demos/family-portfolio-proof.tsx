@@ -168,8 +168,8 @@ export function FamilyPortfolioProof() {
             <div className="rounded-lg border border-border bg-muted/30 p-3 text-[10px] text-muted-foreground space-y-1">
               <p className="font-semibold text-foreground/80">How import works:</p>
               <ul className="list-disc list-inside space-y-0.5">
-                <li>The account is auto-detected from the statement's Client ID.</li>
-                <li>Re-importing an account's statement replaces its holdings.</li>
+                <li>The account is auto-detected from the statement&apos;s Client ID.</li>
+                <li>Re-importing an account&apos;s statement replaces its holdings.</li>
                 <li>Consolidated view sums positions across all accounts; filter by account on the dashboard.</li>
                 <li>New stocks are added to your portfolio automatically.</li>
               </ul>
