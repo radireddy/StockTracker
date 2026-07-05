@@ -73,6 +73,13 @@ export async function updateSession(request: NextRequest) {
     "/zerodha-portfolio-tracker",
     "/intrinsic-value-margin-of-safety",
     "/portfolio-allocation",
+    "/watchlist-buy-signal",
+    "/quarterly-earnings-timeline",
+    "/stock-research-organizer",
+    "/stock-valuation-model",
+    "/family-portfolio-multiple-demat",
+    "/stock-portfolio-excel-alternative",
+    "/living-research-report",
   ];
   const isPublicPath =
     pathname === "/" ||

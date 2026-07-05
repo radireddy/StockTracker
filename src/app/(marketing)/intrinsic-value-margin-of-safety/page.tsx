@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { canonical } from "@/lib/seo";
 import { SubPageShell } from "@/components/marketing/sub-page-shell";
 import { ValuePoints } from "@/components/marketing/value-points";
+import { ProofShot } from "@/components/marketing/proof-shot";
 import { LiveValuationDemo } from "@/components/marketing/demos/live-valuation-demo";
+import { ValuationProof } from "@/components/marketing/demos/valuation-proof";
 import type { Faq } from "@/components/marketing/faq";
 
 const PATH = "/intrinsic-value-margin-of-safety";
@@ -74,6 +76,12 @@ export default function ValuationPage() {
         sub="Keep the rigour of a proper model — lose the fragile spreadsheet."
         points={POINTS}
       />
+      <ProofShot
+        alt="StockTracker Projections & Valuations tab. Top section: a PE/Earnings model grid showing Revenue, EBITDA, PAT, Forward PE and Forward PEG across Mar 2024 actuals and Mar 2026–2028 estimates (blue columns). PAT row is annotated as feeding into valuation scenarios. Bottom section: Valuation Scenarios table with Bull, Base and Bare rows showing Target PE, Target Market Cap, IRR, Buying Market Cap and Buy Price. The Expected Returns input (20%) is annotated as the driver of the Buying Market Cap and the Base case target buy price. Current Market Cap is annotated as live. Numbers are randomly generated."
+        caption="Real StockTracker model — numbers randomly generated for visualization only."
+      >
+        <ValuationProof />
+      </ProofShot>
     </SubPageShell>
   );
 }

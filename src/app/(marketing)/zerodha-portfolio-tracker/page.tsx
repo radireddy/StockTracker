@@ -2,13 +2,15 @@ import type { Metadata } from "next";
 import { canonical } from "@/lib/seo";
 import { SubPageShell } from "@/components/marketing/sub-page-shell";
 import { ValuePoints } from "@/components/marketing/value-points";
+import { ProofShot } from "@/components/marketing/proof-shot";
 import { ZerodhaImportDemo } from "@/components/marketing/demos/zerodha-import-demo";
+import { ZerodhaProof } from "@/components/marketing/demos/zerodha-proof";
 import type { Faq } from "@/components/marketing/faq";
 
 const PATH = "/zerodha-portfolio-tracker";
-const TITLE = "Zerodha portfolio tracker — import holdings in one click";
+const TITLE = "Track multiple Zerodha accounts — one consolidated portfolio, zero manual work";
 const DESCRIPTION =
-  "Import your Zerodha holdings statement in one click and track your whole portfolio — quantity, average cost, P&L and allocation — across multiple demat accounts, consolidated into one true position.";
+  "Import holdings from every Zerodha demat account you own — self, spouse, HUF — and StockTracker merges them into one live portfolio. P&L, allocation health, margin of safety, and IRR update against the price in real time. Filter to any single account in one click.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -64,8 +66,8 @@ export default function ZerodhaPage() {
       path={PATH}
       breadcrumbLabel="Zerodha portfolio tracker"
       eyebrow="Zerodha-ready"
-      h1="Track your Zerodha portfolio without the spreadsheet"
-      sub="Import your Zerodha holdings statement in one click. StockTracker parses every position, consolidates across demat accounts, and turns it into a live portfolio you can value and rebalance."
+      h1="Three Zerodha accounts. One portfolio. Zero manual entry."
+      sub="Upload a holdings statement per account and StockTracker consolidates everything — self, spouse, HUF — into one live view. P&L, allocation, and buy signals recompute the moment the price moves. Filter to any single account in one click."
       demo={<ZerodhaImportDemo />}
       faqs={FAQS}
     >
@@ -74,6 +76,12 @@ export default function ZerodhaPage() {
         sub="Stop rebuilding your holdings by hand every month."
         points={POINTS}
       />
+      <ProofShot
+        alt="StockTracker holdings dashboard showing a consolidated portfolio across 3 Zerodha demat accounts. The summary card shows current value, invested amount, all-time P&L, and 3 accounts tracked. An account filter dropdown is open showing Account A, B, and C. The company table lists 8 holdings with star ratings, quantities, CMP, cost, current value, P&L, and valuation metrics. Company names and account identifiers are masked."
+        caption="Real StockTracker dashboard — company names and account IDs masked for privacy. Numbers randomly generated for visualization."
+      >
+        <ZerodhaProof />
+      </ProofShot>
     </SubPageShell>
   );
 }

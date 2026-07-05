@@ -9,6 +9,22 @@ const LINKS = [
     label: "Intrinsic value & margin of safety",
   },
   { href: "/portfolio-allocation", label: "Portfolio allocation" },
+  { href: "/watchlist-buy-signal", label: "Watchlist buy signal" },
+  {
+    href: "/quarterly-earnings-timeline",
+    label: "Quarterly earnings timeline",
+  },
+  { href: "/stock-research-organizer", label: "Stock research organizer" },
+  { href: "/stock-valuation-model", label: "Stock valuation model" },
+  {
+    href: "/family-portfolio-multiple-demat",
+    label: "Family portfolio & multiple demat",
+  },
+  {
+    href: "/stock-portfolio-excel-alternative",
+    label: "Stock portfolio — Excel alternative",
+  },
+  { href: "/living-research-report", label: "Living research report" },
 ];
 
 /** Shared marketing footer with internal SEO links to the product pages. */
