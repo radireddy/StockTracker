@@ -1,0 +1,398 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mobile dashboard redesign — StockTracker</title>
+<style>
+  :root {
+    --background: oklch(0.985 0.002 200);
+    --foreground: oklch(0.17 0.02 260);
+    --card: oklch(1 0 0);
+    --primary: oklch(0.45 0.16 168);
+    --primary-fg: oklch(0.985 0.01 168);
+    --muted: oklch(0.955 0.008 220);
+    --muted-foreground: oklch(0.50 0.02 260);
+    --accent: oklch(0.94 0.03 168);
+    --border: oklch(0.90 0.01 220);
+    --destructive: oklch(0.577 0.20 27);
+    --green: oklch(0.58 0.15 150);
+    --orange: oklch(0.62 0.14 55);
+    --amber: oklch(0.72 0.16 75);
+    --shadow-soft: 0 1px 2px oklch(0 0 0 / 0.04), 0 6px 18px oklch(0 0 0 / 0.05);
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  }
+  .dark {
+    --background: oklch(0.16 0.015 260);
+    --foreground: oklch(0.93 0.01 200);
+    --card: oklch(0.205 0.015 260);
+    --primary: oklch(0.68 0.15 168);
+    --primary-fg: oklch(0.15 0.03 168);
+    --muted: oklch(0.26 0.015 260);
+    --muted-foreground: oklch(0.68 0.02 250);
+    --accent: oklch(0.30 0.04 168);
+    --border: oklch(1 0 0 / 12%);
+    --destructive: oklch(0.70 0.19 27);
+    --green: oklch(0.72 0.16 150);
+    --orange: oklch(0.75 0.14 65);
+    --amber: oklch(0.82 0.15 80);
+    --shadow-soft: 0 1px 2px oklch(0 0 0 / 0.3), 0 6px 18px oklch(0 0 0 / 0.35);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--sans); background: oklch(0.93 0.01 250); -webkit-font-smoothing: antialiased; line-height: 1.5; display: flex; justify-content: center; padding: 22px 12px; min-height: 100vh; }
+  .dark body { background: oklch(0.11 0.01 260); }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* Phone frame */
+  .phone { width: 400px; max-width: 100%; height: 850px; max-height: 92vh; background: var(--background); color: var(--foreground); border-radius: 30px; box-shadow: 0 30px 70px oklch(0 0 0 / 0.28), 0 0 0 10px oklch(0.20 0.01 260), 0 0 0 11px oklch(0.30 0.01 260); overflow: hidden; display: flex; flex-direction: column; position: relative; }
+
+  /* Header */
+  .hdr { flex: none; display: flex; align-items: center; height: 52px; padding: 0 16px; border-bottom: 1px solid var(--border); background: color-mix(in oklch, var(--background) 80%, transparent); backdrop-filter: blur(10px); z-index: 5; }
+  .logo { font-weight: 700; letter-spacing: -0.02em; color: var(--primary); display: flex; align-items: center; gap: 0.4rem; font-size: 0.95rem; }
+  .logo .mark { width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(135deg, var(--primary), oklch(0.60 0.16 190)); display: grid; place-items: center; color: var(--primary-fg); font-size: 13px; }
+  .hdr .avatar { margin-left: auto; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--primary); display: grid; place-items: center; font-weight: 600; font-size: 0.78rem; border: 1px solid var(--border); }
+
+  /* Scroll body */
+  .scroll { flex: 1; overflow-y: auto; padding: 14px 14px 90px; }
+  .scroll::-webkit-scrollbar { width: 0; }
+
+  /* Page head */
+  .phead { position: relative; margin-bottom: 12px; }
+  .phead::before { content: ""; position: absolute; inset: -40px -20px auto -20px; height: 150px; z-index: -1; background: radial-gradient(60% 70% at 25% 0%, oklch(0.45 0.16 168 / 0.12), transparent 70%); pointer-events: none; }
+  .eyebrow { font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--primary); }
+  .phead h1 { margin: 2px 0 0; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.03em; display: flex; align-items: baseline; gap: 0.4rem; }
+  .phead h1 .cnt { font-size: 0.85rem; font-weight: 500; color: var(--muted-foreground); }
+  .head-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .acct { flex: 1; display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; padding: 7px 11px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); font-size: 0.8rem; color: var(--muted-foreground); font-weight: 500; }
+  .add { display: inline-flex; align-items: center; gap: 5px; padding: 8px 12px; border-radius: 10px; background: var(--primary); color: var(--primary-fg); font-size: 0.8rem; font-weight: 600; border: none; box-shadow: 0 2px 8px oklch(0.45 0.16 168 / 0.3); white-space: nowrap; }
+
+  /* pills */
+  .pills { display: flex; gap: 7px; overflow-x: auto; padding: 12px 0 4px; margin: 0 -2px; }
+  .pills::-webkit-scrollbar { height: 0; }
+  .pill { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); font-size: 0.78rem; font-weight: 600; color: var(--muted-foreground); }
+  .pill .cnt { font-family: var(--mono); font-size: 0.68rem; opacity: 0.7; }
+  .pill .cdot { width: 7px; height: 7px; border-radius: 50%; }
+  .pill.on { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+
+  /* Hero total value */
+  .hero { position: relative; overflow: hidden; margin-top: 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--card); box-shadow: var(--shadow-soft); padding: 18px; }
+  .hero::after { content: ""; position: absolute; top: -50px; right: -40px; width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, oklch(0.55 0.16 168 / 0.14), transparent 70%); pointer-events: none; }
+  .hero .lbl { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted-foreground); }
+  .hero .val { margin-top: 4px; font-family: var(--mono); font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+  .hero .pnl { margin-top: 12px; display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px; border-radius: 999px; font-family: var(--mono); font-size: 0.8rem; font-weight: 700; }
+  .hero .pnl .k { font-family: var(--sans); font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.8; }
+  .up { color: var(--green); background: color-mix(in oklch, var(--green) 15%, transparent); }
+  .down { color: var(--destructive); background: color-mix(in oklch, var(--destructive) 12%, transparent); }
+  .hero .track { margin-top: 16px; height: 6px; border-radius: 999px; background: var(--muted); overflow: hidden; }
+  .hero .track > span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--primary), var(--green)); }
+  .hero .ends { margin-top: 8px; display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted-foreground); }
+  .hero .ends b { color: var(--foreground); font-family: var(--mono); font-weight: 600; }
+
+  /* filter trigger (search now lives inside) */
+  .filter-trigger { width: 100%; margin-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); box-shadow: var(--shadow-soft); cursor: pointer; }
+  .filter-trigger .ft-left { color: var(--muted-foreground); font-size: 0.84rem; }
+  .filter-trigger .ft-right { display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 600; color: var(--foreground); background: var(--muted); padding: 4px 9px; border-radius: 8px; }
+  .filter-trigger .ft-right.active { color: var(--primary); background: color-mix(in oklch, var(--primary) 12%, transparent); }
+
+  /* Bottom sheet (expanded filter) */
+  .sheet-backdrop { position: absolute; inset: 0; background: oklch(0 0 0 / 0.42); z-index: 20; opacity: 0; pointer-events: none; transition: opacity 0.22s ease; }
+  .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--card); border-top-left-radius: 24px; border-top-right-radius: 24px; box-shadow: 0 -12px 44px oklch(0 0 0 / 0.28); transform: translateY(102%); transition: transform 0.26s cubic-bezier(0.32,0.72,0,1); padding: 8px 18px 22px; }
+  .sheet.open { transform: translateY(0); }
+  .sheet .handle { width: 38px; height: 4px; border-radius: 999px; background: var(--border); margin: 8px auto 14px; }
+  .sheet h4 { margin: 0 0 14px; font-size: 1.05rem; font-weight: 700; letter-spacing: -0.02em; }
+  .sheet-search { display: flex; align-items: center; gap: 8px; padding: 11px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--background); }
+  .sheet-search input { border: none; outline: none; background: none; flex: 1; font-size: 0.88rem; color: var(--foreground); font-family: inherit; }
+  .sec { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted-foreground); font-weight: 700; margin: 18px 0 9px; }
+  .opts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .opt { display: inline-flex; align-items: center; gap: 6px; padding: 9px 13px; border: 1px solid var(--border); border-radius: 11px; font-size: 0.82rem; font-weight: 600; color: var(--muted-foreground); background: var(--card); cursor: pointer; }
+  .opt.on { border-color: var(--primary); color: var(--primary); background: color-mix(in oklch, var(--primary) 9%, transparent); }
+  .opt .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .sheet-done { margin-top: 22px; width: 100%; padding: 13px; border: none; border-radius: 13px; background: var(--primary); color: var(--primary-fg); font-size: 0.92rem; font-weight: 700; cursor: pointer; box-shadow: 0 2px 10px oklch(0.45 0.16 168 / 0.3); }
+
+  /* Empty state */
+  .empty { margin-top: 18px; border: 1px dashed color-mix(in oklch, var(--border) 130%, transparent); border-radius: 20px; background: color-mix(in oklch, var(--muted) 25%, transparent); text-align: center; padding: 40px 22px; }
+  .empty .ico { width: 58px; height: 58px; border-radius: 18px; background: var(--accent); color: var(--primary); display: grid; place-items: center; margin: 0 auto 16px; box-shadow: 0 4px 14px oklch(0.45 0.16 168 / 0.16); }
+  .empty h3 { margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; }
+  .empty p { margin: 8px auto 0; max-width: 262px; font-size: 0.85rem; color: var(--muted-foreground); line-height: 1.55; }
+  .empty .acts { margin-top: 20px; display: flex; flex-direction: column; gap: 9px; align-items: stretch; }
+  .eb { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 11px 16px; border-radius: 12px; font-size: 0.86rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
+  .eb.primary { background: var(--primary); color: var(--primary-fg); box-shadow: 0 2px 10px oklch(0.45 0.16 168 / 0.28); }
+  .eb.outline { background: var(--card); color: var(--foreground); border-color: var(--border); }
+  .eb svg { width: 16px; height: 16px; }
+
+  /* Company card */
+  .list { margin-top: 14px; display: flex; flex-direction: column; gap: 11px; }
+  .cc { border: 1px solid var(--border); border-radius: 18px; background: var(--card); box-shadow: var(--shadow-soft); padding: 14px; position: relative; overflow: hidden; transition: transform 0.1s ease; }
+  .cc:active { transform: scale(0.99); }
+  .cc .stripe { position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; }
+  .cc .top { display: flex; align-items: flex-start; gap: 10px; }
+  .cc .fav { width: 38px; height: 38px; border-radius: 11px; background: var(--accent); color: var(--primary); display: grid; place-items: center; font-weight: 700; font-size: 0.78rem; flex: none; }
+  .cc .id { min-width: 0; flex: 1; }
+  .cc .nm { font-weight: 700; font-size: 0.92rem; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cc .sub { margin-top: 2px; display: flex; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--muted-foreground); }
+  .cc .stars { color: var(--amber); letter-spacing: 0.5px; }
+  .type-chip { font-size: 0.6rem; padding: 1px 5px; border-radius: 5px; background: var(--muted); color: var(--muted-foreground); font-weight: 700; letter-spacing: 0.03em; }
+  .cc .right { text-align: right; flex: none; }
+  .cc .right .big { font-family: var(--mono); font-size: 0.98rem; font-weight: 700; }
+  .cc .right .pct { font-family: var(--mono); font-size: 0.74rem; margin-top: 1px; }
+  .pos { color: var(--green); }
+  .neg { color: var(--destructive); }
+  .cc .divider { height: 1px; background: color-mix(in oklch, var(--border) 70%, transparent); margin: 12px 0 10px; }
+  .stat3 { display: flex; gap: 18px; }
+  .stat3 .s .k { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted-foreground); font-weight: 600; }
+  .stat3 .s .v { font-family: var(--mono); font-size: 0.82rem; font-weight: 600; margin-top: 1px; }
+  .metrics { display: flex; gap: 16px; margin-top: 10px; font-size: 0.74rem; }
+  .metrics .m .k { color: var(--muted-foreground); font-weight: 600; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  .metrics .m .v { font-family: var(--mono); font-weight: 700; margin-top: 1px; }
+  .alloc { margin-top: 12px; }
+  .alloc .bar { position: relative; height: 7px; border-radius: 999px; background: var(--muted); overflow: hidden; }
+  .alloc .bar .fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; }
+  .alloc .bar .tick { position: absolute; top: -1px; bottom: -1px; width: 1.5px; background: color-mix(in oklch, var(--foreground) 35%, transparent); }
+  .alloc .cap { margin-top: 6px; display: flex; justify-content: flex-end; gap: 5px; font-size: 0.66rem; color: var(--muted-foreground); }
+  .alloc .cap b { font-family: var(--mono); color: var(--foreground); }
+  .badge-buy { display: inline-flex; align-items: center; gap: 4px; font-size: 0.62rem; font-weight: 700; color: var(--primary-fg); background: var(--primary); padding: 2px 7px; border-radius: 6px; margin-top: 5px; }
+  .badge-wait { font-size: 0.62rem; font-weight: 700; color: var(--muted-foreground); background: var(--muted); padding: 2px 7px; border-radius: 6px; margin-top: 5px; }
+  .cmp-lbl { font-size: 0.56rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted-foreground); font-weight: 600; }
+
+  /* Bottom nav */
+  .bnav { position: absolute; left: 0; right: 0; bottom: 0; height: 72px; display: flex; align-items: center; justify-content: space-around; padding: 0 24px 8px; border-top: 1px solid var(--border); background: color-mix(in oklch, var(--background) 82%, transparent); backdrop-filter: blur(14px); }
+  .bnav .item { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 0.62rem; font-weight: 600; color: var(--muted-foreground); background: none; border: none; cursor: pointer; }
+  .bnav .item.on { color: var(--primary); }
+  .bnav .item.add-item { color: var(--primary); }
+  .bnav .item svg { width: 22px; height: 22px; }
+  .bnav .uav { width: 34px; height: 34px; border-radius: 50%; background: oklch(0.25 0.01 260); color: white; display: grid; place-items: center; font-weight: 700; font-size: 0.8rem; }
+
+  .theme-toggle { position: fixed; right: 14px; bottom: 14px; z-index: 60; padding: 8px 13px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--foreground); font-size: 0.78rem; font-weight: 600; cursor: pointer; box-shadow: 0 8px 20px oklch(0 0 0 / 0.2); }
+  .hidden { display: none !important; }
+</style>
+
+<div class="phone">
+  <div class="hdr">
+    <div class="logo"><span class="mark">S</span> StockTracker</div>
+    <span class="avatar">R</span>
+  </div>
+
+  <div class="scroll" id="scroll">
+    <div class="phead">
+      <div class="eyebrow" id="eyebrow">Portfolio</div>
+      <h1 id="title">Holdings <span class="cnt" id="titlecount">(12)</span></h1>
+    </div>
+
+    <div class="pills" id="pills"></div>
+
+    <div class="hero" id="hero">
+      <div class="lbl">Total value</div>
+      <div class="val">₹5,49,66,843</div>
+      <div class="pnl up"><span class="k">Overall P&amp;L</span> ▲ ₹90,18,818 · 19.6%</div>
+      <div class="track"><span style="width:84%"></span></div>
+      <div class="ends"><span>Invested <b>₹4.59 Cr</b></span><span>Current <b>₹5.50 Cr</b></span></div>
+    </div>
+
+    <button class="filter-trigger" id="filterTrigger">
+      <span class="ft-left">🔍 Search, sort &amp; filter</span>
+      <span class="ft-right" id="ftBadge">☰ P&amp;L</span>
+    </button>
+
+    <div class="list" id="list"></div>
+  </div>
+
+  <!-- Expanded filter sheet -->
+  <div class="sheet-backdrop" id="backdrop"></div>
+  <div class="sheet" id="sheet">
+    <div class="handle"></div>
+    <h4>Search, sort &amp; filter</h4>
+    <div class="sheet-search"><span aria-hidden="true">🔍</span><input placeholder="Search companies…" /></div>
+    <div class="sheet-body" id="sheetBody"></div>
+    <button class="sheet-done" id="sheetDone">Done</button>
+  </div>
+
+  <div class="bnav">
+    <span class="uav">N</span>
+    <button class="item on" data-mode="holdings" id="nav-h">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      Holdings
+    </button>
+    <button class="item" data-mode="watchlist" id="nav-w">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+      Watchlist
+    </button>
+    <button class="item add-item" id="nav-add">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+      Add
+    </button>
+    <button class="item add-item" id="nav-portfolio">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2Z"/><path d="M12 12v5M9.5 14.5h5"/></svg>
+      Portfolio
+    </button>
+  </div>
+</div>
+
+<button class="theme-toggle" id="tg">🌙 Dark</button>
+
+<script>
+(function(){
+  function stars(n){ return "★★★★★".slice(0,n) + "☆☆☆☆☆".slice(0,5-n); }
+  function initials(nm){ return nm.replace(/[^A-Za-z ]/g,"").split(" ").filter(Boolean).slice(0,2).map(function(w){return w[0];}).join("").toUpperCase(); }
+  function compact(n){ var a=Math.abs(n),s=n<0?"−":"+"; if(a>=1e7) return s+"₹"+(a/1e7).toFixed(2)+"Cr"; if(a>=1e5) return s+"₹"+(a/1e5).toFixed(2)+"L"; return s+"₹"+Math.round(a); }
+  var stColor = { over:"var(--destructive)", under:"var(--orange)", in:"var(--green)" };
+  var BAND = { 4:[6,8], 3:[4,6], 2:[2,4], 1:[0,2] };
+  function statusOf(pct,b){ if(pct<b[0])return"under"; if(pct>b[1])return"over"; return"in"; }
+
+  // name, sym, star, strat, qty, avgBuy, cmp, cost, curValue, tgtBuy, mos, base
+  var holdings = [
+    ["Neuland Laboratories","NEULANDLAB",1,"Core",210,"1,541.1","19,000",323631,3990000,null,null,null],
+    ["Rategain Travel Tech","RATEGAIN",3,"Core",2685,"615.49","931.55",1652590,2501212,"750",-24,"14%"],
+    ["Narayana Hrudayalaya","NH",4,"Core",1460,"1,786.98","1,996.9",2608990,2915474,"1,775",-13,"17.5%"],
+    ["One 97 Communications","PAYTM",4,"Core",2780,"1,074.69","1,208.5",2987641,3359630,"1,370",12,"17.4%"],
+    ["Samhi Hotels","SAMHI",4,"Core",11150,"188.41","176.71",2100729,1970317,"135.9",-30,"21.7%"],
+    ["Gravita India","GRAVITA",3,"Core",1150,"1,392.87","1,740",1601801,2001000,"1,520",-14,"19.0%"],
+    ["Hindustan Zinc","HINDZINC",3,"Core",4130,"574.24","538.85",2371616,2225451,"610",12,"31.2%"],
+    ["CSB Bank","CSBBANK",3,"Core",4000,"353.72","348.1",1414894,1392400,"510",32,"42.0%"]
+  ];
+  var watchlist = [
+    ["Jubilant Pharmova","JUBLPHARMA",2,"Core","974","1,370.54",29,"36%"],
+    ["Aarti Drugs","AARTIDRUGS",3,"Core","388.15","515",25,"56%"],
+    ["EFC (I) Limited","EFCIL",2,"Satellite","204.76","254.9",20,"56%"],
+    ["Arvind Fashions","ARVINDFASN",1,"Core","471.95","550",14,"43%"],
+    ["Shivalik Bimetal","SHIVALIK",3,"Core","785.25","770",-2,"9%"],
+    ["Kaynes Technology","KAYNES",4,"Watch","5,240","4,800",-9,"24%"]
+  ];
+  var totalCur = holdings.reduce(function(s,h){return s+h[8];},0);
+
+  function holdingCard(r){
+    var pl=r[8]-r[7], plPct=pl/r[7]*100, plc=pl>=0?"pos":"neg";
+    var curPct=r[8]/totalCur*100, b=BAND[r[2]], status=statusOf(curPct,b);
+    var upper=Math.max(curPct,b[1])*1.3||10, lp=b[0]/upper*100, rp=b[1]/upper*100, ap=Math.min(curPct/upper*100,100);
+    var buy=r[9]?"₹"+r[9]:"—", mos=(r[10]==null?"—":(r[10]>=0?"+":"")+r[10]+"%"), base=(r[11]==null?"—":r[11]);
+    var mosc=r[10]==null?"muted":(r[10]>=0?"pos":"neg");
+    return "<div class='cc'><span class='stripe' style='background:"+stColor[status]+"'></span>"
+      +"<div class='top'><span class='fav'>"+initials(r[0])+"</span>"
+      +"<div class='id'><div class='nm'>"+r[0]+"</div><div class='sub'>"+r[1]+" · <span class='stars'>"+stars(r[2])+"</span> · <span class='type-chip'>"+r[3]+"</span></div></div>"
+      +"<div class='right'><div class='big "+plc+"'>"+compact(pl)+"</div><div class='pct "+plc+"'>"+(pl>=0?"+":"")+plPct.toFixed(1)+"%</div></div></div>"
+      +"<div class='divider'></div>"
+      +"<div class='stat3'><div class='s'><div class='k'>Qty</div><div class='v'>"+new Intl.NumberFormat('en-IN').format(r[4])+"</div></div>"
+      +"<div class='s'><div class='k'>Avg</div><div class='v'>₹"+r[5]+"</div></div>"
+      +"<div class='s'><div class='k'>LTP</div><div class='v'>₹"+r[6]+"</div></div></div>"
+      +"<div class='metrics'><div class='m'><span class='k'>Buy </span><span class='v "+(r[9]?'pos':'muted')+"'>"+buy+"</span></div>"
+      +"<div class='m'><span class='k'>MoS </span><span class='v "+mosc+"'>"+mos+"</span></div>"
+      +"<div class='m'><span class='k'>Base </span><span class='v'>"+base+"</span></div></div>"
+      +"<div class='alloc'><div class='bar'><div class='fill' style='width:"+ap+"%;background:"+stColor[status]+"'></div><div class='tick' style='left:"+lp+"%'></div><div class='tick' style='left:"+rp+"%'></div></div>"
+      +"<div class='cap'>NOW <b>"+curPct.toFixed(1)+"%</b> · TARGET "+b[0]+"–"+b[1]+"%</div></div>"
+      +"</div>";
+  }
+
+  function watchCard(r){
+    var below=parseFloat(r[4].replace(/,/g,""))<=parseFloat(r[5].replace(/,/g,""));
+    var mosc=r[6]>=0?"pos":"neg";
+    var sig=below?"<span class='badge-buy'>● BUY ZONE</span>":"<span class='badge-wait'>WAIT</span>";
+    return "<div class='cc'>"
+      +"<div class='top'><span class='fav'>"+initials(r[0])+"</span>"
+      +"<div class='id'><div class='nm'>"+r[0]+"</div><div class='sub'>"+r[1]+" · <span class='stars'>"+stars(r[2])+"</span> · <span class='type-chip'>"+r[3]+"</span></div></div>"
+      +"<div class='right'><div class='cmp-lbl'>CMP</div><div class='big'>₹"+r[4]+"</div>"+sig+"</div></div>"
+      +"<div class='divider'></div>"
+      +"<div class='metrics'><div class='m'><span class='k'>Buy </span><span class='v pos'>₹"+r[5]+"</span></div>"
+      +"<div class='m'><span class='k'>MoS </span><span class='v "+mosc+"'>"+(r[6]>=0?"+":"")+r[6]+"%</span></div>"
+      +"<div class='m'><span class='k'>Base </span><span class='v'>"+r[7]+"</span></div></div>"
+      +"</div>";
+  }
+
+  var PF={ holdings:[["Holdings",8,"#0e9f8e"],["Test holdings",0,"#7c5cff"],["Test holding 2",0,"#e0803a"]],
+           watchlist:[["Watchlist 1",6,"#2f9e44"],["Watchlist 2",0,"#c2410c"]] };
+  var UP="<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><path d='M7 10l5-5 5 5'/><path d='M12 5v12'/></svg>";
+  var EYE="<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z'/><circle cx='12' cy='12' r='3'/></svg>";
+  var PLUS="<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 5v14M5 12h14'/></svg>";
+  function emptyState(m){
+    if(m==="holdings"){
+      return "<div class='empty'><div class='ico'>"+UP+"</div>"
+        +"<h3>No holdings yet</h3>"
+        +"<p>Import your broker statement, or add a company manually to start tracking this portfolio.</p>"
+        +"<div class='acts'><button class='eb primary'>"+UP+" Import statement</button>"
+        +"<button class='eb outline'>"+PLUS+" Add company</button></div></div>";
+    }
+    return "<div class='empty'><div class='ico'>"+EYE+"</div>"
+      +"<h3>Your watchlist is empty</h3>"
+      +"<p>Add companies you're researching to track valuation, margin of safety and buy signals.</p>"
+      +"<div class='acts'><button class='eb primary'>"+PLUS+" Add company</button></div></div>";
+  }
+  var mode="holdings", pfIdx=0;
+
+  // filter/sort state
+  var SORTS={ holdings:[["pnl","P&L"],["value","Current value"],["mos","Margin of safety"],["base","Base-case return"]],
+              watchlist:[["mos","Margin of safety"],["base","Base-case return"]] };
+  var ALLOC=[["all","All","var(--muted-foreground)"],["over","Over","var(--destructive)"],["under","Under","var(--orange)"],["in_range","In range","var(--green)"]];
+  var ACCOUNTS=[["all","All accounts","var(--muted-foreground)"],["z","Zerodha ••4821","#387ed1"],["g","Groww ••7290","#00d09c"]];
+  var sortField={holdings:"pnl",watchlist:"mos"}, allocFilter="all", buyOnly=false, accountFilter="all";
+
+  function renderPills(){
+    document.getElementById("pills").innerHTML=PF[mode].map(function(p,i){
+      return "<button class='pill"+(i===pfIdx?" on":"")+"' data-i='"+i+"'><span class='cdot' style='background:"+p[2]+"'></span>"+p[0]+" <span class='cnt'>"+p[1]+"</span></button>";
+    }).join("");
+  }
+  function sortLabel(){ var f=sortField[mode]; var m=SORTS[mode].filter(function(s){return s[0]===f;})[0]; return m?m[1]:""; }
+  function filterActive(){ return mode==="holdings" ? (allocFilter!=="all"||accountFilter!=="all") : buyOnly; }
+  function renderBadge(){
+    var el=document.getElementById("ftBadge");
+    el.textContent="☰ "+sortLabel()+(filterActive()?" •":"");
+    el.classList.toggle("active",filterActive());
+  }
+  function renderSheet(){
+    var isH=mode==="holdings";
+    var html="";
+    if(isH){
+      html+="<div class='sec'>Account</div><div class='opts'>"+ACCOUNTS.map(function(a){
+        return "<button class='opt"+(accountFilter===a[0]?" on":"")+"' data-kind='account' data-v='"+a[0]+"'><span class='dot' style='background:"+a[2]+"'></span>"+a[1]+"</button>";
+      }).join("")+"</div>";
+    }
+    html+="<div class='sec'>Sort by</div><div class='opts'>"+SORTS[mode].map(function(s){
+      return "<button class='opt"+(sortField[mode]===s[0]?" on":"")+"' data-kind='sort' data-v='"+s[0]+"'>"+s[1]+(sortField[mode]===s[0]?" ✓":"")+"</button>";
+    }).join("")+"</div>";
+    if(isH){
+      html+="<div class='sec'>Allocation</div><div class='opts'>"+ALLOC.map(function(a){
+        return "<button class='opt"+(allocFilter===a[0]?" on":"")+"' data-kind='alloc' data-v='"+a[0]+"'><span class='dot' style='background:"+a[2]+"'></span>"+a[1]+"</button>";
+      }).join("")+"</div>";
+    } else {
+      html+="<div class='sec'>Filter</div><div class='opts'>"
+        +"<button class='opt"+(buyOnly?" on":"")+"' data-kind='buy' data-v='1'>● Buy signals only</button></div>";
+    }
+    document.getElementById("sheetBody").innerHTML=html;
+  }
+  function render(){
+    var isH=mode==="holdings", cur=PF[mode][pfIdx], isEmpty=cur[1]===0;
+    renderPills();
+    document.getElementById("hero").classList.toggle("hidden",!isH || isEmpty);
+    document.getElementById("filterTrigger").classList.toggle("hidden",isEmpty);
+    document.getElementById("eyebrow").textContent = isH?"Portfolio":"Research";
+    document.getElementById("title").firstChild.textContent = cur[0]+" ";
+    document.getElementById("titlecount").textContent="("+cur[1]+")";
+    var data = isH?holdings:watchlist;
+    document.getElementById("list").innerHTML = isEmpty ? emptyState(mode) : data.map(isH?holdingCard:watchCard).join("");
+    document.getElementById("nav-h").classList.toggle("on",isH);
+    document.getElementById("nav-w").classList.toggle("on",!isH);
+    renderBadge(); renderSheet();
+    document.getElementById("scroll").scrollTop=0;
+  }
+
+  function openSheet(){ document.getElementById("sheet").classList.add("open"); document.getElementById("backdrop").classList.add("open"); }
+  function closeSheet(){ document.getElementById("sheet").classList.remove("open"); document.getElementById("backdrop").classList.remove("open"); }
+
+  document.getElementById("pills").addEventListener("click",function(e){var b=e.target.closest(".pill");if(!b)return;pfIdx=+b.dataset.i;render();});
+  document.getElementById("nav-h").addEventListener("click",function(){mode="holdings";pfIdx=0;render();});
+  document.getElementById("nav-w").addEventListener("click",function(){mode="watchlist";pfIdx=0;render();});
+  function pressFx(b){ b.style.transform="scale(0.9)"; setTimeout(function(){b.style.transform="";},120); }
+  document.getElementById("nav-add").addEventListener("click",function(){ pressFx(this); });
+  document.getElementById("nav-portfolio").addEventListener("click",function(){ pressFx(this); });
+  document.getElementById("filterTrigger").addEventListener("click",openSheet);
+  document.getElementById("backdrop").addEventListener("click",closeSheet);
+  document.getElementById("sheetDone").addEventListener("click",closeSheet);
+  document.getElementById("sheetBody").addEventListener("click",function(e){
+    var b=e.target.closest(".opt"); if(!b) return;
+    var kind=b.dataset.kind, v=b.dataset.v;
+    if(kind==="sort") sortField[mode]=v;
+    else if(kind==="alloc") allocFilter=v;
+    else if(kind==="account") accountFilter=v;
+    else if(kind==="buy") buyOnly=!buyOnly;
+    renderSheet(); renderBadge();
+  });
+  document.getElementById("tg").addEventListener("click",function(){document.documentElement.classList.toggle("dark");this.textContent=document.documentElement.classList.contains("dark")?"☀️ Light":"🌙 Dark";});
+  render();
+})();
+</script>

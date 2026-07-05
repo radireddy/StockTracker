@@ -17,7 +17,7 @@ export function UserNav({ profile }: { profile: Profile }) {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    router.push("/login");
+    router.push("/");
   };
 
   return (
@@ -36,6 +36,12 @@ export function UserNav({ profile }: { profile: Profile }) {
           </div>
         </div>
         <DropdownMenuSeparator />
+        <DropdownMenuItem className="lg:hidden" onClick={() => router.push("/dashboard")}>
+          Dashboard
+        </DropdownMenuItem>
+        <DropdownMenuItem className="lg:hidden" onClick={() => router.push("/import")}>
+          Import
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push("/settings")}>
           Settings
         </DropdownMenuItem>

@@ -10,6 +10,8 @@ type PortfolioContextValue = {
   select: (id: string) => void;
   portfolios: PortfolioWithCount[];
   selectedPortfolio: PortfolioWithCount | undefined;
+  /** First letter of the signed-in user's display name (for avatar tiles). */
+  userInitial: string;
 };
 
 export const PortfolioContext = createContext<PortfolioContextValue | null>(

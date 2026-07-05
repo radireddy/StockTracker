@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
+import {
+  SITE_URL,
+  SITE_NAME,
+  SITE_TAGLINE,
+  SITE_DESCRIPTION,
+  SITE_KEYWORDS,
+} from "@/lib/seo";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,11 +21,33 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "StockTracker — Track Your Investments",
-    template: "%s · StockTracker",
+    default: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    template: `%s · ${SITE_NAME}`,
   },
-  description: "Track stock investments with financial models, valuations, and thesis management",
+  description: SITE_DESCRIPTION,
+  keywords: SITE_KEYWORDS,
+  applicationName: SITE_NAME,
+  alternates: { canonical: "/" },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large" },
+  },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    locale: "en_IN",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 export default async function RootLayout({
@@ -34,8 +63,16 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         {children}
+        {/*
+          Browsers hide the `nonce` content attribute after parsing a script
+          under an active CSP (it survives only on the `.nonce` DOM property),
+          so React reads it back as "" during hydration and flags a benign
+          mismatch against the real nonce. suppress it here — the property is
+          already correct on the client and CSP validation is unaffected.
+        */}
         <script
           nonce={nonce}
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: `document.addEventListener('click',function(e){var a=e.target.closest('.prose a[href]');if(a){a.target='_blank';a.rel='noopener noreferrer'}})`,
           }}

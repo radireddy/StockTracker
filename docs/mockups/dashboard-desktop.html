@@ -1,0 +1,465 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard redesign — StockTracker</title>
+<style>
+  :root {
+    --background: oklch(0.985 0.002 200);
+    --foreground: oklch(0.17 0.02 260);
+    --card: oklch(1 0 0);
+    --primary: oklch(0.45 0.16 168);
+    --primary-fg: oklch(0.985 0.01 168);
+    --muted: oklch(0.955 0.008 220);
+    --muted-foreground: oklch(0.50 0.02 260);
+    --accent: oklch(0.94 0.03 168);
+    --border: oklch(0.90 0.01 220);
+    --ring: oklch(0.55 0.12 168);
+    --destructive: oklch(0.577 0.20 27);
+    --green: oklch(0.58 0.15 150);
+    --orange: oklch(0.62 0.14 55);
+    --amber: oklch(0.72 0.16 75);
+    --shadow-soft: 0 1px 2px oklch(0 0 0 / 0.04), 0 8px 24px oklch(0 0 0 / 0.04);
+    --shadow-lift: 0 2px 4px oklch(0 0 0 / 0.05), 0 14px 34px oklch(0 0 0 / 0.08);
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  }
+  .dark {
+    --background: oklch(0.16 0.015 260);
+    --foreground: oklch(0.93 0.01 200);
+    --card: oklch(0.205 0.015 260);
+    --primary: oklch(0.68 0.15 168);
+    --primary-fg: oklch(0.15 0.03 168);
+    --muted: oklch(0.26 0.015 260);
+    --muted-foreground: oklch(0.68 0.02 250);
+    --accent: oklch(0.30 0.04 168);
+    --border: oklch(1 0 0 / 12%);
+    --destructive: oklch(0.70 0.19 27);
+    --green: oklch(0.72 0.16 150);
+    --orange: oklch(0.75 0.14 65);
+    --amber: oklch(0.82 0.15 80);
+    --shadow-soft: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px oklch(0 0 0 / 0.3);
+    --shadow-lift: 0 2px 4px oklch(0 0 0 / 0.4), 0 14px 34px oklch(0 0 0 / 0.5);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--sans); background: var(--background); color: var(--foreground); -webkit-font-smoothing: antialiased; line-height: 1.5; }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* Header */
+  header.app { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 1rem; height: 56px; padding: 0 clamp(1rem, 3vw, 1.75rem); border-bottom: 1px solid var(--border); background: color-mix(in oklch, var(--background) 72%, transparent); backdrop-filter: saturate(1.4) blur(12px); }
+  .logo { font-weight: 700; letter-spacing: -0.02em; color: var(--primary); display: flex; align-items: center; gap: 0.5rem; }
+  .logo .mark { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg, var(--primary), oklch(0.60 0.16 190)); display: grid; place-items: center; color: var(--primary-fg); font-size: 15px; box-shadow: 0 2px 8px oklch(0.45 0.16 168 / 0.35); }
+  nav.top { display: flex; gap: 0.25rem; margin-left: 1.25rem; align-items: center; }
+  nav.top a { color: var(--muted-foreground); text-decoration: none; font-size: 0.86rem; font-weight: 500; padding: 0.4rem 0.7rem; border-radius: 8px; }
+  nav.top a.active { color: var(--foreground); background: var(--muted); }
+  nav.top a:hover { color: var(--foreground); }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: var(--primary); display: grid; place-items: center; font-weight: 600; font-size: 0.82rem; margin-left: auto; border: 1px solid var(--border); }
+
+  main { max-width: 1560px; margin: 0 auto; padding: clamp(1.25rem, 3vw, 2rem) clamp(1rem, 3vw, 1.75rem) 4rem; }
+  .page-head { position: relative; margin-bottom: 1rem; }
+  .page-head::before { content: ""; position: absolute; inset: -60px -40px auto -40px; height: 220px; z-index: -1; background: radial-gradient(55% 80% at 20% 0%, oklch(0.45 0.16 168 / 0.10), transparent 70%); pointer-events: none; }
+  .eyebrow { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--primary); }
+  .page-head h1 { margin: 0.35rem 0 0; font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 700; letter-spacing: -0.025em; display: flex; align-items: baseline; gap: 0.5rem; }
+  .page-head h1 .count { font-size: 1rem; font-weight: 500; color: var(--muted-foreground); }
+  .page-head p { margin: 0.25rem 0 0; color: var(--muted-foreground); font-size: 0.9rem; }
+  .head-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.55rem 0.95rem; border-radius: 10px; font-size: 0.86rem; font-weight: 600; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
+  .btn-primary { background: var(--primary); color: var(--primary-fg); box-shadow: 0 2px 10px oklch(0.45 0.16 168 / 0.28); }
+  .btn-primary:hover { filter: brightness(1.05); }
+
+  /* Portfolio nav: type toggle + pills */
+  .pnav { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 1.1rem; flex-wrap: wrap; }
+  .segmented { display: inline-flex; padding: 3px; background: var(--muted); border-radius: 10px; }
+  .segmented button { border: none; background: transparent; padding: 0.4rem 0.9rem; border-radius: 8px; font-size: 0.83rem; font-weight: 600; color: var(--muted-foreground); cursor: pointer; }
+  .segmented button.on { background: var(--card); color: var(--foreground); box-shadow: var(--shadow-soft); }
+  .pills { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  .pill { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.4rem 0.8rem; border-radius: 999px; border: 1px solid var(--border); background: var(--card); font-size: 0.82rem; font-weight: 600; color: var(--muted-foreground); cursor: pointer; }
+  .pill .cnt { font-family: var(--mono); font-size: 0.72rem; opacity: 0.7; }
+  .pill .cdot { width: 8px; height: 8px; border-radius: 50%; }
+  .pill.on { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+  .pill.on .cnt { opacity: 0.8; }
+  .pill.ghost { color: var(--muted-foreground); border-style: dashed; }
+
+  /* Hero */
+  .hero-grid { display: grid; grid-template-columns: 1fr 1.15fr; gap: 1rem; margin-bottom: 1.1rem; }
+  @media (max-width: 940px) { .hero-grid { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-soft); }
+  .summary { padding: 1.3rem 1.5rem; display: flex; flex-direction: column; justify-content: center; gap: 1rem; }
+  .summary .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted-foreground); font-weight: 600; }
+  .summary .big { font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+  .pnl-pill { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.28rem 0.6rem; border-radius: 999px; font-size: 0.82rem; font-weight: 600; }
+  .up { color: var(--green); background: color-mix(in oklch, var(--green) 14%, transparent); }
+  .down { color: var(--destructive); background: color-mix(in oklch, var(--destructive) 12%, transparent); }
+  .summary-foot { display: flex; gap: 2.2rem; flex-wrap: wrap; padding-top: 0.4rem; border-top: 1px solid color-mix(in oklch, var(--border) 70%, transparent); }
+  .summary-foot .cell .v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 1.05rem; font-weight: 600; }
+  .summary-foot .cell .k { font-size: 0.72rem; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .alloc { padding: 1.3rem 1.5rem; display: flex; flex-direction: column; gap: 0.85rem; }
+  .alloc h3 { margin: 0; font-size: 0.9rem; font-weight: 600; display: flex; justify-content: space-between; align-items: baseline; }
+  .alloc h3 span { font-size: 0.74rem; color: var(--muted-foreground); font-weight: 500; }
+  .rating-row { display: flex; align-items: center; gap: 0.75rem; }
+  .rating-row .stars { width: 66px; font-size: 0.76rem; color: var(--amber); flex: none; letter-spacing: 1px; }
+  .bar { flex: 1; height: 20px; border-radius: 6px; background: var(--muted); position: relative; overflow: hidden; }
+  .bar .fill { position: absolute; inset: 0 auto 0 0; border-radius: 6px; }
+  .bar .band { position: absolute; top: -1px; bottom: -1px; border-left: 1.5px dashed color-mix(in oklch, var(--foreground) 40%, transparent); border-right: 1.5px dashed color-mix(in oklch, var(--foreground) 40%, transparent); }
+  .rating-row .pct { width: 118px; text-align: right; font-size: 0.78rem; flex: none; display: flex; gap: 0.4rem; justify-content: flex-end; align-items: center; }
+  .rating-row .pct b { font-family: var(--mono); }
+  .status-tag { font-size: 0.64rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 5px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .st-in { color: var(--green); background: color-mix(in oklch, var(--green) 14%, transparent); }
+  .st-under { color: var(--orange); background: color-mix(in oklch, var(--orange) 16%, transparent); }
+  .st-over { color: var(--destructive); background: color-mix(in oklch, var(--destructive) 12%, transparent); }
+
+  /* Toolbar */
+  .toolbar { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.85rem; flex-wrap: wrap; }
+  .search { display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.75rem; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--muted-foreground); font-size: 0.84rem; min-width: 200px; }
+  .filter-chip { padding: 0.45rem 0.75rem; border: 1px solid var(--border); border-radius: 10px; background: var(--card); font-size: 0.82rem; color: var(--muted-foreground); cursor: pointer; }
+  .count { margin-left: auto; font-size: 0.8rem; color: var(--muted-foreground); }
+
+  /* Table */
+  .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-soft); overflow: hidden; }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; white-space: nowrap; }
+  thead th { text-align: right; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-foreground); font-weight: 600; padding: 0.75rem 0.85rem; border-bottom: 1px solid var(--border); background: color-mix(in oklch, var(--muted) 40%, transparent); }
+  thead th.l { text-align: left; }
+  thead th.c { text-align: center; }
+  tbody td { padding: 0.7rem 0.85rem; border-bottom: 1px solid color-mix(in oklch, var(--border) 55%, transparent); text-align: right; }
+  tbody td.l { text-align: left; }
+  tbody td.c { text-align: center; }
+  tbody tr.data { transition: background 0.12s ease; }
+  tbody tr.data:hover { background: color-mix(in oklch, var(--muted) 45%, transparent); }
+  .co { display: flex; align-items: center; gap: 0.7rem; }
+  .co .stripe { width: 3px; align-self: stretch; border-radius: 3px; margin: -0.1rem 0; flex: none; }
+  .co .fav { width: 32px; height: 32px; border-radius: 8px; background: var(--accent); color: var(--primary); display: grid; place-items: center; font-weight: 700; font-size: 0.72rem; flex: none; }
+  .co .meta .nm { font-weight: 600; letter-spacing: -0.01em; }
+  .co .meta .sub { font-size: 0.7rem; color: var(--muted-foreground); letter-spacing: 0.02em; }
+  .stars { color: var(--amber); font-size: 0.78rem; letter-spacing: 1px; }
+  .type-chip { font-size: 0.66rem; padding: 0.1rem 0.4rem; border-radius: 5px; background: var(--muted); color: var(--muted-foreground); font-weight: 600; }
+  .pos { color: var(--green); font-weight: 600; }
+  .neg { color: var(--destructive); font-weight: 600; }
+  .muted { color: var(--muted-foreground); }
+  .badge-buy { display: inline-flex; align-items: center; gap: 0.28rem; font-size: 0.68rem; font-weight: 700; color: var(--primary-fg); background: var(--primary); padding: 0.16rem 0.45rem; border-radius: 6px; }
+  .badge-hold { font-size: 0.68rem; font-weight: 600; color: var(--muted-foreground); background: var(--muted); padding: 0.16rem 0.45rem; border-radius: 6px; }
+  .act { color: var(--muted-foreground); cursor: pointer; }
+
+  /* RangeBar (invested status) */
+  .rb { position: relative; height: 12px; min-width: 96px; background: color-mix(in oklch, var(--muted) 45%, transparent); border-radius: 3px; overflow: hidden; margin: 0 auto; }
+  .rb .zone { position: absolute; top: 0; bottom: 0; background: color-mix(in oklch, var(--muted) 90%, transparent); }
+  .rb .fillbar { position: absolute; top: 2px; height: 8px; left: 0; border-radius: 2px; }
+  .rb .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: color-mix(in oklch, var(--foreground) 30%, transparent); }
+
+  /* Allocation group header row */
+  tr.group td { background: color-mix(in oklch, var(--muted) 38%, transparent); border-bottom: 1px solid var(--border); border-top: 1px solid var(--border); padding: 0.7rem 0.85rem; }
+  .ghead { display: flex; align-items: center; gap: 0.85rem; }
+  .ghead .gstars { color: var(--amber); font-size: 0.85rem; letter-spacing: 1px; width: 72px; flex: none; }
+  .ghead .gbar { width: 260px; height: 20px; border-radius: 6px; background: var(--muted); position: relative; overflow: hidden; flex: none; }
+  .ghead .gbar .fill { position: absolute; inset: 0 auto 0 0; border-radius: 6px; }
+  .ghead .gbar .band { position: absolute; top: -1px; bottom: -1px; border-left: 1.5px dashed color-mix(in oklch, var(--foreground) 40%, transparent); border-right: 1.5px dashed color-mix(in oklch, var(--foreground) 40%, transparent); }
+  .ghead .gpct { font-family: var(--mono); font-size: 0.95rem; font-weight: 700; }
+  .ghead .gtarget { font-size: 0.76rem; color: var(--muted-foreground); }
+  .ghead .gaction { margin-left: auto; font-size: 0.78rem; color: var(--muted-foreground); }
+  .ghead .gaction b { color: var(--foreground); font-family: var(--mono); }
+
+  .theme-toggle { position: fixed; right: 1rem; bottom: 1rem; z-index: 60; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.8rem; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--foreground); font-size: 0.8rem; font-weight: 600; cursor: pointer; box-shadow: var(--shadow-lift); }
+  .hidden { display: none !important; }
+  .note { max-width: 1560px; margin: 0 auto; padding: 0 clamp(1rem,3vw,1.75rem); font-size: 0.75rem; color: var(--muted-foreground); }
+</style>
+
+<header class="app">
+  <div class="logo"><span class="mark">S</span> StockTracker</div>
+  <nav class="top">
+    <a href="#" class="active">Dashboard</a>
+    <a href="#">Import</a>
+    <a href="#">Settings</a>
+  </nav>
+  <span class="avatar">R</span>
+</header>
+
+<main>
+  <div class="page-head">
+    <div class="head-row">
+      <div>
+        <div class="eyebrow" id="eyebrow">Portfolio</div>
+        <h1 id="title">Core <span class="count" id="titlecount">(12)</span></h1>
+        <p id="subtitle">12 companies · 3 accounts · updated 2 min ago</p>
+      </div>
+      <a href="#" class="btn btn-primary">＋ Add company</a>
+    </div>
+  </div>
+
+  <!-- PORTFOLIO NAV: type toggle + pills -->
+  <div class="pnav">
+    <div class="segmented" id="typeToggle">
+      <button class="on" data-type="portfolios">Portfolios</button>
+      <button data-type="watchlists">Watchlists</button>
+    </div>
+    <div class="pills" id="pills"></div>
+  </div>
+
+  <!-- HERO (holdings only) -->
+  <section class="hero-grid" id="hero">
+    <div class="card summary">
+      <div>
+        <div class="label">Current value</div>
+        <div class="big mono">₹5,49,66,843</div>
+        <div style="margin-top:0.55rem; display:flex; gap:0.6rem; align-items:center;">
+          <span class="pnl-pill up">▲ ₹90,18,818 · 19.6%</span>
+          <span style="font-size:0.8rem; color:var(--muted-foreground);">all-time P&amp;L</span>
+        </div>
+      </div>
+      <div class="summary-foot">
+        <div class="cell"><div class="v mono">₹4,59,48,024</div><div class="k">Invested</div></div>
+        <div class="cell"><div class="v mono">12</div><div class="k">Companies</div></div>
+        <div class="cell"><div class="v mono">3</div><div class="k">Accounts</div></div>
+      </div>
+    </div>
+    <div class="card alloc" id="allocHealth"></div>
+  </section>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <div class="segmented" id="subview">
+      <button class="on" data-view="portfolio">Portfolio</button>
+      <button data-view="allocation">Allocation</button>
+    </div>
+    <div class="segmented hidden" id="basis">
+      <button class="on" data-basis="invested">Invested</button>
+      <button data-basis="current">Current</button>
+    </div>
+    <div class="search">🔍 Search companies…</div>
+    <button class="filter-chip">All accounts ▾</button>
+    <button class="filter-chip">Star: all ▾</button>
+    <span class="count" id="tablecount">12 companies</span>
+  </div>
+
+  <div class="table-wrap view" id="view-portfolio"><div class="scroll"><table>
+    <thead><tr>
+      <th class="l">Company</th><th class="c">Star</th><th class="c">Type</th><th>Qty</th><th>Avg Buy</th><th>CMP</th>
+      <th>Cost</th><th>Cur. Value</th><th>P&amp;L %</th><th>P&amp;L ₹</th><th>Target Buy</th><th>MoS%</th><th>Base</th><th>Bare</th><th></th>
+    </tr></thead>
+    <tbody id="pbody"></tbody>
+  </table></div></div>
+
+  <div class="table-wrap view hidden" id="view-allocation"><div class="scroll"><table>
+    <thead><tr>
+      <th class="l">Company</th><th class="c">Star</th><th>CMP</th><th>Target Buy</th><th>Inv %</th><th>Cur %</th>
+      <th class="c">Target</th><th class="c" id="rbHead">Invested Status</th><th class="c">Status</th><th>Delta</th><th>MoS%</th>
+    </tr></thead>
+    <tbody id="abody"></tbody>
+  </table></div></div>
+
+  <div class="table-wrap view hidden" id="view-watchlist"><div class="scroll"><table>
+    <thead><tr>
+      <th class="l">Company</th><th class="c">Star</th><th>CMP</th><th>Target Buy</th><th>MoS%</th><th>Base</th><th>Bare</th><th class="c">Signal</th><th></th>
+    </tr></thead>
+    <tbody id="wbody"></tbody>
+  </table></div></div>
+</main>
+
+<button class="theme-toggle" id="tg">🌙 Dark</button>
+
+<script>
+(function(){
+  function stars(n){ return "★★★★★".slice(0,n) + "☆☆☆☆☆".slice(0,5-n); }
+  function initials(nm){ return nm.replace(/[^A-Za-z ]/g,"").split(" ").filter(Boolean).slice(0,2).map(function(w){return w[0];}).join("").toUpperCase(); }
+  function inr(n){ return "₹" + new Intl.NumberFormat("en-IN",{maximumFractionDigits:0}).format(Math.round(n)); }
+  function compact(n){ var a=Math.abs(n); if(a>=1e7) return "₹"+(n/1e7).toFixed(1)+"Cr"; if(a>=1e5) return "₹"+(n/1e5).toFixed(1)+"L"; return inr(n); }
+  var stColor = { over:"var(--destructive)", under:"var(--orange)", in:"var(--green)" };
+  var stTag = { over:"st-over", under:"st-under", in:"st-in" };
+  var stLabel = { over:"Over", under:"Under", in:"In Range" };
+
+  // star -> per-company target band (matches app defaults scaled: 4★ 6-8, 3★ 4-6)
+  var BAND = { 4:[6,8], 3:[4,6], 2:[2,4], 1:[0,2] };
+  function statusOf(pct,b){ if(pct<b[0])return"under"; if(pct>b[1])return"over"; return"in"; }
+  function deltaOf(pct,b){ if(pct<b[0])return pct-b[0]; if(pct>b[1])return pct-b[1]; return 0; }
+
+  // holdings: name, sym, star, strat, qty, avgBuy, cmp, cost, curValue, tgtBuy, mos, base, bare
+  var holdings = [
+    ["Narayana Hrudayalaya","NH",4,"Core",1460,"1,786.98","1,996.9",2608990,2915474,"1,775",-13,"17.5%","1.7%"],
+    ["One 97 Communications","PAYTM",4,"Core",2780,"1,074.69","1,208.5",2987641,3359630,"1,370",12,"17.4%","11.3%"],
+    ["Samhi Hotels","SAMHI",4,"Core",11150,"188.41","176.71",2100729,1970317,"135.9",-30,"21.7%","15.5%"],
+    ["Aarti Pharmalabs","AARTIPHARM",4,"Core",3985,"733.89","710.6",2924546,2831741,"800",11,"19.2%","8.8%"],
+    ["Adani Ports & SEZ","ADANIPORTS",3,"Core",1050,"1,442.43","1,876",1514554,1969800,"1,600",-17,"4.1%","-2.3%"],
+    ["CSB Bank","CSBBANK",3,"Core",4000,"353.72","348.1",1414894,1392400,"510",32,"42.0%","27.0%"],
+    ["Time Technoplast","TIMETECHNO",3,"Core",8020,"173.77","180.11",1393639,1444482,"199.67",10,"41.1%","26.2%"],
+    ["Gravita India","GRAVITA",3,"Core",1150,"1,392.87","1,740",1601801,2001000,"1,520",-14,"19.0%","6.4%"],
+    ["Interarch Building","INTERARCH",3,"Core",925,"1,805.14","1,880.8",1669751,1739740,"1,950",4,"3.6%","-1.8%"],
+    ["Hindustan Zinc","HINDZINC",3,"Core",4130,"574.24","538.85",2371616,2225451,"610",12,"31.2%","14.8%"],
+    ["Privi Speciality Chem.","PRIVISCL",3,"Core",590,"2,894.46","3,670",1707734,2165300,"3,200",-15,"13.4%","5.0%"],
+    ["Transrail Lighting","TRANSRAILL",3,"Core",2380,"487.63","517.45",1160568,1231531,"730",29,"32.6%","-0.6%"]
+  ];
+  var watchlist = [
+    ["Kaynes Technology","KAYNES",4,"Watch","5,240","4,800",-9,"24.0%","11.0%"],
+    ["Data Patterns","DATAPATTNS",4,"Watch","2,760","2,400",-15,"20.5%","7.5%"],
+    ["Cera Sanitaryware","CERA",3,"Watch","6,180","6,500",5,"18.0%","9.0%"],
+    ["RateGain Travel","RATEGAIN",3,"Watch","640","720",11,"22.0%","8.0%"],
+    ["Sansera Engineering","SANSERA",3,"Watch","1,480","1,350",-10,"16.0%","6.0%"],
+    ["Krsnaa Diagnostics","KRSNAA",3,"Watch","740","820",10,"19.0%","7.5%"]
+  ];
+  var totalCost = holdings.reduce(function(s,h){return s+h[7];},0);
+  var totalCur = holdings.reduce(function(s,h){return s+h[8];},0);
+
+  // ---------- Portfolio table ----------
+  document.getElementById("pbody").innerHTML = holdings.map(function(r){
+    var invPct = r[7]/totalCost*100;
+    var b = BAND[r[2]]; var stripe = stColor[statusOf(invPct,b)];
+    var pl = r[8]-r[7]; var plPct = pl/r[7]*100; var plc = pl>=0?"pos":"neg";
+    var mosc = r[10]>=0?"pos":"neg";
+    return "<tr class='data'>"
+      +"<td class='l'><div class='co'><span class='stripe' style='background:"+stripe+"'></span><span class='fav'>"+initials(r[0])+"</span><div class='meta'><div class='nm'>"+r[0]+"</div><div class='sub'>"+r[1]+"</div></div></div></td>"
+      +"<td class='c'><span class='stars'>"+stars(r[2])+"</span></td>"
+      +"<td class='c'><span class='type-chip'>"+r[3]+"</span></td>"
+      +"<td class='mono'>"+new Intl.NumberFormat("en-IN").format(r[4])+"</td>"
+      +"<td class='mono muted'>₹"+r[5]+"</td>"
+      +"<td class='mono'>₹"+r[6]+"</td>"
+      +"<td class='mono muted'>"+inr(r[7])+"</td>"
+      +"<td class='mono' style='font-weight:600'>"+inr(r[8])+"</td>"
+      +"<td class='mono "+plc+"'>"+(pl>=0?"+":"")+plPct.toFixed(1)+"%</td>"
+      +"<td class='mono "+plc+"'>"+(pl>=0?"+":"−")+inr(Math.abs(pl)).replace("₹","₹")+"</td>"
+      +"<td class='mono muted'>₹"+r[9]+"</td>"
+      +"<td class='mono "+mosc+"'>"+(r[10]>=0?"+":"")+r[10]+"%</td>"
+      +"<td class='mono muted'>"+r[11]+"</td>"
+      +"<td class='mono muted'>"+r[12]+"</td>"
+      +"<td><span class='act'>⋯</span></td>"
+      +"</tr>";
+  }).join("");
+
+  // ---------- Watchlist ----------
+  document.getElementById("wbody").innerHTML = watchlist.map(function(r){
+    var below = parseFloat(r[4].replace(/,/g,"")) <= parseFloat(r[5].replace(/,/g,""));
+    var mosc = r[6]>=0?"pos":"neg";
+    var sig = below ? "<span class='badge-buy'>● BUY ZONE</span>" : "<span class='badge-hold'>WAIT</span>";
+    return "<tr class='data'>"
+      +"<td class='l'><div class='co'><span class='fav'>"+initials(r[0])+"</span><div class='meta'><div class='nm'>"+r[0]+"</div><div class='sub'>"+r[1]+"</div></div></div></td>"
+      +"<td class='c'><span class='stars'>"+stars(r[2])+"</span></td>"
+      +"<td class='mono'>₹"+r[4]+"</td>"
+      +"<td class='mono muted'>₹"+r[5]+"</td>"
+      +"<td class='mono "+mosc+"'>"+(r[6]>=0?"+":"")+r[6]+"%</td>"
+      +"<td class='mono muted'>"+r[7]+"</td>"
+      +"<td class='mono muted'>"+r[8]+"</td>"
+      +"<td class='c'>"+sig+"</td>"
+      +"<td><span class='act'>⋯</span></td>"
+      +"</tr>";
+  }).join("");
+
+  // ---------- Allocation health card ----------
+  function renderHealth(){
+    var groups=[4,3,2,1].map(function(st){
+      var mem=holdings.filter(function(h){return h[2]===st;});
+      if(!mem.length) return null;
+      var pct=mem.reduce(function(s,h){return s+h[8];},0)/totalCur*100;
+      var b=BAND[st], gb=[b[0]*mem.length,b[1]*mem.length];
+      return {st:st,pct:pct,gb:gb,status:statusOf(pct,gb)};
+    }).filter(Boolean);
+    var el=document.getElementById("allocHealth");
+    el.innerHTML="<h3>Allocation health <span>current value vs. target by conviction</span></h3>"+groups.map(function(g){
+      var scale=Math.max(g.gb[1]*1.05, g.pct*1.05);
+      var fw=Math.min(100,g.pct/scale*100), bl=g.gb[0]/scale*100, br=100-g.gb[1]/scale*100;
+      return "<div class='rating-row'><span class='stars'>"+stars(g.st)+"</span>"
+        +"<div class='bar'><div class='fill' style='width:"+fw.toFixed(0)+"%;background:color-mix(in oklch,"+stColor[g.status]+" 55%,var(--card))'></div><div class='band' style='left:"+bl.toFixed(0)+"%;right:"+br.toFixed(0)+"%'></div></div>"
+        +"<span class='pct'><b>"+g.pct.toFixed(1)+"%</b> <span class='status-tag "+stTag[g.status]+"'>"+(g.status==='in'?'in':g.status)+"</span></span></div>";
+    }).join("");
+  }
+  renderHealth();
+
+  // ---------- RangeBar html ----------
+  function rangeBar(actual,min,max,status){
+    var upper=Math.max(actual,max)*1.3||10;
+    var lp=min/upper*100, rp=max/upper*100, ap=Math.min(actual/upper*100,100);
+    return "<div class='rb'>"
+      +"<div class='zone' style='left:"+lp+"%;width:"+(rp-lp)+"%'></div>"
+      +"<div class='fillbar' style='width:"+ap+"%;background:"+stColor[status]+"'></div>"
+      +"<div class='tick' style='left:"+lp+"%'></div><div class='tick' style='left:"+rp+"%'></div>"
+      +"</div>";
+  }
+
+  // ---------- Allocation grouped table ----------
+  var basis="invested";
+  function renderAlloc(){
+    var activeTotal = basis==="invested"?totalCost:totalCur;
+    var body=document.getElementById("abody");
+    var html="";
+    [4,3,2,1].forEach(function(st){
+      var mem=holdings.filter(function(h){return h[2]===st;});
+      if(!mem.length) return;
+      var b=BAND[st];
+      var gpct=mem.reduce(function(s,h){return s+(basis==="invested"?h[7]:h[8]);},0)/activeTotal*100;
+      var gb=[b[0]*mem.length,b[1]*mem.length];
+      var gstatus=statusOf(gpct,gb);
+      var scale=Math.max(gb[1]*1.05,gpct*1.05);
+      var fw=Math.min(100,gpct/scale*100), bl=gb[0]/scale*100, br=100-gb[1]/scale*100;
+      var action="";
+      if(gstatus==="under") action="add <b>"+compact((gb[0]-gpct)/100*activeTotal)+"</b> to reach "+gb[0].toFixed(0)+"%";
+      else if(gstatus==="over") action="trim <b>"+compact((gpct-gb[1])/100*activeTotal)+"</b> to reach "+gb[1].toFixed(0)+"%";
+      else action="balanced";
+      html+="<tr class='group'><td colspan='11'><div class='ghead'>"
+        +"<span class='gstars'>"+stars(st)+"</span>"
+        +"<div class='gbar'><div class='fill' style='width:"+fw.toFixed(0)+"%;background:color-mix(in oklch,"+stColor[gstatus]+" 55%,var(--card))'></div><div class='band' style='left:"+bl.toFixed(0)+"%;right:"+br.toFixed(0)+"%'></div></div>"
+        +"<span class='gpct'>"+gpct.toFixed(1)+"%</span> <span class='status-tag "+stTag[gstatus]+"'>"+stLabel[gstatus]+"</span>"
+        +"<span class='gtarget'>target "+gb[0].toFixed(0)+"–"+gb[1].toFixed(0)+"%</span>"
+        +"<span class='gaction'>"+action+"</span>"
+        +"</div></td></tr>";
+      mem.forEach(function(r){
+        var invPct=r[7]/totalCost*100, curPct=r[8]/totalCur*100;
+        var actPct=basis==="invested"?invPct:curPct;
+        var status=statusOf(actPct,b), delta=deltaOf(actPct,b);
+        var mosc=r[10]>=0?"pos":"neg";
+        html+="<tr class='data'>"
+          +"<td class='l'><div class='co'><span class='stripe' style='background:"+stColor[status]+"'></span><span class='fav'>"+initials(r[0])+"</span><div class='meta'><div class='nm'>"+r[0]+"</div><div class='sub'>"+r[1]+"</div></div></div></td>"
+          +"<td class='c'><span class='stars'>"+stars(r[2])+"</span></td>"
+          +"<td class='mono'>₹"+r[6]+"</td>"
+          +"<td class='mono muted'>₹"+r[9]+"</td>"
+          +"<td class='mono"+(basis==="invested"?"":" muted")+"'>"+invPct.toFixed(1)+"%</td>"
+          +"<td class='mono"+(basis==="current"?"":" muted")+"'>"+curPct.toFixed(1)+"%</td>"
+          +"<td class='c mono muted'>"+b[0]+"–"+b[1]+"%</td>"
+          +"<td class='c'>"+rangeBar(actPct,b[0],b[1],status)+"</td>"
+          +"<td class='c'><span class='status-tag "+stTag[status]+"'>"+stLabel[status]+"</span></td>"
+          +"<td class='mono "+(delta===0?"muted":(delta<0?"neg":"pos"))+"'>"+(delta===0?"–":(delta>0?"+":"")+delta.toFixed(1)+"%")+"</td>"
+          +"<td class='mono "+mosc+"'>"+(r[10]>=0?"+":"")+r[10]+"%</td>"
+          +"</tr>";
+      });
+    });
+    body.innerHTML=html;
+  }
+  renderAlloc();
+
+  // ---------- Portfolio pills ----------
+  var PF={ portfolios:[["Core",12,"#0e9f8e"],["Satellite",8,"#7c5cff"],["Long-term",7,"#e0803a"]],
+           watchlists:[["Emerging",6,"#2f9e44"],["Dividend",5,"#c2410c"],["High-growth",9,"#0891b2"]] };
+  var type="portfolios", pfIdx=0;
+  function renderPills(){
+    var list=PF[type];
+    document.getElementById("pills").innerHTML=list.map(function(p,i){
+      return "<button class='pill"+(i===pfIdx?" on":"")+"' data-i='"+i+"'><span class='cdot' style='background:"+p[2]+"'></span>"+p[0]+" <span class='cnt'>"+p[1]+"</span></button>";
+    }).join("")+"<button class='pill ghost'>＋ New</button>";
+  }
+
+  // ---------- View state ----------
+  var sub="portfolio";
+  function render(){
+    var isPf=type==="portfolios";
+    // pills
+    renderPills();
+    // hero + subview only for portfolios
+    document.getElementById("hero").classList.toggle("hidden",!isPf);
+    document.getElementById("subview").classList.toggle("hidden",!isPf);
+    var showAlloc=isPf&&sub==="allocation";
+    document.getElementById("basis").classList.toggle("hidden",!showAlloc);
+    document.getElementById("view-portfolio").classList.toggle("hidden",!(isPf&&sub==="portfolio"));
+    document.getElementById("view-allocation").classList.toggle("hidden",!showAlloc);
+    document.getElementById("view-watchlist").classList.toggle("hidden",isPf);
+    // header text
+    var cur=PF[type][pfIdx];
+    document.getElementById("eyebrow").textContent = !isPf?"Research":(showAlloc?"Rebalance":"Portfolio");
+    document.getElementById("title").firstChild.textContent = cur[0]+" ";
+    document.getElementById("titlecount").textContent="("+cur[1]+")";
+    document.getElementById("subtitle").textContent = isPf ? (cur[1]+" companies · 3 accounts · updated 2 min ago") : (cur[1]+" companies tracked · 3 in buy zone");
+    document.getElementById("tablecount").textContent = cur[1]+" companies";
+  }
+
+  document.getElementById("typeToggle").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;type=b.dataset.type;pfIdx=0;[].forEach.call(this.children,function(c){c.classList.toggle("on",c===b);});render();});
+  document.getElementById("pills").addEventListener("click",function(e){var b=e.target.closest(".pill");if(!b||b.dataset.i===undefined)return;pfIdx=+b.dataset.i;render();});
+  document.getElementById("subview").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;sub=b.dataset.view;[].forEach.call(this.children,function(c){c.classList.toggle("on",c===b);});render();});
+  document.getElementById("basis").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;basis=b.dataset.basis;[].forEach.call(this.children,function(c){c.classList.toggle("on",c===b);});document.getElementById("rbHead").textContent=(basis==="invested"?"Invested":"Current")+" Status";renderAlloc();});
+  document.getElementById("tg").addEventListener("click",function(){document.documentElement.classList.toggle("dark");this.textContent=document.documentElement.classList.contains("dark")?"☀️ Light":"🌙 Dark";renderHealth();renderAlloc();});
+
+  render();
+})();
+</script>

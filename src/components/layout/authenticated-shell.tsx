@@ -31,6 +31,7 @@ export function AuthenticatedShell({
     : defaultPortfolioId;
 
   const selectedPortfolio = portfolios.find((p) => p.id === validSelectedId);
+  const userInitial = (profile.display_name?.[0] ?? "U").toUpperCase();
 
   const contextValue = useMemo(
     () => ({
@@ -38,8 +39,9 @@ export function AuthenticatedShell({
       select,
       portfolios,
       selectedPortfolio,
+      userInitial,
     }),
-    [validSelectedId, select, portfolios, selectedPortfolio]
+    [validSelectedId, select, portfolios, selectedPortfolio, userInitial]
   );
 
   return (

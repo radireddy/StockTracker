@@ -85,7 +85,7 @@ export function ProjectionGrid({
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b-2 border-border/40">
-              <th className="sticky left-0 z-30 bg-background py-3 pl-5 pr-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-[180px]">
+              <th className="sticky-col sticky left-0 z-30 py-3 pl-3 sm:pl-5 pr-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-[130px] sm:min-w-[180px]">
                 &nbsp;
               </th>
               {data.map((fy, idx) => {
@@ -169,14 +169,14 @@ export function ProjectionGrid({
                   {/* Label */}
                   <th
                     scope="row"
-                    className={`sticky left-0 z-10 py-2 pl-5 pr-3 whitespace-nowrap text-left font-normal ${
+                    className={`sticky left-0 z-10 py-2 pl-3 sm:pl-5 pr-3 whitespace-nowrap text-left font-normal ${
                       isHighlight
-                        ? "bg-muted/40 dark:bg-muted/20 font-bold text-foreground"
+                        ? "sticky-col-highlight font-bold text-foreground"
                         : isHeader
-                        ? "bg-background font-semibold text-foreground"
+                        ? "sticky-col font-semibold text-foreground"
                         : isPct
-                        ? "bg-background text-muted-foreground text-xs pl-8"
-                        : "bg-background text-foreground/80"
+                        ? "sticky-col text-muted-foreground text-xs pl-6 sm:pl-8"
+                        : "sticky-col text-foreground/80"
                     }`}
                   >
                     {row.label}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Table } from "@tiptap/extension-table";
@@ -79,7 +80,6 @@ import {
   Redo2,
   Minus,
   Link as LinkIcon,
-  Unlink,
   ImagePlus,
   Paperclip,
   Loader2,
@@ -93,6 +93,8 @@ import {
   Plus,
   ArrowDown,
   ArrowRight,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -108,31 +110,52 @@ export interface RichTextEditorProps {
 
 const FONT_SIZES = ["12px", "14px", "16px", "18px", "20px", "24px", "28px", "32px"];
 
-function FontSizeSelect({ editor }: { editor: Editor }) {
-  const currentSize = editor.getAttributes("textStyle").fontSize || "";
+const ICON_SIZE = 15;
 
+/** Shared open/close behaviour for every toolbar popover: click-outside + Escape. */
+function usePopover() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return { open, setOpen, ref };
+}
+
+function PopoverPanel({
+  children,
+  className,
+  preserveSelection,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  /** Keep the editor's text selection intact while interacting (menus, not text inputs). */
+  preserveSelection?: boolean;
+}) {
   return (
-    <select
-      value={currentSize}
-      aria-label="Font size"
-      onChange={(e) => {
-        const size = e.target.value;
-        if (size) {
-          editor.chain().focus().setFontSize(size).run();
-        } else {
-          editor.chain().focus().unsetFontSize().run();
-        }
-      }}
-      title="Font Size"
-      className="h-7 px-1 text-xs rounded-md border border-border/50 bg-background text-foreground hover:bg-muted transition-colors cursor-pointer outline-none focus:ring-1 focus:ring-ring"
+    <div
+      className={cn(
+        "absolute left-0 top-full z-50 mt-1.5 rounded-lg border border-border bg-popover p-1.5 shadow-soft",
+        className
+      )}
+      onMouseDown={preserveSelection ? (e) => e.preventDefault() : undefined}
     >
-      <option value="">Size</option>
-      {FONT_SIZES.map((size) => (
-        <option key={size} value={size}>
-          {parseInt(size)}
-        </option>
-      ))}
-    </select>
+      {children}
+    </div>
   );
 }
 
@@ -159,11 +182,11 @@ function ToolbarButton({
       aria-disabled={disabled}
       title={title}
       className={cn(
-        "p-1.5 rounded-md transition-colors",
+        "rounded-md p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
         active
-          ? "bg-foreground/10 text-foreground"
+          ? "bg-primary/10 text-primary"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
-        disabled && "opacity-40 cursor-not-allowed"
+        disabled && "cursor-not-allowed opacity-40"
       )}
     >
       {children}
@@ -172,7 +195,74 @@ function ToolbarButton({
 }
 
 function ToolbarDivider() {
-  return <div className="w-px h-5 bg-border mx-0.5" />;
+  return <div className="mx-0.5 h-5 w-px bg-border/60" />;
+}
+
+function FontSizePicker({ editor }: { editor: Editor }) {
+  const { open, setOpen, ref } = usePopover();
+  const currentSize: string = editor.getAttributes("textStyle").fontSize || "";
+  const label = currentSize ? String(parseInt(currentSize, 10)) : "Size";
+
+  const applySize = (size: string) => {
+    if (size) {
+      editor.chain().focus().setFontSize(size).run();
+    } else {
+      editor.chain().focus().unsetFontSize().run();
+    }
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-label="Font size"
+        title="Font size"
+        className={cn(
+          "flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+          currentSize
+            ? "bg-primary/10 text-primary"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        <span className="tabular-nums">{label}</span>
+        <ChevronDown size={13} className="opacity-70" />
+      </button>
+      {open && (
+        <PopoverPanel preserveSelection className="w-24 p-1">
+          <button
+            type="button"
+            onClick={() => applySize("")}
+            className={cn(
+              "flex w-full items-center justify-between rounded-md px-2 py-1 text-xs transition-colors hover:bg-muted",
+              !currentSize ? "font-semibold text-primary" : "text-muted-foreground"
+            )}
+          >
+            <span>Default</span>
+            {!currentSize && <Check size={12} />}
+          </button>
+          {FONT_SIZES.map((size) => {
+            const active = currentSize === size;
+            return (
+              <button
+                key={size}
+                type="button"
+                onClick={() => applySize(size)}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-md px-2 py-1 text-xs tabular-nums transition-colors hover:bg-muted",
+                  active ? "font-semibold text-primary" : "text-foreground"
+                )}
+              >
+                <span>{parseInt(size, 10)}</span>
+                {active && <Check size={12} />}
+              </button>
+            );
+          })}
+        </PopoverPanel>
+      )}
+    </div>
+  );
 }
 
 const COLORS = [
@@ -193,119 +283,228 @@ function ColorPicker({
   onSelect: (color: string) => void;
   currentColor?: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const { open, setOpen, ref } = usePopover();
 
   return (
     <div className="relative" ref={ref}>
-      <ToolbarButton
-        onClick={() => setOpen(!open)}
-        active={!!currentColor}
-        title="Text Color"
-      >
-        <Palette size={15} />
+      <ToolbarButton onClick={() => setOpen(!open)} active={!!currentColor} title="Text color">
+        <Palette size={ICON_SIZE} />
       </ToolbarButton>
       {open && (
-        <div className="absolute top-full left-0 mt-1 p-1.5 bg-popover border border-border rounded-lg shadow-md z-50 grid grid-cols-8 gap-1">
-          {COLORS.map((color) => (
-            <button
-              key={color}
-              type="button"
-              aria-label={`Set text color ${color}`}
-              aria-pressed={currentColor === color}
-              className={cn(
-                "w-5 h-5 rounded-sm border transition-transform hover:scale-125",
-                color === "#ffffff" ? "border-border" : "border-border/50",
-                currentColor === color && "ring-2 ring-ring ring-offset-1"
-              )}
-              style={{ backgroundColor: color }}
-              onClick={() => {
-                onSelect(color);
-                setOpen(false);
-              }}
-            />
-          ))}
+        <PopoverPanel preserveSelection className="w-max p-2">
+          <p className="mb-1.5 px-0.5 text-[0.62rem] font-bold uppercase tracking-wide text-muted-foreground">
+            Text color
+          </p>
+          <div className="grid grid-cols-8 gap-1">
+            {COLORS.map((color) => (
+              <button
+                key={color}
+                type="button"
+                aria-label={`Set text color ${color}`}
+                aria-pressed={currentColor === color}
+                className={cn(
+                  "h-5 w-5 rounded-md border transition-transform hover:scale-110 motion-reduce:transition-none motion-reduce:hover:scale-100",
+                  color === "#ffffff" ? "border-border" : "border-border/40",
+                  currentColor === color && "ring-2 ring-ring ring-offset-1 ring-offset-popover"
+                )}
+                style={{ backgroundColor: color }}
+                onClick={() => {
+                  onSelect(color);
+                  setOpen(false);
+                }}
+              />
+            ))}
+          </div>
           <button
             type="button"
-            className="col-span-8 h-5 rounded-sm border border-border/50 flex items-center justify-center gap-1 text-muted-foreground hover:text-foreground text-xs"
+            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-border/60 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             title="Remove color"
             onClick={() => {
               onSelect("");
               setOpen(false);
             }}
           >
-            <Trash2 size={10} />
-            <span>Clear</span>
+            <Trash2 size={11} />
+            <span>Clear color</span>
           </button>
-        </div>
+        </PopoverPanel>
+      )}
+    </div>
+  );
+}
+
+function normalizeUrl(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return /^(https?:\/\/|mailto:|\/)/i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+function LinkPopover({ editor }: { editor: Editor }) {
+  const { open, setOpen, ref } = usePopover();
+  const [url, setUrl] = useState("");
+  const isActive = editor.isActive("link");
+
+  const toggle = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setUrl(editor.getAttributes("link").href || "");
+    setOpen(true);
+  };
+
+  const apply = () => {
+    const href = normalizeUrl(url);
+    if (!href) {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    } else {
+      editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
+    }
+    setOpen(false);
+  };
+
+  const remove = () => {
+    editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <ToolbarButton onClick={toggle} active={isActive} title="Link">
+        <LinkIcon size={ICON_SIZE} />
+      </ToolbarButton>
+      {open && (
+        <PopoverPanel className="w-64 p-2">
+          <input
+            type="url"
+            autoFocus
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                apply();
+              }
+            }}
+            placeholder="https://example.com"
+            aria-label="Link URL"
+            className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+          />
+          <div className="mt-2 flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={apply}
+              className="flex-1 rounded-md bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Apply
+            </button>
+            {isActive && (
+              <button
+                type="button"
+                onClick={remove}
+                className="rounded-md border border-border/60 px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        </PopoverPanel>
+      )}
+    </div>
+  );
+}
+
+function ImageUrlPopover({ editor }: { editor: Editor }) {
+  const { open, setOpen, ref } = usePopover();
+  const [url, setUrl] = useState("");
+
+  const apply = () => {
+    const src = normalizeUrl(url);
+    if (src) editor.chain().focus().setImage({ src }).run();
+    setUrl("");
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <ToolbarButton onClick={() => setOpen(!open)} title="Insert image">
+        <ImagePlus size={ICON_SIZE} />
+      </ToolbarButton>
+      {open && (
+        <PopoverPanel className="w-64 p-2">
+          <input
+            type="url"
+            autoFocus
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                apply();
+              }
+            }}
+            placeholder="https://image-url.png"
+            aria-label="Image URL"
+            className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+          />
+          <button
+            type="button"
+            onClick={apply}
+            className="mt-2 w-full rounded-md bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            Insert image
+          </button>
+        </PopoverPanel>
       )}
     </div>
   );
 }
 
 function TableMenu({ editor }: { editor: Editor }) {
-  const [open, setOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
+  const { open, setOpen, ref } = usePopover();
 
   return (
-    <div className="relative" ref={menuRef}>
-      <ToolbarButton
-        onClick={() => setOpen((prev) => !prev)}
-        active={editor.isActive("table")}
-        title="Table"
-      >
-        <TableIcon size={15} />
+    <div className="relative" ref={ref}>
+      <ToolbarButton onClick={() => setOpen(!open)} active={editor.isActive("table")} title="Table">
+        <TableIcon size={ICON_SIZE} />
       </ToolbarButton>
       {open && (
-        <div
-          className="absolute top-full left-0 mt-1 bg-popover border border-border rounded-lg shadow-md z-50 py-1 min-w-[170px]"
-          onMouseDown={(e) => e.preventDefault()}
-        >
+        <PopoverPanel preserveSelection className="min-w-[180px] p-1">
           {!editor.isActive("table") && (
             <button
               type="button"
-              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left hover:bg-muted transition-colors"
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-muted"
               onClick={() => {
                 editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
                 setOpen(false);
               }}
             >
               <Plus size={13} />
-              Insert Table
+              Insert table
             </button>
           )}
-          {editor.isActive("table") && [
-            { label: "Add Column After", icon: <ArrowRight size={13} />, action: () => editor.chain().focus().addColumnAfter().run() },
-            { label: "Add Row After", icon: <ArrowDown size={13} />, action: () => editor.chain().focus().addRowAfter().run() },
-            { label: "Delete Column", icon: <Trash2 size={13} />, action: () => editor.chain().focus().deleteColumn().run() },
-            { label: "Delete Row", icon: <Trash2 size={13} />, action: () => editor.chain().focus().deleteRow().run() },
-            { label: "Delete Table", icon: <Trash2 size={13} />, action: () => editor.chain().focus().deleteTable().run() },
-          ].map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left hover:bg-muted transition-colors"
-              onClick={() => {
-                item.action();
-                setOpen(false);
-              }}
-            >
-              {item.icon}
-              {item.label}
-            </button>
-          ))}
-        </div>
+          {editor.isActive("table") &&
+            [
+              { label: "Add column after", icon: <ArrowRight size={13} />, action: () => editor.chain().focus().addColumnAfter().run() },
+              { label: "Add row after", icon: <ArrowDown size={13} />, action: () => editor.chain().focus().addRowAfter().run() },
+              { label: "Delete column", icon: <Trash2 size={13} />, action: () => editor.chain().focus().deleteColumn().run() },
+              { label: "Delete row", icon: <Trash2 size={13} />, action: () => editor.chain().focus().deleteRow().run() },
+              { label: "Delete table", icon: <Trash2 size={13} />, action: () => editor.chain().focus().deleteTable().run() },
+            ].map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-muted"
+                onClick={() => {
+                  item.action();
+                  setOpen(false);
+                }}
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            ))}
+        </PopoverPanel>
       )}
     </div>
   );
@@ -319,35 +518,11 @@ function Toolbar({ editor, companyId, uploading, fileInputRef, pdfInputRef, disa
   pdfInputRef: React.RefObject<HTMLInputElement | null>;
   disableMedia?: boolean;
 }) {
-  const iconSize = 15;
-
-  const addImage = useCallback(() => {
-    if (companyId) {
-      fileInputRef.current?.click();
-    } else {
-      const url = window.prompt("Image URL:");
-      if (url) {
-        editor.chain().focus().setImage({ src: url }).run();
-      }
-    }
-  }, [editor, companyId, fileInputRef]);
-
-  const setLink = useCallback(() => {
-    const previousUrl = editor.getAttributes("link").href;
-    const url = window.prompt("Link URL:", previousUrl);
-    if (url === null) return;
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
-  }, [editor]);
-
   return (
     <div
       role="toolbar"
       aria-label="Text formatting"
-      className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border/50 flex-wrap"
+      className="flex flex-wrap items-center gap-0.5 rounded-t-xl border-b border-border/60 bg-muted/30 px-2 py-1.5"
     >
       {/* Text formatting */}
       <ToolbarButton
@@ -355,35 +530,35 @@ function Toolbar({ editor, companyId, uploading, fileInputRef, pdfInputRef, disa
         active={editor.isActive("bold")}
         title="Bold (Ctrl+B)"
       >
-        <Bold size={iconSize} />
+        <Bold size={ICON_SIZE} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleItalic().run()}
         active={editor.isActive("italic")}
         title="Italic (Ctrl+I)"
       >
-        <Italic size={iconSize} />
+        <Italic size={ICON_SIZE} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleUnderline().run()}
         active={editor.isActive("underline")}
         title="Underline (Ctrl+U)"
       >
-        <UnderlineIcon size={iconSize} />
+        <UnderlineIcon size={ICON_SIZE} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleStrike().run()}
         active={editor.isActive("strike")}
         title="Strikethrough"
       >
-        <Strikethrough size={iconSize} />
+        <Strikethrough size={ICON_SIZE} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleHighlight().run()}
         active={editor.isActive("highlight")}
         title="Highlight"
       >
-        <Highlighter size={iconSize} />
+        <Highlighter size={ICON_SIZE} />
       </ToolbarButton>
       <ColorPicker
         onSelect={(color) => {
@@ -395,7 +570,7 @@ function Toolbar({ editor, companyId, uploading, fileInputRef, pdfInputRef, disa
         }}
         currentColor={editor.getAttributes("textStyle").color}
       />
-      <FontSizeSelect editor={editor} />
+      <FontSizePicker editor={editor} />
 
       <ToolbarDivider />
 
@@ -405,14 +580,14 @@ function Toolbar({ editor, companyId, uploading, fileInputRef, pdfInputRef, disa
         active={editor.isActive("heading", { level: 2 })}
         title="Heading 2"
       >
-        <Heading2 size={iconSize} />
+        <Heading2 size={ICON_SIZE} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
         active={editor.isActive("heading", { level: 3 })}
         title="Heading 3"
       >
-        <Heading3 size={iconSize} />
+        <Heading3 size={ICON_SIZE} />
       </ToolbarButton>
 
       <ToolbarDivider />
@@ -421,23 +596,23 @@ function Toolbar({ editor, companyId, uploading, fileInputRef, pdfInputRef, disa
       <ToolbarButton
         onClick={() => editor.chain().focus().setTextAlign("left").run()}
         active={editor.isActive({ textAlign: "left" })}
-        title="Align Left"
+        title="Align left"
       >
-        <AlignLeft size={iconSize} />
+        <AlignLeft size={ICON_SIZE} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().setTextAlign("center").run()}
         active={editor.isActive({ textAlign: "center" })}
-        title="Align Center"
+        title="Align center"
       >
-        <AlignCenter size={iconSize} />
+        <AlignCenter size={ICON_SIZE} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().setTextAlign("right").run()}
         active={editor.isActive({ textAlign: "right" })}
-        title="Align Right"
+        title="Align right"
       >
-        <AlignRight size={iconSize} />
+        <AlignRight size={ICON_SIZE} />
       </ToolbarButton>
 
       <ToolbarDivider />
@@ -446,23 +621,23 @@ function Toolbar({ editor, companyId, uploading, fileInputRef, pdfInputRef, disa
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBulletList().run()}
         active={editor.isActive("bulletList")}
-        title="Bullet List"
+        title="Bullet list"
       >
-        <List size={iconSize} />
+        <List size={ICON_SIZE} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
         active={editor.isActive("orderedList")}
-        title="Ordered List"
+        title="Ordered list"
       >
-        <ListOrdered size={iconSize} />
+        <ListOrdered size={ICON_SIZE} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleTaskList().run()}
         active={editor.isActive("taskList")}
-        title="Task List"
+        title="Task list"
       >
-        <ListChecks size={iconSize} />
+        <ListChecks size={ICON_SIZE} />
       </ToolbarButton>
 
       <ToolbarDivider />
@@ -473,54 +648,54 @@ function Toolbar({ editor, companyId, uploading, fileInputRef, pdfInputRef, disa
         active={editor.isActive("blockquote")}
         title="Blockquote"
       >
-        <Quote size={iconSize} />
+        <Quote size={ICON_SIZE} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleCodeBlock().run()}
         active={editor.isActive("codeBlock")}
-        title="Code Block"
+        title="Code block"
       >
-        <Code2 size={iconSize} />
+        <Code2 size={ICON_SIZE} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().setHorizontalRule().run()}
-        title="Horizontal Rule"
+        title="Horizontal rule"
       >
-        <Minus size={iconSize} />
+        <Minus size={ICON_SIZE} />
       </ToolbarButton>
 
       <ToolbarDivider />
 
-      {/* Link & Image */}
-      <ToolbarButton
-        onClick={setLink}
-        active={editor.isActive("link")}
-        title="Add Link"
-      >
-        <LinkIcon size={iconSize} />
-      </ToolbarButton>
-      {editor.isActive("link") && (
-        <ToolbarButton
-          onClick={() => editor.chain().focus().unsetLink().run()}
-          title="Remove Link"
-        >
-          <Unlink size={iconSize} />
-        </ToolbarButton>
-      )}
+      {/* Link & media */}
+      <LinkPopover editor={editor} />
       {!disableMedia && (
         <>
-          <ToolbarButton onClick={addImage} title="Insert Image" disabled={uploading}>
-            {uploading ? <Loader2 size={iconSize} className="animate-spin" /> : <ImagePlus size={iconSize} />}
-          </ToolbarButton>
-          {companyId && (
-            <ToolbarButton onClick={() => pdfInputRef.current?.click()} title="Attach PDF" disabled={uploading}>
-              <Paperclip size={iconSize} />
-            </ToolbarButton>
+          {companyId ? (
+            <>
+              <ToolbarButton
+                onClick={() => fileInputRef.current?.click()}
+                title="Insert image"
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <Loader2 size={ICON_SIZE} className="animate-spin" />
+                ) : (
+                  <ImagePlus size={ICON_SIZE} />
+                )}
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => pdfInputRef.current?.click()}
+                title="Attach PDF"
+                disabled={uploading}
+              >
+                <Paperclip size={ICON_SIZE} />
+              </ToolbarButton>
+            </>
+          ) : (
+            <ImageUrlPopover editor={editor} />
           )}
         </>
       )}
-
-      {/* Table */}
       <TableMenu editor={editor} />
 
       <ToolbarDivider />
@@ -531,16 +706,61 @@ function Toolbar({ editor, companyId, uploading, fileInputRef, pdfInputRef, disa
         disabled={!editor.can().undo()}
         title="Undo (Ctrl+Z)"
       >
-        <Undo2 size={iconSize} />
+        <Undo2 size={ICON_SIZE} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().redo().run()}
         disabled={!editor.can().redo()}
         title="Redo (Ctrl+Shift+Z)"
       >
-        <Redo2 size={iconSize} />
+        <Redo2 size={ICON_SIZE} />
       </ToolbarButton>
     </div>
+  );
+}
+
+function SelectionBubbleMenu({ editor }: { editor: Editor }) {
+  return (
+    <BubbleMenu
+      editor={editor}
+      className="flex items-center gap-0.5 rounded-full border border-border bg-popover px-1.5 py-1 shadow-lift"
+    >
+      <ToolbarButton
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        active={editor.isActive("bold")}
+        title="Bold"
+      >
+        <Bold size={14} />
+      </ToolbarButton>
+      <ToolbarButton
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        active={editor.isActive("italic")}
+        title="Italic"
+      >
+        <Italic size={14} />
+      </ToolbarButton>
+      <ToolbarButton
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        active={editor.isActive("underline")}
+        title="Underline"
+      >
+        <UnderlineIcon size={14} />
+      </ToolbarButton>
+      <ToolbarButton
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+        active={editor.isActive("strike")}
+        title="Strikethrough"
+      >
+        <Strikethrough size={14} />
+      </ToolbarButton>
+      <ToolbarButton
+        onClick={() => editor.chain().focus().toggleHighlight().run()}
+        active={editor.isActive("highlight")}
+        title="Highlight"
+      >
+        <Highlighter size={14} />
+      </ToolbarButton>
+    </BubbleMenu>
   );
 }
 
@@ -594,6 +814,7 @@ export default function RichTextEditorImpl({
   }, [companyId, uploadFile]);
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit,
       Placeholder.configure({ placeholder }),
@@ -653,7 +874,7 @@ export default function RichTextEditorImpl({
   if (!editor) return null;
 
   return (
-    <div className="tiptap-editor rounded-lg border border-border/60 bg-background overflow-hidden focus-within:border-ring/50 focus-within:ring-2 focus-within:ring-ring/20 transition-all">
+    <div className="tiptap-editor rounded-xl border bg-card shadow-soft transition-[border-color,box-shadow] focus-within:border-ring/40 focus-within:ring-2 focus-within:ring-ring/25">
       <Toolbar
         editor={editor}
         companyId={companyId}
@@ -662,14 +883,15 @@ export default function RichTextEditorImpl({
         pdfInputRef={pdfInputRef}
         disableMedia={disableMedia}
       />
+      <SelectionBubbleMenu editor={editor} />
       {uploading && (
-        <div className="px-3 py-1.5 bg-muted/50 border-b border-border/50 flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 border-b border-border/50 bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground">
           <Loader2 size={12} className="animate-spin" />
           Uploading file...
         </div>
       )}
       <div
-        className="prose prose-sm max-w-none px-3 py-2 text-foreground prose-headings:text-foreground prose-p:my-1.5 prose-headings:my-2 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-blockquote:my-2 prose-blockquote:border-border prose-blockquote:text-muted-foreground prose-code:text-foreground prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-muted prose-pre:text-foreground prose-hr:border-border"
+        className="prose prose-sm max-w-none px-3.5 py-2.5 text-foreground prose-headings:my-2 prose-headings:text-foreground prose-p:my-1.5 prose-strong:text-foreground prose-a:font-medium prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-blockquote:my-2 prose-blockquote:border-border prose-blockquote:text-muted-foreground prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:text-xs prose-code:text-foreground prose-pre:bg-muted prose-pre:text-foreground prose-ol:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-hr:border-border"
         style={{ minHeight }}
       >
         <EditorContent editor={editor} />

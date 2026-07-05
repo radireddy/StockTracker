@@ -56,21 +56,39 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const log = createLogger({ service: "auth-middleware" });
+  const { pathname } = request.nextUrl;
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth") &&
-    !request.nextUrl.pathname.startsWith("/api/cron")
-  ) {
-    log.warn("Unauthorized access, redirecting to login", {
-      path: request.nextUrl.pathname,
-    });
+  const redirectTo = (to: string) => {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = to;
+    url.search = "";
     const redirectResponse = NextResponse.redirect(url);
     redirectResponse.headers.set("Content-Security-Policy", csp);
     return redirectResponse;
+  };
+
+  // Public, unauthenticated-reachable routes. Everything else is app-gated.
+  // "/" and the marketing SEO pages must be crawlable.
+  const MARKETING_PATHS = [
+    "/zerodha-portfolio-tracker",
+    "/intrinsic-value-margin-of-safety",
+    "/portfolio-allocation",
+  ];
+  const isPublicPath =
+    pathname === "/" ||
+    MARKETING_PATHS.includes(pathname) ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/api/cron");
+
+  // Signed-in users shouldn't linger on the marketing or login pages.
+  if (user && (pathname === "/" || pathname.startsWith("/login"))) {
+    return redirectTo("/dashboard");
+  }
+
+  if (!user && !isPublicPath) {
+    log.warn("Unauthorized access, redirecting to login", { path: pathname });
+    return redirectTo("/login");
   }
 
   supabaseResponse.headers.set("Content-Security-Policy", csp);
