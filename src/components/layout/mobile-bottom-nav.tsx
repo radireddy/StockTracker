@@ -36,13 +36,13 @@ const EMPTY_META: Record<
 };
 
 /**
- * Fixed bottom navigation for small screens. Left: user avatar. Middle:
- * Holdings / Watchlist view switch. Right: teal Add (company) and Portfolio
- * (new portfolio) actions. Hidden on `lg`+ where the header + dense table
- * take over.
+ * Fixed bottom navigation for small screens. Holdings / Watchlist view switch
+ * plus teal Add (company) and Portfolio (new portfolio) actions. Account
+ * actions live in the header avatar menu. Hidden on `lg`+ where the header +
+ * dense table take over.
  */
 export function MobileBottomNav() {
-  const { portfolios, selectedPortfolio, select, userInitial } = usePortfolioContext();
+  const { portfolios, selectedPortfolio, select } = usePortfolioContext();
   const router = useRouter();
   const pathname = usePathname();
   const [createOpen, setCreateOpen] = useState(false);
@@ -76,15 +76,6 @@ export function MobileBottomNav() {
         aria-label="Dashboard navigation"
         className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-around border-t bg-background/85 px-4 pt-2 backdrop-blur supports-[backdrop-filter]:bg-background/70 lg:hidden pb-[max(0.5rem,env(safe-area-inset-bottom))]"
       >
-        <button
-          type="button"
-          onClick={() => router.push("/settings")}
-          aria-label="Account settings"
-          className="grid h-9 w-9 place-items-center rounded-full bg-foreground/90 text-sm font-bold text-background"
-        >
-          {userInitial}
-        </button>
-
         {views.map(({ type, label, Icon }) => {
           const active = onDashboard && mode === type;
           return (
