@@ -58,6 +58,10 @@ export function AllocationSummaryBar({
 
   if (!starGroups) return null;
 
+  const unratedCount = companies.filter(
+    (c) => c.star_rating == null && c.quantity != null && c.quantity > 0
+  ).length;
+
   return (
     <div className="flex flex-col gap-3.5 rounded-2xl border bg-card p-6 shadow-soft">
       <h3 className="flex items-baseline justify-between text-sm font-semibold">
@@ -103,6 +107,11 @@ export function AllocationSummaryBar({
           </div>
         );
       })}
+      {unratedCount > 0 && (
+        <p className="text-[0.72rem] text-muted-foreground">
+          {unratedCount} {unratedCount === 1 ? "company is" : "companies are"} not yet rated — rate them to include in allocation.
+        </p>
+      )}
     </div>
   );
 }
