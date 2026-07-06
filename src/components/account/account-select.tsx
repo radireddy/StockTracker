@@ -1,11 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import type { Account } from "@/types/database";
 
 /**
  * Controlled account picker: choose an existing account. Accounts are created
  * only in Settings; when the user has none, this points them there.
+ * Uses a custom Select (portal-rendered) to avoid native dropdown overlay
+ * issues on mobile browsers.
  */
 export function AccountSelect({
   accounts,
@@ -32,21 +37,17 @@ export function AccountSelect({
     );
   }
   return (
-    <select
-      id={id}
-      aria-label="Account"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={`flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ${className ?? ""}`}
-    >
-      <option value="" disabled>
-        Select account…
-      </option>
-      {accounts.map((a) => (
-        <option key={a.id} value={a.id}>
-          {a.label}
-        </option>
-      ))}
-    </select>
+    <Select value={value || null} onValueChange={(v) => onChange(v ?? "")}>
+      <SelectTrigger id={id} className={`w-full ${className ?? ""}`}>
+        <SelectValue placeholder="Select account…" />
+      </SelectTrigger>
+      <SelectContent>
+        {accounts.map((a) => (
+          <SelectItem key={a.id} value={a.id}>
+            {a.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Search, SlidersHorizontal, Upload, Plus, Eye, BarChart3 } from "lucide-react";
+import { Search, SlidersHorizontal, Upload, Plus, Eye, BarChart3, X } from "lucide-react";
 import type { AllocationRanges } from "@/types/database";
 import type { DashboardAccount, DashboardCompanyRow } from "@/hooks/use-dashboard-data";
 import {
@@ -188,6 +188,14 @@ export function MobileDashboard({
   const [buyOnly, setBuyOnly] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  const clearAllFilters = () => {
+    setSearch("");
+    setSortField(isHoldings ? "pnl" : "mos");
+    setAllocFilter("all");
+    setBuyOnly(false);
+    onAccountFilterChange?.("all");
+  };
+
   // Reset sort/filters when the portfolio type flips (their valid options
   // differ). Adjust-state-during-render pattern — no effect needed.
   const [prevIsHoldings, setPrevIsHoldings] = useState(isHoldings);
@@ -261,26 +269,42 @@ export function MobileDashboard({
       {isHoldings && !isEmpty && !hasResearchData && <MobileResearchGuidance />}
 
       {!isEmpty && (
-        <button
-          type="button"
-          onClick={() => setSheetOpen(true)}
-          className="flex w-full items-center justify-between gap-2 rounded-xl border bg-card px-3 py-2.5 shadow-soft"
-        >
-          <span className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Search size={15} aria-hidden="true" />
-            Search, sort &amp; filter
-          </span>
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[0.78rem] font-semibold",
-              filterActive ? "bg-primary/[0.12] text-primary" : "bg-muted text-foreground"
-            )}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSheetOpen(true)}
+            className="flex flex-1 items-center justify-between gap-2 rounded-xl border bg-card px-3 py-2.5 shadow-soft"
           >
-            <SlidersHorizontal size={13} aria-hidden="true" />
-            {SORT_LABELS[sortField]}
-            {filterActive && <span aria-hidden="true">•</span>}
-          </span>
-        </button>
+            <span className="flex min-w-0 items-center gap-2 text-sm">
+              <Search size={15} aria-hidden="true" className="shrink-0 text-muted-foreground" />
+              {search ? (
+                <span className="truncate font-medium text-foreground">{search}</span>
+              ) : (
+                <span className="text-muted-foreground">Search, sort &amp; filter</span>
+              )}
+            </span>
+            <span
+              className={cn(
+                "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[0.78rem] font-semibold",
+                filterActive ? "bg-primary/[0.12] text-primary" : "bg-muted text-foreground"
+              )}
+            >
+              <SlidersHorizontal size={13} aria-hidden="true" />
+              {SORT_LABELS[sortField]}
+              {filterActive && <span aria-hidden="true">•</span>}
+            </span>
+          </button>
+          {filterActive && (
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              aria-label="Clear all filters"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border bg-card text-muted-foreground shadow-soft hover:text-foreground"
+            >
+              <X size={16} aria-hidden="true" />
+            </button>
+          )}
+        </div>
       )}
 
       <div className="space-y-2.5">
@@ -347,9 +371,20 @@ export function MobileDashboard({
                 placeholder="Search companies..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-11 rounded-xl pl-9 text-sm"
+                className={cn("h-11 rounded-xl pl-9 text-sm", search ? "pr-9" : "")}
                 aria-label="Search companies"
+                autoFocus
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  aria-label="Clear search"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X size={15} aria-hidden="true" />
+                </button>
+              )}
             </div>
           </div>
 
