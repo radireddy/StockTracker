@@ -32,6 +32,7 @@ export async function bulkUpdatePrices(
 }
 
 export function isIndianTradingHours(): boolean {
+  if (process.env.BYPASS_TRADING_HOURS === "1") return true;
   const now = new Date();
   // Convert to IST (UTC+5:30)
   const istOffset = 5.5 * 60 * 60 * 1000;
@@ -141,6 +142,7 @@ export async function refreshPrices(
     return { updated: 0, failed: [], totalSymbols: 0, autoCreated, unresolved };
   }
 
+  const refreshStart = Date.now();
   log.info("Price refresh started", {
     totalSymbols: uniqueSymbols.length,
     symbols: uniqueSymbols,
@@ -200,6 +202,7 @@ export async function refreshPrices(
     totalSymbols: uniqueSymbols.length,
     autoCreated,
     unresolvedIsins: unresolved,
+    duration_ms: Date.now() - refreshStart,
   });
 
   return { updated, failed, totalSymbols: uniqueSymbols.length, autoCreated, unresolved };

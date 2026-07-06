@@ -95,6 +95,7 @@ export async function manualRefreshPrices() {
   }
 
   const start = Date.now();
+  log.info("Manual refresh triggered", { userId: user.id });
   const adminClient = createAdminClient();
 
   // Step 1: Auto-create missing indian_stocks entries

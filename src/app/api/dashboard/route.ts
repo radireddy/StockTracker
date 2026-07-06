@@ -130,19 +130,23 @@ async function triggerPriceRefreshIfStale(supabase: SupabaseClient) {
     // own instance, so a module-level flag can't prevent duplicate refreshes.
     if (!(await acquireRefreshLock())) return;
 
+    const refreshStart = Date.now();
+    log.info("Auto-refresh triggered", {
+      staleness_ms: Date.now() - lastUpdated,
+    });
+
     const adminClient = createAdminClient();
-    refreshPrices(adminClient)
-      .then((result) => {
-        log.info("Auto-refresh completed", result);
-      })
-      .catch((err) => {
-        log.error("Auto-refresh failed", {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      })
-      .finally(() => {
-        void releaseRefreshLock();
+    try {
+      const result = await refreshPrices(adminClient);
+      log.info("Auto-refresh succeeded", { ...result, duration_ms: Date.now() - refreshStart });
+    } catch (err) {
+      log.error("Auto-refresh failed", {
+        error: err instanceof Error ? err.message : String(err),
+        duration_ms: Date.now() - refreshStart,
       });
+    } finally {
+      await releaseRefreshLock();
+    }
   } catch {
     // staleness check failed — skip refresh
   }
