@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-import { ChevronDown, ChevronRight, Plus, Save } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Save, Star } from "lucide-react";
 import { ProjectionGrid } from "@/components/company/projection-grid";
 import { ValuationScenarios } from "@/components/company/valuation-scenarios";
 import { getStrategy, getAvailableTypesExcluding } from "@/lib/projections/registry";
@@ -28,6 +28,7 @@ import {
   createProjectionModel,
   deleteProjectionModel,
   saveAllProjections,
+  setDefaultProjectionModel,
 } from "@/app/(authenticated)/actions/projection-actions";
 import { updateCompany } from "@/app/(authenticated)/actions/company-actions";
 import { fmtNum, marketCapInCrores } from "@/lib/utils/calculations";
@@ -313,6 +314,14 @@ export function ProjectionsValuationTab({
     setActiveModelId(pm.id);
   }, [company, modelStates.length]);
 
+  const handleSetDefault = useCallback(async (modelId: string) => {
+    const res = await setDefaultProjectionModel(company.id, modelId);
+    if (!res.ok) return toastError(res);
+    setModelStates((prev) =>
+      prev.map((ms) => ({ ...ms, model: { ...ms.model, is_default: ms.model.id === modelId } }))
+    );
+  }, [company.id]);
+
   const handleDeleteModel = useCallback(async () => {
     if (!deleteTarget) return;
     const res = await deleteProjectionModel(deleteTarget.id, company.id);
@@ -425,11 +434,19 @@ export function ProjectionsValuationTab({
               ].join(" ")}
             >
               {strategy.label}
-              {ms.model.is_default && (
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber/15 text-amber px-1.5 py-0.5 rounded">
-                  Default
-                </span>
-              )}
+              <span
+                role={ms.model.is_default ? undefined : "button"}
+                aria-label={ms.model.is_default ? "Default model" : "Set as default"}
+                title={ms.model.is_default ? "Default model" : "Set as default"}
+                onClick={(e) => { e.stopPropagation(); if (!ms.model.is_default) handleSetDefault(ms.model.id); }}
+                className={`flex items-center justify-center transition-colors ${
+                  ms.model.is_default
+                    ? "text-amber cursor-default"
+                    : "text-muted-foreground hover:text-amber cursor-pointer"
+                }`}
+              >
+                <Star className="h-3.5 w-3.5" fill={ms.model.is_default ? "currentColor" : "none"} />
+              </span>
               {!ms.model.is_default && (
                 <span
                   role="button"
@@ -532,7 +549,6 @@ export function ProjectionsValuationTab({
                   overrides={activeMs.overrides}
                   onCellChange={(yearIdx, key, value) => handleCellChange(activeMs.model.id, yearIdx, key, value)}
                   onYearChange={(idx, value) => handleYearChange(activeMs.model.id, idx, value)}
-                  onAddYear={() => handleAddYear(activeMs.model.id)}
                   onRemoveYear={(idx) => handleRemoveYear(activeMs.model.id, idx)}
                 />
               </div>
@@ -544,7 +560,8 @@ export function ProjectionsValuationTab({
             <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
               Expected Returns
             </h3>
-            <div className="flex flex-wrap items-center gap-4 px-4 py-3 rounded-lg border border-border/60 bg-muted/20">
+            <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
+              {/* Target Returns input */}
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium text-foreground whitespace-nowrap">Target Returns</label>
                 <input
@@ -556,10 +573,11 @@ export function ProjectionsValuationTab({
                 />
                 <span className="text-sm text-muted-foreground">% / year</span>
               </div>
-              <div className="ml-auto flex items-center gap-0 divide-x divide-border/60">
+              {/* Reference metrics — 2-col grid on mobile, horizontal strip on sm+ */}
+              <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 border-t border-border/40 pt-3 sm:mt-0 sm:grid-cols-none sm:flex sm:items-center sm:gap-0 sm:divide-x sm:divide-border/60 sm:border-t-0 sm:pt-0 sm:ml-auto sm:w-auto">
                 {[
                   {
-                    label: "Current Mkt Cap",
+                    label: "Mkt Cap",
                     value: (() => {
                       const mc = marketCapInCrores(company.indian_stocks?.market_cap);
                       return mc != null ? `₹${Math.round(mc).toLocaleString("en-IN")} Cr` : "—";
@@ -588,7 +606,7 @@ export function ProjectionsValuationTab({
                         : "—",
                   },
                 ].map(({ label, value }) => (
-                  <div key={label} className="px-3 first:pl-0 last:pr-0">
+                  <div key={label} className="sm:px-3 sm:first:pl-0 sm:last:pr-0">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</p>
                     <p className="text-sm font-semibold tabular-nums">{value}</p>
                   </div>
