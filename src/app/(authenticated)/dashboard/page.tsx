@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useCallback, useEffect, useState } from "react";
+import { useMemo, useCallback, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import { CompaniesTable } from "@/components/dashboard/companies-table";
 import { MobileDashboard } from "@/components/dashboard/mobile-dashboard";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
@@ -14,16 +14,30 @@ import { PortfolioNav } from "@/components/portfolio/portfolio-nav";
 import { Button } from "@/components/ui/button";
 import { usePortfolioContext } from "@/hooks/use-portfolio-context";
 import { useDashboardData, useInvalidateDashboard, consolidateHoldings } from "@/hooks/use-dashboard-data";
+import { manualRefreshPrices } from "@/app/(authenticated)/actions/price-actions";
+import { toastError } from "@/lib/toast-error";
 
 export default function DashboardPage() {
   const { selectedId, selectedPortfolio } = usePortfolioContext();
   const [accountFilter, setAccountFilter] = useState<string>("all");
+  const [isPending, startTransition] = useTransition();
 
   const portfolioType = selectedPortfolio?.type ?? "holdings";
   const isHoldings = portfolioType === "holdings";
 
   const { data, isLoading } = useDashboardData(selectedId, portfolioType);
   const invalidate = useInvalidateDashboard();
+
+  const handleRefreshPrices = useCallback(() => {
+    startTransition(async () => {
+      try {
+        await manualRefreshPrices();
+        await invalidate();
+      } catch (err) {
+        toastError(err, { message: "Price refresh failed" });
+      }
+    });
+  }, [invalidate]);
 
   const accounts = data?.accounts ?? [];
   const allocationRanges = data?.allocationRanges ?? null;
@@ -89,12 +103,25 @@ export default function DashboardPage() {
             </h1>
             <p className="mt-1 hidden text-sm text-muted-foreground lg:block">{subtitle}</p>
           </div>
-          <Link href="/company/new" className="hidden shrink-0 lg:block">
-            <Button className="h-9 gap-1.5 px-4 shadow-soft">
-              <Plus size={15} aria-hidden="true" />
-              Add company
+          <div className="hidden shrink-0 items-center gap-2 lg:flex">
+            <Button
+              variant="outline"
+              className="h-9 gap-1.5 px-3 shadow-soft"
+              onClick={handleRefreshPrices}
+              disabled={isPending}
+              aria-label="Refresh stock prices"
+              title="Refresh stock prices"
+            >
+              <RefreshCw size={14} aria-hidden="true" className={isPending ? "animate-spin" : ""} />
+              {isPending ? "Refreshing…" : "Refresh prices"}
             </Button>
-          </Link>
+            <Link href="/company/new">
+              <Button className="h-9 gap-1.5 px-4 shadow-soft">
+                <Plus size={15} aria-hidden="true" />
+                Add company
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 
