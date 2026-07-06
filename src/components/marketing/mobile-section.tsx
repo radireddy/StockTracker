@@ -19,6 +19,7 @@ export function MobileSection() {
               alt="Filter and sort panel on mobile"
               width={220}
               height={460}
+              sizes="220px"
             />
             <p className="mt-3 text-sm text-muted-foreground">Sort &amp; filter on the go</p>
           </div>
@@ -30,6 +31,7 @@ export function MobileSection() {
               alt="Portfolio holdings view on mobile"
               width={260}
               height={544}
+              sizes="260px"
               priority
             />
             <p className="mt-3 hidden text-sm text-muted-foreground sm:block">
@@ -44,6 +46,7 @@ export function MobileSection() {
               alt="Watchlist with BUY zone signals on mobile"
               width={220}
               height={460}
+              sizes="220px"
             />
             <p className="mt-3 text-sm text-muted-foreground">BUY zones, instantly</p>
           </div>
