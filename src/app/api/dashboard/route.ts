@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getAuthUserOrNull } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { refreshPrices, isIndianTradingHours } from "@/lib/services/price-refresh";
@@ -97,8 +97,10 @@ export async function GET(request: NextRequest) {
     projection_models: ((c.projection_models ?? []) as unknown as DashboardProjectionModel[]),
   }));
 
-  // Fire-and-forget price refresh if stale
-  triggerPriceRefreshIfStale(supabase);
+  // Schedule price refresh to run after the response is sent.
+  // Using after() instead of a plain fire-and-forget so the serverless runtime
+  // keeps the function alive until the async work completes.
+  after(() => triggerPriceRefreshIfStale(supabase));
 
   const allocationRanges =
     (profileResult.data?.allocation_ranges as Record<string, { min: number; max: number }> | null) ?? null;
