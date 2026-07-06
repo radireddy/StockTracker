@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { Tabs } from "@base-ui/react/tabs";
 import { ThesisTab } from "@/components/company/thesis-tab";
 import { ProjectionsTabLoader } from "@/components/company/projections-tab-loader";
@@ -11,7 +11,7 @@ import { HoldingsTab } from "@/components/company/holdings-tab";
 import { getDefaultModelBuyPrice } from "@/lib/utils/calculations";
 import type { CompanyWithRelations } from "@/types/database";
 
-type TabDef = { id: string; label: string };
+type TabDef = { id: string; label: string; mobileLabel?: string };
 
 export function CompanyTabs({
   company,
@@ -26,7 +26,7 @@ export function CompanyTabs({
     const base: TabDef[] = [
       { id: "details", label: "Details" },
       { id: "thesis", label: "Thesis" },
-      { id: "projections", label: "Projections & Valuations" },
+      { id: "projections", label: "Projections & Valuations", mobileLabel: "Projections" },
       { id: "timeline", label: "Timeline" },
       { id: "highlights", label: "Highlights" },
     ];
@@ -41,11 +41,46 @@ export function CompanyTabs({
   // only on first activation. Once opened, panels stay mounted (keepMounted) so
   // in-progress edits and fetched data are preserved when switching tabs.
   const [visited, setVisited] = useState<Set<string>>(() => new Set(["details"]));
+  const tabsListRef = useRef<HTMLDivElement>(null);
 
   const handleTabChange = useCallback((value: string) => {
     setActiveTab(value);
     setVisited((prev) => (prev.has(value) ? prev : new Set(prev).add(value)));
   }, []);
+
+  // Scroll so the active tab's neighbors are always visible (mobile horizontal scroll)
+  useEffect(() => {
+    if (!tabsListRef.current) return;
+    const container = tabsListRef.current;
+    const allTabs = Array.from(container.querySelectorAll("[data-value]")) as HTMLElement[];
+    const activeIndex = allTabs.findIndex((el) => el.dataset.value === activeTab);
+    if (activeIndex === -1) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const scrollLeft = container.scrollLeft;
+    const containerWidth = container.clientWidth;
+
+    const toScrollPos = (el: HTMLElement) => {
+      const rect = el.getBoundingClientRect();
+      return { left: rect.left - containerRect.left + scrollLeft, right: rect.right - containerRect.left + scrollLeft };
+    };
+
+    const prev = activeIndex > 0 ? allTabs[activeIndex - 1] : null;
+    const next = activeIndex < allTabs.length - 1 ? allTabs[activeIndex + 1] : null;
+
+    let targetScroll = scrollLeft;
+    if (next) {
+      const { right: nextRight } = toScrollPos(next);
+      const minScroll = nextRight - containerWidth;
+      if (targetScroll < minScroll) targetScroll = minScroll;
+    }
+    if (prev) {
+      const { left: prevLeft } = toScrollPos(prev);
+      if (targetScroll > prevLeft) targetScroll = prevLeft;
+    }
+
+    container.scrollTo({ left: Math.max(0, targetScroll), behavior: "smooth" });
+  }, [activeTab]);
 
   const baseCaseBuyPrice = getDefaultModelBuyPrice(company.projection_models ?? []);
 
@@ -57,13 +92,20 @@ export function CompanyTabs({
       value={activeTab}
       onValueChange={(value) => handleTabChange(value as string)}
     >
-      <Tabs.List className="border-b border-border/50 mt-2 flex gap-0 overflow-x-auto">
-        {tabs.map((tab) => (
-          <Tabs.Tab key={tab.id} value={tab.id} className={tabClassName}>
-            {tab.label}
-          </Tabs.Tab>
-        ))}
-      </Tabs.List>
+      <div ref={tabsListRef} className="overflow-x-auto no-scrollbar">
+        <Tabs.List className="border-b border-border/50 mt-2 flex gap-0">
+          {tabs.map((tab) => (
+            <Tabs.Tab key={tab.id} value={tab.id} data-value={tab.id} className={tabClassName}>
+              {tab.mobileLabel ? (
+                <>
+                  <span className="sm:hidden">{tab.mobileLabel}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </>
+              ) : tab.label}
+            </Tabs.Tab>
+          ))}
+        </Tabs.List>
+      </div>
 
       <div className="py-6">
         {/* Details renders immediately from the light core fetch. */}

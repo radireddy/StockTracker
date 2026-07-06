@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Projections & Valuations — Redesign Mockup</title>
+  <style>
+    /* ── Tokens ────────────────────────────────────────────────────────── */
+    :root {
+      --bg:           #ffffff;
+      --bg-subtle:    #f8fafc;
+      --bg-muted:     #f1f5f9;
+      --surface:      #ffffff;
+      --border:       #e2e8f0;
+      --border-med:   #cbd5e1;
+      --text:         #0f172a;
+      --text-muted:   #64748b;
+      --text-subtle:  #94a3b8;
+      --primary:      #2563eb;
+      --primary-dim:  #eff6ff;
+      --ring:         #93c5fd;
+
+      --bull-bg:      #f0fdf4;
+      --bull-border:  #86efac;
+      --bull-accent:  #16a34a;
+      --bull-irr:     #15803d;
+      --bull-dim:     #dcfce7;
+
+      --base-bg:      #eff6ff;
+      --base-border:  #bfdbfe;
+      --base-accent:  #2563eb;
+      --base-irr:     #1d4ed8;
+      --base-dim:     #dbeafe;
+
+      --bare-bg:      #fff7ed;
+      --bare-border:  #fed7aa;
+      --bare-accent:  #ea580c;
+      --bare-irr:     #c2410c;
+      --bare-dim:     #ffedd5;
+
+      --amber:        #d97706;
+      --amber-dim:    #fef3c7;
+      --violet:       #7c3aed;
+      --violet-dim:   #ede9fe;
+
+      --radius-sm:    6px;
+      --radius:       10px;
+      --radius-lg:    14px;
+      --shadow-sm:    0 1px 3px 0 rgb(0 0 0 / .08), 0 1px 2px -1px rgb(0 0 0 / .06);
+      --shadow:       0 4px 12px 0 rgb(0 0 0 / .08), 0 2px 4px -2px rgb(0 0 0 / .06);
+      --shadow-lg:    0 10px 30px -5px rgb(0 0 0 / .12), 0 4px 8px -4px rgb(0 0 0 / .08);
+    }
+
+    [data-theme="dark"] {
+      --bg:           #0b1120;
+      --bg-subtle:    #131e30;
+      --bg-muted:     #1a2640;
+      --surface:      #151f32;
+      --border:       #1e2d45;
+      --border-med:   #243550;
+      --text:         #f0f6ff;
+      --text-muted:   #7a93b8;
+      --text-subtle:  #4a6380;
+      --primary:      #3b82f6;
+      --primary-dim:  #1a2d50;
+      --ring:         #3b82f6;
+
+      --bull-bg:      #052e16;
+      --bull-border:  #166534;
+      --bull-accent:  #4ade80;
+      --bull-irr:     #22c55e;
+      --bull-dim:     #14532d;
+
+      --base-bg:      #0c1e40;
+      --base-border:  #1e3a7a;
+      --base-accent:  #60a5fa;
+      --base-irr:     #93c5fd;
+      --base-dim:     #1e3a8a;
+
+      --bare-bg:      #1c0900;
+      --bare-border:  #7c2d12;
+      --bare-accent:  #fb923c;
+      --bare-irr:     #f97316;
+      --bare-dim:     #431407;
+
+      --amber:        #f59e0b;
+      --amber-dim:    #1c1200;
+      --violet:       #a78bfa;
+      --violet-dim:   #2e1065;
+    }
+
+    /* ── Reset ─────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+    input { font-family: inherit; }
+    button { font-family: inherit; cursor: pointer; }
+
+    /* ── Layout ─────────────────────────────────────────────────────────── */
+    .page { max-width: 960px; margin: 0 auto; padding: 28px 24px 80px; }
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .page-title { font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -.3px; }
+    .page-title span { color: var(--text-muted); font-weight: 400; font-size: 14px; margin-left: 8px; }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+
+    /* ── Buttons ─────────────────────────────────────────────────────────── */
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; height: 34px; border-radius: 99px; font-size: 13px; font-weight: 500; border: none; transition: all .15s; text-decoration: none; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { filter: brightness(1.1); }
+    .btn-ghost { background: transparent; color: var(--text-muted); border: 1.5px solid var(--border-med); }
+    .btn-ghost:hover { background: var(--bg-muted); color: var(--text); }
+    .btn-icon { width: 34px; height: 34px; padding: 0; justify-content: center; }
+    .btn svg { width: 14px; height: 14px; }
+
+    /* ── Model Tabs ─────────────────────────────────────────────────────── */
+    .model-tabs { display: flex; align-items: center; gap: 4px; border-bottom: 1.5px solid var(--border); padding-bottom: -1px; margin-bottom: 24px; overflow-x: auto; }
+    .model-tab { display: flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: var(--radius-sm) var(--radius-sm) 0 0; font-size: 13px; font-weight: 500; color: var(--text-muted); background: transparent; border: none; border-bottom: 2.5px solid transparent; transition: all .15s; white-space: nowrap; margin-bottom: -1.5px; }
+    .model-tab:hover { color: var(--text); background: var(--bg-muted); }
+    .model-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: transparent; }
+    .model-tab .default-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; background: var(--amber-dim); color: var(--amber); border-radius: 4px; padding: 1px 5px; }
+    .model-tab-add { display: flex; align-items: center; gap: 5px; padding: 8px 12px; font-size: 12px; color: var(--text-subtle); border: 1.5px dashed var(--border); border-radius: var(--radius-sm); background: transparent; margin-left: 4px; transition: all .15s; white-space: nowrap; }
+    .model-tab-add:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-dim); }
+
+    /* ── IRR Highlight Bar ──────────────────────────────────────────────── */
+    .irr-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+    .irr-card { border-radius: var(--radius); border: 1.5px solid; padding: 14px 16px; position: relative; overflow: hidden; }
+    .irr-card.bull { background: var(--bull-bg); border-color: var(--bull-border); }
+    .irr-card.base { background: var(--base-bg); border-color: var(--base-border); }
+    .irr-card.bare { background: var(--bare-bg); border-color: var(--bare-border); }
+    .irr-card-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .irr-card.bull .irr-card-label { color: var(--bull-accent); }
+    .irr-card.base .irr-card-label { color: var(--base-accent); }
+    .irr-card.bare .irr-card-label { color: var(--bare-accent); }
+    .irr-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; font-weight: 600; }
+    .bull .irr-badge { background: var(--bull-dim); color: var(--bull-accent); }
+    .base .irr-badge { background: var(--base-dim); color: var(--base-accent); }
+    .bare .irr-badge { background: var(--bare-dim); color: var(--bare-accent); }
+    .irr-main { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; }
+    .irr-value { font-size: 32px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+    .irr-card.bull .irr-value { color: var(--bull-irr); }
+    .irr-card.base .irr-value { color: var(--base-irr); }
+    .irr-card.bare .irr-value { color: var(--bare-irr); }
+    .irr-unit { font-size: 15px; font-weight: 600; }
+    .irr-card.bull .irr-unit { color: var(--bull-irr); }
+    .irr-card.base .irr-unit { color: var(--base-irr); }
+    .irr-card.bare .irr-unit { color: var(--bare-irr); }
+    .irr-sublabel { font-size: 11px; color: var(--text-muted); }
+    .irr-divider { height: 1px; background: var(--border); margin: 10px 0; opacity: .6; }
+    .irr-meta { display: flex; justify-content: space-between; }
+    .irr-meta-item { text-align: center; }
+    .irr-meta-item:first-child { text-align: left; }
+    .irr-meta-item:last-child { text-align: right; }
+    .irr-meta-val { font-size: 13px; font-weight: 600; color: var(--text); tabular-nums: 1; font-variant-numeric: tabular-nums; }
+    .irr-meta-key { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; }
+
+    /* ── Scenario Section ───────────────────────────────────────────────── */
+    .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .section-title { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .6px; display: flex; align-items: center; gap: 6px; }
+    .section-title::before { content: ''; display: inline-block; width: 3px; height: 13px; border-radius: 2px; background: var(--primary); }
+
+    /* ── Scenario Input Cards ───────────────────────────────────────────── */
+    .scenario-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+    .scenario-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-lg); padding: 18px; box-shadow: var(--shadow-sm); transition: box-shadow .15s; }
+    .scenario-card:hover { box-shadow: var(--shadow); }
+    .sc-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .sc-name { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; }
+    .sc-name.bull { color: var(--bull-accent); }
+    .sc-name.base { color: var(--base-accent); }
+    .sc-name.bare { color: var(--bare-accent); }
+    .sc-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+    .bull .sc-icon { background: var(--bull-dim); }
+    .base .sc-icon { background: var(--base-dim); }
+    .bare .sc-icon { background: var(--bare-dim); }
+    .sc-field { margin-bottom: 14px; }
+    .sc-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; font-weight: 500; }
+    .sc-input { width: 100%; height: 38px; border: 1.5px solid var(--border-med); border-radius: var(--radius-sm); background: var(--bg-subtle); color: var(--text); padding: 0 10px; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; transition: border-color .15s, box-shadow .15s; outline: none; }
+    .sc-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-dim); background: var(--bg); }
+    .sc-input::placeholder { color: var(--text-subtle); font-weight: 400; }
+    .sc-divider { height: 1px; background: var(--border); margin: 14px 0; }
+    .sc-output { display: flex; flex-direction: column; gap: 8px; }
+    .sc-out-row { display: flex; align-items: center; justify-content: space-between; }
+    .sc-out-key { font-size: 12px; color: var(--text-muted); }
+    .sc-out-val { font-size: 13px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+    .sc-out-val.dim { color: var(--text-subtle); }
+    .sc-out-val.highlight { font-size: 15px; font-weight: 700; }
+    .sc-out-val.bull-color { color: var(--bull-irr); }
+    .sc-out-val.base-color { color: var(--base-irr); }
+    .sc-out-val.bare-color { color: var(--bare-irr); }
+
+    /* ── Context Bar ────────────────────────────────────────────────────── */
+    .context-bar { display: flex; align-items: center; gap: 0; background: var(--bg-muted); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 12px 20px; margin-bottom: 24px; flex-wrap: wrap; gap: 0; }
+    .ctx-item { display: flex; flex-direction: column; gap: 1px; padding: 0 20px; }
+    .ctx-item:first-child { padding-left: 0; }
+    .ctx-item:last-child { padding-right: 0; }
+    .ctx-divider { width: 1px; height: 32px; background: var(--border-med); flex-shrink: 0; }
+    .ctx-key { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-subtle); }
+    .ctx-val { font-size: 14px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+    .ctx-val.editable { display: flex; align-items: center; gap: 4px; }
+    .ctx-input { width: 64px; height: 28px; border: 1.5px solid var(--border-med); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); padding: 0 8px; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; outline: none; }
+    .ctx-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-dim); }
+    .ctx-unit { font-size: 12px; color: var(--text-muted); }
+
+    /* ── PEG Strip ──────────────────────────────────────────────────────── */
+    .peg-strip { display: flex; align-items: center; gap: 20px; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 12px 20px; margin-bottom: 24px; }
+    .peg-item { display: flex; flex-direction: column; gap: 2px; }
+    .peg-key { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; color: var(--text-subtle); }
+    .peg-val { font-size: 15px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+    .peg-val.green { color: #16a34a; }
+    .peg-val.amber { color: var(--amber); }
+    .peg-verdict { margin-left: auto; padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+    .peg-verdict.green { background: var(--bull-dim); color: var(--bull-accent); }
+    .peg-divider { width: 1px; height: 28px; background: var(--border); }
+
+    /* ── Projections Collapsible ────────────────────────────────────────── */
+    .proj-section { border: 1.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+    .proj-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--bg-muted); cursor: pointer; user-select: none; transition: background .15s; }
+    .proj-header:hover { background: var(--bg-subtle); }
+    .proj-header-left { display: flex; align-items: center; gap: 10px; }
+    .proj-chevron { width: 16px; height: 16px; color: var(--text-muted); transition: transform .2s; }
+    .proj-header.open .proj-chevron { transform: rotate(90deg); }
+    .proj-title { font-size: 14px; font-weight: 600; color: var(--text); }
+    .proj-subtitle { font-size: 12px; color: var(--text-muted); }
+    .proj-actions { display: flex; align-items: center; gap: 8px; }
+    .proj-body { padding: 0; }
+    .proj-body.hidden { display: none; }
+
+    /* ── Projection Grid Table ──────────────────────────────────────────── */
+    .grid-wrapper { overflow-x: auto; }
+    .proj-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .proj-table thead th { padding: 10px 14px; text-align: right; font-size: 11px; font-weight: 600; letter-spacing: .3px; color: var(--text-muted); border-bottom: 1.5px solid var(--border-med); white-space: nowrap; min-width: 100px; }
+    .proj-table thead th:first-child { text-align: left; min-width: 160px; position: sticky; left: 0; background: var(--bg-subtle); z-index: 2; }
+    .proj-table thead th.est { color: #3b82f6; background: #eff6ff; }
+    [data-theme="dark"] .proj-table thead th.est { background: #0c1e40; color: #60a5fa; }
+    .proj-table thead th.actual { color: var(--text-muted); }
+    .proj-table tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+    .proj-table tbody tr:last-child { border-bottom: none; }
+    .proj-table tbody tr.section-row { background: var(--bg-muted); }
+    .proj-table tbody tr.pct-row { background: transparent; }
+    .proj-table tbody tr:not(.section-row):not(.pct-row):hover { background: var(--bg-subtle); }
+    .proj-table tbody td { padding: 7px 14px; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+    .proj-table tbody td:first-child { text-align: left; font-size: 13px; position: sticky; left: 0; z-index: 1; background: inherit; white-space: nowrap; }
+    .proj-table tbody td.est-col { background: #f8fbff; }
+    [data-theme="dark"] .proj-table tbody td.est-col { background: #0a1828; }
+    .proj-table tbody td.section-val { font-weight: 700; color: var(--text); }
+    .proj-table tbody td.pct-val { font-size: 12px; color: var(--text-muted); }
+    .proj-table tbody td.growth-pos { color: #16a34a; }
+    .proj-table tbody td.growth-neg { color: #dc2626; }
+    .proj-table .row-label { color: var(--text); }
+    .proj-table .row-label-pct { color: var(--text-muted); font-size: 12px; padding-left: 8px; }
+    .proj-table .row-label-bold { font-weight: 700; color: var(--text); }
+    .section-row .proj-table .row-label { font-weight: 700; }
+    .proj-table .input-cell { width: 80px; height: 30px; border: 1.5px dashed var(--border-med); border-radius: var(--radius-sm); background: var(--bg-subtle); color: var(--text); padding: 0 8px; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; outline: none; transition: all .15s; }
+    .proj-table .input-cell:focus { border-color: var(--primary); border-style: solid; box-shadow: 0 0 0 2px var(--primary-dim); background: var(--bg); }
+    .proj-table .auto-val { color: var(--text-muted); }
+    .proj-table .overridden-val { color: #7c3aed; }
+    .proj-table-footer { display: flex; align-items: center; gap: 16px; padding: 10px 14px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-subtle); background: var(--bg-subtle); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+
+    /* ── Theme Toggle ───────────────────────────────────────────────────── */
+    .theme-toggle { position: fixed; top: 16px; right: 16px; z-index: 100; background: var(--surface); border: 1.5px solid var(--border); border-radius: 99px; padding: 6px 14px; font-size: 12px; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; gap: 6px; box-shadow: var(--shadow-sm); }
+    .theme-toggle:hover { color: var(--text); }
+
+    /* ── Utilities ──────────────────────────────────────────────────────── */
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+    .tabnum { font-variant-numeric: tabular-nums; }
+
+    /* ── Annotation callouts (mockup only) ─────────────────────────────── */
+    .callout { display: inline-flex; align-items: center; gap: 5px; background: #fef3c7; border: 1px solid #f59e0b; color: #92400e; border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 500; margin-left: 8px; vertical-align: middle; }
+    [data-theme="dark"] .callout { background: #1c1200; border-color: #78350f; color: #fbbf24; }
+
+    /* ── Responsive ─────────────────────────────────────────────────────── */
+    @media (max-width: 720px) {
+      .irr-summary, .scenario-cards { grid-template-columns: 1fr; }
+      .irr-card { display: flex; align-items: center; gap: 16px; }
+      .irr-value { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Theme toggle -->
+  <button class="theme-toggle" onclick="toggleTheme()">
+    <span id="theme-icon">☀️</span>
+    <span id="theme-label">Light mode</span>
+  </button>
+
+  <div class="page">
+
+    <!-- Page Header -->
+    <div class="page-header">
+      <div>
+        <div class="page-title">
+          HDFC Bank
+          <span>Projections &amp; Valuations</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 2v12M3 7l5-5 5 5"/></svg>
+          Export
+        </button>
+        <button class="btn btn-primary">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 11V14h12v-3M8 2v9M5 9l3 3 3-3"/></svg>
+          Save All
+        </button>
+      </div>
+    </div>
+
+    <!-- Model Tabs -->
+    <div class="model-tabs">
+      <button class="model-tab active">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+        PE / Earnings
+        <span class="default-badge">Default</span>
+      </button>
+      <button class="model-tab" onclick="this.classList.toggle('active')">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 13 L8 3 L14 13 Z"/></svg>
+        EV / EBITDA
+      </button>
+      <button class="model-tab-add">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 3v10M3 8h10"/></svg>
+        Add Model
+      </button>
+    </div>
+
+    <!-- ── Scenario Summary Cards (the Hero) ─────────────────────────── -->
+    <div class="section-head">
+      <div class="section-title">Valuation Scenarios</div>
+    </div>
+
+    <!-- Quick IRR Summary -->
+    <div class="irr-summary">
+      <div class="irr-card bull">
+        <div class="irr-card-label">
+          🐂 Bull
+          <span class="irr-badge">Optimistic</span>
+        </div>
+        <div class="irr-main">
+          <div class="irr-value">28.4</div>
+          <div class="irr-unit">% IRR</div>
+        </div>
+        <div class="irr-sublabel">Over 3 years</div>
+        <div class="irr-divider"></div>
+        <div class="irr-meta">
+          <div class="irr-meta-item">
+            <div class="irr-meta-val">₹740</div>
+            <div class="irr-meta-key">Buy Below</div>
+          </div>
+          <div class="irr-meta-item">
+            <div class="irr-meta-val">35×</div>
+            <div class="irr-meta-key">Target PE</div>
+          </div>
+          <div class="irr-meta-item">
+            <div class="irr-meta-val">₹6.8L Cr</div>
+            <div class="irr-meta-key">Target MC</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="irr-card base">
+        <div class="irr-card-label">
+          ⚖️ Base
+          <span class="irr-badge">Likely</span>
+        </div>
+        <div class="irr-main">
+          <div class="irr-value">19.2</div>
+          <div class="irr-unit">% IRR</div>
+        </div>
+        <div class="irr-sublabel">Over 3 years</div>
+        <div class="irr-divider"></div>
+        <div class="irr-meta">
+          <div class="irr-meta-item">
+            <div class="irr-meta-val">₹540</div>
+            <div class="irr-meta-key">Buy Below</div>
+          </div>
+          <div class="irr-meta-item">
+            <div class="irr-meta-val">25×</div>
+            <div class="irr-meta-key">Target PE</div>
+          </div>
+          <div class="irr-meta-item">
+            <div class="irr-meta-val">₹4.9L Cr</div>
+            <div class="irr-meta-key">Target MC</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="irr-card bare">
+        <div class="irr-card-label">
+          🎯 Bare
+          <span class="irr-badge">Conservative</span>
+        </div>
+        <div class="irr-main">
+          <div class="irr-value">7.8</div>
+          <div class="irr-unit">% IRR</div>
+        </div>
+        <div class="irr-sublabel">Over 3 years</div>
+        <div class="irr-divider"></div>
+        <div class="irr-meta">
+          <div class="irr-meta-item">
+            <div class="irr-meta-val">₹310</div>
+            <div class="irr-meta-key">Buy Below</div>
+          </div>
+          <div class="irr-meta-item">
+            <div class="irr-meta-val">18×</div>
+            <div class="irr-meta-key">Target PE</div>
+          </div>
+          <div class="irr-meta-item">
+            <div class="irr-meta-val">₹3.5L Cr</div>
+            <div class="irr-meta-key">Target MC</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detailed Input + Output Cards -->
+    <div class="scenario-cards">
+      <!-- Bull -->
+      <div class="scenario-card">
+        <div class="sc-top">
+          <div class="sc-name bull">🐂 Bull Case</div>
+          <div class="sc-icon bull">🟢</div>
+        </div>
+        <div class="sc-field">
+          <div class="sc-label">Target PE Multiple</div>
+          <input class="sc-input" type="number" value="35" />
+        </div>
+        <div class="sc-divider"></div>
+        <div class="sc-output">
+          <div class="sc-out-row">
+            <span class="sc-out-key">Terminal PAT (FY28E)</span>
+            <span class="sc-out-val">₹19,420 Cr</span>
+          </div>
+          <div class="sc-out-row">
+            <span class="sc-out-key">Target Market Cap</span>
+            <span class="sc-out-val">₹6,79,700 Cr</span>
+          </div>
+          <div class="sc-out-row">
+            <span class="sc-out-key">Buying Market Cap</span>
+            <span class="sc-out-val">₹3,22,800 Cr</span>
+          </div>
+          <div class="sc-out-row">
+            <span class="sc-out-key">Buy Below Price</span>
+            <span class="sc-out-val highlight bull-color">₹740</span>
+          </div>
+          <div class="sc-out-row">
+            <span class="sc-out-key">IRR (Expected)</span>
+            <span class="sc-out-val highlight bull-color">28.4%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Base -->
+      <div class="scenario-card">
+        <div class="sc-top">
+          <div class="sc-name base">⚖️ Base Case</div>
+          <div class="sc-icon base">🔵</div>
+        </div>
+        <div class="sc-field">
+          <div class="sc-label">Target PE Multiple</div>
+          <input class="sc-input" type="number" value="25" />
+        </div>
+        <div class="sc-divider"></div>
+        <div class="sc-output">
+          <div class="sc-out-row">
+            <span class="sc-out-key">Terminal PAT (FY28E)</span>
+            <span class="sc-out-val">₹19,420 Cr</span>
+          </div>
+          <div class="sc-out-row">
+            <span class="sc-out-key">Target Market Cap</span>
+            <span class="sc-out-val">₹4,85,500 Cr</span>
+          </div>
+          <div class="sc-out-row">
+            <span class="sc-out-key">Buying Market Cap</span>
+            <span class="sc-out-val">₹2,30,500 Cr</span>
+          </div>
+          <div class="sc-out-row">
+            <span class="sc-out-key">Buy Below Price</span>
+            <span class="sc-out-val highlight base-color">₹540</span>
+          </div>
+          <div class="sc-out-row">
+            <span class="sc-out-key">IRR (Expected)</span>
+            <span class="sc-out-val highlight base-color">19.2%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bare -->
+      <div class="scenario-card">
+        <div class="sc-top">
+          <div class="sc-name bare">🎯 Bare Case</div>
+          <div class="sc-icon bare">🟠</div>
+        </div>
+        <div class="sc-field">
+          <div class="sc-label">Target PE Multiple</div>
+          <input class="sc-input" type="number" value="18" />
+        </div>
+        <div class="sc-divider"></div>
+        <div class="sc-output">
+          <div class="sc-out-row">
+            <span class="sc-out-key">Terminal PAT (FY28E)</span>
+            <span class="sc-out-val">₹19,420 Cr</span>
+          </div>
+          <div class="sc-out-row">
+            <span class="sc-out-key">Target Market Cap</span>
+            <span class="sc-out-val">₹3,49,560 Cr</span>
+          </div>
+          <div class="sc-out-row">
+            <span class="sc-out-key">Buying Market Cap</span>
+            <span class="sc-out-val">₹1,65,900 Cr</span>
+          </div>
+          <div class="sc-out-row">
+            <span class="sc-out-key">Buy Below Price</span>
+            <span class="sc-out-val highlight bare-color">₹310</span>
+          </div>
+          <div class="sc-out-row">
+            <span class="sc-out-key">IRR (Expected)</span>
+            <span class="sc-out-val highlight bare-color">7.8%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Context / Settings Bar -->
+    <div class="context-bar">
+      <div class="ctx-item">
+        <div class="ctx-key">Current Market Cap</div>
+        <div class="ctx-val">₹5,44,200 Cr</div>
+      </div>
+      <div class="ctx-divider"></div>
+      <div class="ctx-item">
+        <div class="ctx-key">Current Price</div>
+        <div class="ctx-val">₹1,636</div>
+      </div>
+      <div class="ctx-divider"></div>
+      <div class="ctx-item">
+        <div class="ctx-key">Terminal PAT</div>
+        <div class="ctx-val">₹19,420 Cr</div>
+      </div>
+      <div class="ctx-divider"></div>
+      <div class="ctx-item">
+        <div class="ctx-key">Horizon</div>
+        <div class="ctx-val">3 years (FY28E)</div>
+      </div>
+      <div class="ctx-divider"></div>
+      <div class="ctx-item">
+        <div class="ctx-key">Expected Returns</div>
+        <div class="ctx-val editable">
+          <input class="ctx-input" type="number" value="25" />
+          <span class="ctx-unit">% p.a.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PEG Ratio Strip -->
+    <div class="peg-strip">
+      <div class="peg-item">
+        <div class="peg-key">Trailing PE</div>
+        <div class="peg-val">28.4×</div>
+      </div>
+      <div class="peg-divider"></div>
+      <div class="peg-item">
+        <div class="peg-key">Earnings CAGR (3Y)</div>
+        <div class="peg-val">22%</div>
+      </div>
+      <div class="peg-divider"></div>
+      <div class="peg-item">
+        <div class="peg-key">Forward PEG Ratio</div>
+        <div class="peg-val green">0.84</div>
+      </div>
+      <div class="peg-verdict green">Potentially undervalued</div>
+    </div>
+
+    <!-- P&L Projections (collapsible) -->
+    <div class="proj-section">
+      <div class="proj-header open" id="proj-toggle" onclick="toggleProjections()">
+        <div class="proj-header-left">
+          <svg class="proj-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 4l4 4-4 4"/>
+          </svg>
+          <div>
+            <div class="proj-title">P&amp;L Projections</div>
+            <div class="proj-subtitle">Profit &amp; Loss · figures in ₹ Crores</div>
+          </div>
+        </div>
+        <div class="proj-actions" onclick="event.stopPropagation()">
+          <button class="btn btn-ghost" style="height:28px;font-size:12px;padding:0 10px;">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3v10M3 8h10"/></svg>
+            Add Year
+          </button>
+        </div>
+      </div>
+
+      <div class="proj-body" id="proj-body">
+        <div class="grid-wrapper">
+          <table class="proj-table">
+            <thead>
+              <tr>
+                <th class="actual"></th>
+                <th class="actual">Mar 2024</th>
+                <th class="est">Mar 2025E</th>
+                <th class="est">Mar 2026E</th>
+                <th class="est">Mar 2027E</th>
+                <th class="est">Mar 2028E</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Revenue -->
+              <tr class="section-row">
+                <td><span class="row-label-bold">Revenue</span></td>
+                <td class="section-val">1,66,300</td>
+                <td class="section-val est-col">1,88,000</td>
+                <td class="section-val est-col">2,12,000</td>
+                <td class="section-val est-col">2,40,000</td>
+                <td class="section-val est-col">2,72,000</td>
+              </tr>
+              <tr class="pct-row">
+                <td><span class="row-label-pct">Revenue Growth %</span></td>
+                <td class="pct-val">—</td>
+                <td class="pct-val est-col growth-pos">+13%</td>
+                <td class="pct-val est-col growth-pos">+13%</td>
+                <td class="pct-val est-col growth-pos">+13%</td>
+                <td class="pct-val est-col growth-pos">+13%</td>
+              </tr>
+
+              <!-- EBITDA Margin -->
+              <tr>
+                <td><span class="row-label">EBITDA Margin %</span></td>
+                <td><input class="input-cell" type="number" value="32" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="33" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="34" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="34" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="35" /></td>
+              </tr>
+
+              <!-- EBITDA -->
+              <tr class="section-row">
+                <td><span class="row-label-bold">EBITDA</span></td>
+                <td class="section-val auto-val">53,216</td>
+                <td class="section-val est-col auto-val">62,040</td>
+                <td class="section-val est-col auto-val">72,080</td>
+                <td class="section-val est-col auto-val">81,600</td>
+                <td class="section-val est-col auto-val">95,200</td>
+              </tr>
+              <tr class="pct-row">
+                <td><span class="row-label-pct">EBITDA Growth %</span></td>
+                <td class="pct-val auto-val">—</td>
+                <td class="pct-val est-col auto-val growth-pos">+16.6%</td>
+                <td class="pct-val est-col auto-val growth-pos">+16.2%</td>
+                <td class="pct-val est-col auto-val growth-pos">+13.2%</td>
+                <td class="pct-val est-col auto-val growth-pos">+16.7%</td>
+              </tr>
+
+              <!-- Below EBITDA -->
+              <tr>
+                <td><span class="row-label">Depreciation</span></td>
+                <td><input class="input-cell" type="number" value="2800" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="3100" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="3400" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="3700" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="4000" /></td>
+              </tr>
+              <tr>
+                <td><span class="row-label">Interest</span></td>
+                <td><input class="input-cell" type="number" value="1200" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="1300" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="1400" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="1500" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="1600" /></td>
+              </tr>
+              <tr>
+                <td><span class="row-label">Other Income</span></td>
+                <td><input class="input-cell" type="number" value="800" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="900" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="1000" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="1100" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="1200" /></td>
+              </tr>
+
+              <!-- PBT -->
+              <tr class="section-row">
+                <td><span class="row-label-bold">PBT</span></td>
+                <td class="section-val auto-val">50,016</td>
+                <td class="section-val est-col auto-val">58,540</td>
+                <td class="section-val est-col auto-val">68,280</td>
+                <td class="section-val est-col auto-val">77,500</td>
+                <td class="section-val est-col auto-val">90,800</td>
+              </tr>
+
+              <!-- Tax -->
+              <tr>
+                <td><span class="row-label">Tax %</span></td>
+                <td><input class="input-cell" type="number" value="25" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="25" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="25" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="25" /></td>
+                <td class="est-col"><input class="input-cell" type="number" value="25" /></td>
+              </tr>
+
+              <!-- PAT -->
+              <tr class="section-row">
+                <td><span class="row-label-bold">PAT</span></td>
+                <td class="section-val auto-val">37,512</td>
+                <td class="section-val est-col auto-val" style="font-weight:800">43,905</td>
+                <td class="section-val est-col auto-val" style="font-weight:800">51,210</td>
+                <td class="section-val est-col auto-val" style="font-weight:800">58,125</td>
+                <td class="section-val est-col auto-val" style="font-weight:800">68,100</td>
+              </tr>
+              <tr class="pct-row">
+                <td><span class="row-label-pct">PAT Growth %</span></td>
+                <td class="pct-val auto-val">—</td>
+                <td class="pct-val est-col auto-val growth-pos">+17.0%</td>
+                <td class="pct-val est-col auto-val growth-pos">+16.6%</td>
+                <td class="pct-val est-col auto-val growth-pos">+13.5%</td>
+                <td class="pct-val est-col auto-val growth-pos">+17.2%</td>
+              </tr>
+              <tr class="pct-row">
+                <td><span class="row-label-pct">PAT Margin %</span></td>
+                <td class="pct-val auto-val">22.6%</td>
+                <td class="pct-val est-col auto-val">23.4%</td>
+                <td class="pct-val est-col auto-val">24.2%</td>
+                <td class="pct-val est-col auto-val">24.2%</td>
+                <td class="pct-val est-col auto-val">25.0%</td>
+              </tr>
+
+              <!-- PE / PEG -->
+              <tr>
+                <td><span class="row-label">Forward PE</span></td>
+                <td class="auto-val">14.5×</td>
+                <td class="est-col auto-val">12.4×</td>
+                <td class="est-col auto-val">10.6×</td>
+                <td class="est-col auto-val">9.4×</td>
+                <td class="est-col auto-val">8.0×</td>
+              </tr>
+              <tr>
+                <td><span class="row-label">Forward PEG</span></td>
+                <td class="auto-val">—</td>
+                <td class="est-col auto-val">0.73×</td>
+                <td class="est-col auto-val">0.64×</td>
+                <td class="est-col auto-val">0.70×</td>
+                <td class="est-col auto-val">0.47×</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="proj-table-footer">
+          <span><span class="legend-dot" style="background:#94a3b8;"></span>Auto-computed</span>
+          <span><span class="legend-dot" style="background:#7c3aed;"></span>Manually overridden</span>
+          <span style="color:#3b82f6;">■</span>&nbsp;Blue columns = estimates
+          <span style="color:var(--text-subtle);margin-left:auto;">Click any auto cell to override</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mockup annotation -->
+    <div style="margin-top: 32px; padding: 16px; border: 1.5px dashed #f59e0b; border-radius: 10px; background: #fffbeb; color: #78350f; font-size: 12px; line-height: 1.7;">
+      [data-theme="dark"] .annotation { background: #1c1200; color: #fcd34d; }
+      <strong>Mockup notes:</strong>
+      <ul style="margin:6px 0 0 16px; display:flex; flex-direction:column; gap:4px;">
+        <li>Scenario input cards replace the old flat table — IRR is the hero number in both the summary strip and the detail card</li>
+        <li>Model tabs at top replace accordion — easy to switch between PE/EV/EBITDA models without losing context</li>
+        <li>Expected Returns input is in a persistent context bar, not buried in the scenarios table</li>
+        <li>P&amp;L table is collapsible (secondary information) — users who just want the valuation outputs don't need to scroll past it</li>
+        <li>PEG strip provides a quick macro sanity check below the scenario cards</li>
+        <li>All computations remain live — change any input and outputs update immediately</li>
+      </ul>
+    </div>
+
+  </div><!-- /page -->
+
+  <script>
+    function toggleTheme() {
+      const html = document.documentElement;
+      const isDark = html.getAttribute('data-theme') === 'dark';
+      html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      document.getElementById('theme-icon').textContent = isDark ? '☀️' : '🌙';
+      document.getElementById('theme-label').textContent = isDark ? 'Light mode' : 'Dark mode';
+    }
+
+    function toggleProjections() {
+      const body = document.getElementById('proj-body');
+      const header = document.getElementById('proj-toggle');
+      const isOpen = !body.classList.contains('hidden');
+      if (isOpen) {
+        body.classList.add('hidden');
+        header.classList.remove('open');
+      } else {
+        body.classList.remove('hidden');
+        header.classList.add('open');
+      }
+    }
+  </script>
+
+</body>
+</html>

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Stars } from "@/components/ui/stars";
 import { marginOfSafety, isBuySignal, effectiveBuyPrice, fmtPrice, fmtIrr, fmtMarketCap } from "@/lib/utils/calculations";
 import { DeleteCompanyButton } from "@/components/dashboard/delete-company-dialogs";
 import type { CompanyWithRelations } from "@/types/database";
@@ -44,37 +45,31 @@ export function CompanyHeader({
 
   return (
     <div className="space-y-4 pt-2">
-      {/* Name bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">{companyName}</h1>
-          {companySymbol && (
-            <span className="text-base text-muted-foreground">{companySymbol}</span>
-          )}
-          {buy && <Badge className="border-transparent bg-positive/15 text-positive text-xs px-2 py-0.5">BUY</Badge>}
+      {/* Name bar — 2-row on mobile: name on top, symbol+badge+actions below */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl font-semibold leading-snug sm:text-2xl">{companyName}</h1>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            {companySymbol && (
+              <span className="text-sm text-muted-foreground">{companySymbol}</span>
+            )}
+            {buy && <Badge className="border-transparent bg-positive/15 text-positive text-xs px-2 py-0.5">BUY</Badge>}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 pt-0.5">
           <DeleteCompanyButton companyId={company.id} companyName={companyName} />
         </div>
       </div>
 
       {/* Metrics grid */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-x-6 gap-y-3 py-3 border-y border-border/50">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-x-4 gap-y-3 border-y border-border/50 py-4 sm:gap-x-6">
         <MetricItem label="Current Price" value={fmtPrice(currentPrice)} />
         <MetricItem label="Market Cap" value={fmtMarketCap(marketCap)} />
-        <MetricItem label="Target Buy Price" value={fmtPrice(buyPrice)} className={isDefaulted ? "text-muted-foreground italic" : ""} title={isDefaulted ? "Base case buy price (no manual override)" : undefined} />
+        <MetricItem label="Target Buy" value={fmtPrice(buyPrice)} className={isDefaulted ? "text-muted-foreground italic" : ""} title={isDefaulted ? "Base case buy price (no manual override)" : undefined} />
         <MetricItem label="MoS" value={mos != null ? `${(mos * 100).toFixed(1)}%` : "-"} className={mosColor} />
         <MetricItem
           label="Star Rating"
-          value={
-            company.star_rating ? (
-              <span aria-label={`${company.star_rating} of 4 stars`}>
-                <span aria-hidden="true">{"★".repeat(company.star_rating)}</span>
-              </span>
-            ) : (
-              "-"
-            )
-          }
+          value={company.star_rating ? <Stars rating={company.star_rating} className="text-lg" /> : "-"}
         />
         <MetricItem label="Strategy" value={company.strategy ?? "-"} />
         <MetricItem label="Sector" value={company.indian_stocks?.sector ?? "-"} />

@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Plus, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { handleGridKeyDown } from "@/lib/grid-keyboard-nav";
 import type { FinancialYear } from "@/types/database";
 import type { RowConfig } from "@/lib/projections/types";
@@ -37,7 +36,6 @@ interface ProjectionGridProps {
   overrides: Set<string>;
   onCellChange: (yearIdx: number, key: string, value: string) => void;
   onYearChange: (idx: number, value: string) => void;
-  onAddYear: () => void;
   onRemoveYear: (idx: number) => void;
 }
 
@@ -49,43 +47,21 @@ export function ProjectionGrid({
   overrides,
   onCellChange,
   onYearChange,
-  onAddYear,
   onRemoveYear,
 }: ProjectionGridProps) {
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [editingHeader, setEditingHeader] = useState<number | null>(null);
 
-  const autoKeys = new Set(rowConfigs.filter((r) => r.type === "auto").map((r) => r.key));
   const cellId = (key: string, idx: number) => `${key}-${idx}`;
 
   return (
     <div className="space-y-0">
-      {/* Header */}
-      <div className="flex items-end justify-between mb-4">
-        <div>
-          <h2 className="text-xl font-bold text-foreground">Profit & Loss</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Figures in Rs. Crores
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onAddYear}
-            className="h-8 px-3 text-xs gap-1.5 rounded-full"
-          >
-            <Plus className="h-3.5 w-3.5" /> Add Year
-          </Button>
-        </div>
-      </div>
-
       {/* Table */}
       <div className="overflow-x-auto rounded-lg border border-border/60">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b-2 border-border/40">
-              <th className="sticky-col sticky left-0 z-30 py-3 pl-3 sm:pl-5 pr-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-[130px] sm:min-w-[180px]">
+              <th className="sticky-col sticky left-0 z-30 py-3 pl-4 sm:pl-5 pr-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-[140px] sm:min-w-[180px]">
                 &nbsp;
               </th>
               {data.map((fy, idx) => {
@@ -169,7 +145,7 @@ export function ProjectionGrid({
                   {/* Label */}
                   <th
                     scope="row"
-                    className={`sticky left-0 z-10 py-2 pl-3 sm:pl-5 pr-3 whitespace-nowrap text-left font-normal ${
+                    className={`sticky left-0 z-10 py-2 pl-4 sm:pl-5 pr-3 whitespace-nowrap text-left font-normal ${
                       isHighlight
                         ? "sticky-col-highlight font-bold text-foreground"
                         : isHeader

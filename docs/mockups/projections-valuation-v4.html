@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Projections & Valuations — v4</title>
+  <style>
+    :root {
+      --bg:         #ffffff;
+      --bg-subtle:  #f8fafc;
+      --bg-muted:   #f1f5f9;
+      --surface:    #ffffff;
+      --border:     #e2e8f0;
+      --border-med: #cbd5e1;
+      --text:       #0f172a;
+      --text-muted: #64748b;
+      --text-xmute: #94a3b8;
+      --primary:    #2563eb;
+      --primary-d:  #eff6ff;
+      --danger:     #dc2626;
+      --danger-d:   #fef2f2;
+
+      --bull:        #16a34a;
+      --bull-dim:    #f0fdf4;
+      --bull-tint:   #f6fef8;
+      --bull-border: #86efac;
+
+      --base:        #2563eb;
+      --base-dim:    #eff6ff;
+      --base-tint:   #f5f9ff;
+      --base-border: #bfdbfe;
+
+      --bear:        #dc2626;
+      --bear-dim:    #fef2f2;
+      --bear-tint:   #fffafa;
+      --bear-border: #fca5a5;
+
+      --radius:    10px;
+      --radius-sm:  6px;
+      --sh-sm: 0 1px 3px rgb(0 0 0/.08), 0 1px 2px -1px rgb(0 0 0/.05);
+      --sh:    0 4px 16px rgb(0 0 0/.10), 0 2px 4px -2px rgb(0 0 0/.06);
+    }
+    [data-theme="dark"] {
+      --bg:         #0b1120;
+      --bg-subtle:  #111827;
+      --bg-muted:   #1a2235;
+      --surface:    #131d2e;
+      --border:     #1e2d45;
+      --border-med: #243556;
+      --text:       #f0f6ff;
+      --text-muted: #7a93b8;
+      --text-xmute: #4a6380;
+      --primary:    #3b82f6;
+      --primary-d:  #1a2d50;
+      --danger:     #f87171;
+      --danger-d:   #2c0a0a;
+
+      --bull:        #4ade80;
+      --bull-dim:    #052e16;
+      --bull-tint:   #071a0e;
+      --bull-border: #166534;
+
+      --base:        #60a5fa;
+      --base-dim:    #0c1e40;
+      --base-tint:   #091628;
+      --base-border: #1e3a7a;
+
+      --bear:        #f87171;
+      --bear-dim:    #2c0a0a;
+      --bear-tint:   #1a0606;
+      --bear-border: #7f1d1d;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+    input, button, select { font-family: inherit; }
+
+    .page { max-width: 880px; margin: 0 auto; padding: 28px 20px 80px; }
+
+    /* ── theme ── */
+    .theme-btn { position: fixed; top: 14px; right: 14px; z-index: 200; background: var(--surface); border: 1.5px solid var(--border); border-radius: 99px; padding: 5px 12px; font-size: 12px; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+    .theme-btn:hover { color: var(--text); }
+
+    /* ── page header ── */
+    .page-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .page-title { font-size: 18px; font-weight: 700; letter-spacing: -.3px; }
+    .page-title span { color: var(--text-muted); font-weight: 400; font-size: 13px; margin-left: 8px; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; height: 32px; border-radius: 99px; font-size: 13px; font-weight: 500; border: none; cursor: pointer; transition: all .15s; white-space: nowrap; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { filter: brightness(1.1); }
+    .btn-ghost { background: transparent; color: var(--text-muted); border: 1.5px solid var(--border-med); }
+    .btn-ghost:hover { background: var(--bg-muted); color: var(--text); }
+
+    /* ── model tabs ── */
+    .model-tabs-wrap { position: relative; }
+    .model-tabs { display: flex; align-items: center; gap: 2px; border-bottom: 1.5px solid var(--border); margin-bottom: 22px; flex-wrap: wrap; }
+    .model-tab { position: relative; display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 6px 6px 0 0; font-size: 13px; font-weight: 500; color: var(--text-muted); background: none; border: none; border-bottom: 2.5px solid transparent; cursor: pointer; white-space: nowrap; margin-bottom: -1.5px; transition: all .15s; }
+    .model-tab:hover { color: var(--text); background: var(--bg-muted); }
+    .model-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .tab-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; background: #fef3c7; color: #d97706; border-radius: 4px; padding: 1px 5px; }
+    [data-theme="dark"] .tab-badge { background: #1c1200; color: #f59e0b; }
+    /* delete X on tab */
+    .tab-del { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: transparent; color: var(--text-xmute); border: none; cursor: pointer; padding: 0; transition: all .15s; font-size: 12px; line-height: 1; }
+    .tab-del:hover { background: var(--danger-d); color: var(--danger); }
+
+    /* ── Add Model button + dropdown ── */
+    .add-model-wrap { position: relative; display: inline-block; margin-left: 4px; margin-bottom: -1.5px; }
+    .add-model-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; font-size: 12px; font-weight: 500; color: var(--text-xmute); border: 1.5px dashed var(--border); border-radius: 6px 6px 0 0; background: none; cursor: pointer; transition: all .15s; white-space: nowrap; height: 36px; }
+    .add-model-btn:hover, .add-model-btn.open { border-color: var(--primary); color: var(--primary); background: var(--primary-d); border-style: solid; }
+    .add-model-btn svg { width: 12px; height: 12px; }
+
+    .add-model-dropdown { display: none; position: absolute; top: calc(100% + 6px); left: 0; min-width: 260px; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); box-shadow: var(--sh); z-index: 100; overflow: hidden; }
+    .add-model-dropdown.open { display: block; }
+    .dropdown-header { padding: 10px 14px 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--text-xmute); border-bottom: 1px solid var(--border); }
+    .model-option { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; cursor: pointer; transition: background .12s; border-bottom: 1px solid var(--border); }
+    .model-option:last-child { border-bottom: none; }
+    .model-option:hover { background: var(--bg-subtle); }
+    .model-option-icon { width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--primary-d); color: var(--primary); }
+    .model-option-icon svg { width: 16px; height: 16px; }
+    .model-option-text .name { font-size: 13px; font-weight: 600; color: var(--text); }
+    .model-option-text .desc { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+    .model-option.disabled { opacity: .4; pointer-events: none; }
+    .model-option.disabled .name::after { content: ' (already added)'; font-weight: 400; color: var(--text-muted); }
+
+    /* ── Delete confirmation ── */
+    .confirm-overlay { display: none; position: fixed; inset: 0; background: rgb(0 0 0/.4); z-index: 300; align-items: center; justify-content: center; }
+    .confirm-overlay.open { display: flex; }
+    .confirm-box { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 24px; max-width: 360px; width: 90%; box-shadow: var(--sh); }
+    .confirm-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+    .confirm-body { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.6; }
+    .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .btn-danger { background: var(--danger); color: #fff; border: none; }
+    .btn-danger:hover { filter: brightness(1.1); }
+
+    /* ── section label ── */
+    .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; color: var(--text-xmute); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* ── panel ── */
+    .panel { border: 1.5px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 16px; }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; padding: 11px 16px; background: var(--bg-muted); cursor: pointer; user-select: none; }
+    .panel-head:hover { background: var(--bg-subtle); }
+    .panel-head-left { display: flex; align-items: center; gap: 8px; }
+    .chevron { width: 14px; height: 14px; color: var(--text-xmute); transition: transform .2s; flex-shrink: 0; }
+    .panel-head.open .chevron { transform: rotate(90deg); }
+    .panel-title { font-size: 13px; font-weight: 600; }
+    .panel-sub { font-size: 12px; color: var(--text-muted); margin-left: 4px; }
+    .panel-body.hidden { display: none; }
+
+    /* ── P&L grid ── */
+    .grid-wrap { overflow-x: auto; }
+    .grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .grid thead th { padding: 9px 12px; text-align: right; font-size: 11px; font-weight: 600; color: var(--text-muted); border-bottom: 1.5px solid var(--border-med); white-space: nowrap; min-width: 90px; }
+    .grid thead th:first-child { text-align: left; min-width: 150px; position: sticky; left: 0; background: var(--bg-subtle); z-index: 2; }
+    .grid thead th.est { color: #3b82f6; background: #eff6ff; }
+    [data-theme="dark"] .grid thead th.est { background: #0c1e40; color: #60a5fa; }
+    .grid tbody tr { border-bottom: 1px solid var(--border); }
+    .grid tbody tr:last-child { border-bottom: none; }
+    .grid tbody tr.total-row { background: var(--bg-muted); }
+    .grid tbody tr.pct-row td { padding-top: 3px; padding-bottom: 3px; }
+    .grid tbody tr:not(.total-row):not(.pct-row):hover { background: var(--bg-subtle); }
+    .grid tbody td { padding: 7px 12px; text-align: right; font-variant-numeric: tabular-nums; }
+    .grid tbody td:first-child { text-align: left; position: sticky; left: 0; z-index: 1; background: inherit; white-space: nowrap; }
+    .total-row td:first-child { background: var(--bg-muted); }
+    .est-col { background: #f7fbff; }
+    [data-theme="dark"] .est-col { background: #0a1828; }
+    .total-row .est-col { background: #edf4ff; }
+    [data-theme="dark"] .total-row .est-col { background: #0d1e38; }
+    .fw7 { font-weight: 700; }
+    .sm { font-size: 12px; }
+    .muted { color: var(--text-muted); }
+    .subtle { color: var(--text-xmute); }
+    .indent { padding-left: 20px !important; }
+    .pos { color: #16a34a; }
+    [data-theme="dark"] .pos { color: #4ade80; }
+    .input-cell { width: 80px; height: 28px; border: 1.5px dashed var(--border-med); border-radius: var(--radius-sm); background: var(--bg-subtle); color: var(--text); padding: 0 8px; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; outline: none; transition: all .15s; }
+    .input-cell:focus { border-color: var(--primary); border-style: solid; box-shadow: 0 0 0 3px var(--primary-d); background: var(--bg); }
+    .grid-footer { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-xmute); background: var(--bg-subtle); flex-wrap: wrap; }
+
+    /* ── Expected Returns bar ── */
+    .erb { display: flex; align-items: center; gap: 16px; padding: 11px 16px; background: var(--bg-muted); border: 1.5px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; flex-wrap: wrap; row-gap: 10px; }
+    .erb-label { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; }
+    .erb-wrap { display: flex; align-items: center; gap: 7px; }
+    .erb-inp { width: 64px; height: 32px; border: 1.5px solid var(--border-med); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); padding: 0 8px; font-size: 15px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; outline: none; }
+    .erb-inp:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-d); }
+    .erb-unit { font-size: 13px; color: var(--text-muted); }
+    .erb-stats { margin-left: auto; display: flex; gap: 0; }
+    .erb-stat { padding: 0 14px; border-left: 1px solid var(--border); }
+    .erb-stat-v { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .erb-stat-k { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--text-xmute); }
+
+    /* ── Scenario table (V1 style) ── */
+    .sc-wrap { border: 1.5px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .sc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .sc-table thead th { padding: 9px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-xmute); border-bottom: 1.5px solid var(--border-med); text-align: right; white-space: nowrap; background: var(--bg-subtle); }
+    .sc-table thead th:first-child { text-align: left; width: 170px; }
+    .sc-table thead th.inp-col { text-align: center; }
+    .sc-table tbody tr { border-bottom: 1px solid var(--border); }
+    .sc-table tbody tr:last-child { border-bottom: none; }
+    .sc-table tbody td { padding: 13px 14px; text-align: right; font-variant-numeric: tabular-nums; vertical-align: middle; }
+    .sc-table tbody td:first-child { text-align: left; }
+
+    /* row tints */
+    .bull-row { background: var(--bull-tint); }
+    .base-row { background: var(--base-tint); }
+    .bear-row { background: var(--bear-tint); }
+
+    /* scenario chip in first column */
+    .sc-chip { display: inline-flex; align-items: center; gap: 9px; padding: 5px 11px 5px 6px; border-radius: 99px; border: 1.5px solid; }
+    .bull-row .sc-chip { background: var(--bull-dim); border-color: var(--bull-border); color: var(--bull); }
+    .base-row .sc-chip { background: var(--base-dim); border-color: var(--base-border); color: var(--base); }
+    .bear-row .sc-chip { background: var(--bear-dim); border-color: var(--bear-border); color: var(--bear); }
+    .sc-chip-icon { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .bull-row .sc-chip-icon { background: var(--bull); color: #fff; }
+    .base-row .sc-chip-icon { background: var(--base); color: #fff; }
+    .bear-row .sc-chip-icon { background: var(--bear); color: #fff; }
+    .sc-chip-icon svg { width: 14px; height: 14px; }
+    .sc-chip-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+
+    /* input field inside table */
+    .sc-inp { width: 80px; height: 30px; border: 1.5px solid var(--border-med); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); padding: 0 8px; font-size: 13px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; outline: none; transition: all .15s; }
+    .sc-inp:hover { border-color: var(--border-med); }
+    .sc-inp:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-d); }
+
+    /* key output cells */
+    .irr { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .bull-row .irr { color: var(--bull); }
+    .base-row .irr { color: var(--base); }
+    .bear-row .irr { color: var(--bear); }
+    .price { font-size: 14px; font-weight: 700; }
+    .num { font-size: 13px; color: var(--text-muted); }
+
+    /* ── PEG strip ── */
+    .peg { display: flex; align-items: center; padding: 11px 16px; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); }
+    .peg-item { display: flex; flex-direction: column; gap: 2px; padding: 0 16px; }
+    .peg-item:first-child { padding-left: 0; }
+    .peg-div { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
+    .peg-k { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; color: var(--text-xmute); }
+    .peg-v { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .green { color: #16a34a; }
+    [data-theme="dark"] .green { color: #4ade80; }
+    .peg-verdict { margin-left: auto; padding: 4px 12px; border-radius: 99px; font-size: 11px; font-weight: 600; background: var(--bull-dim); color: var(--bull); }
+
+    /* ── overlays for click-outside ── */
+    .backdrop { display: none; position: fixed; inset: 0; z-index: 90; }
+    .backdrop.open { display: block; }
+  </style>
+</head>
+<body>
+
+<button class="theme-btn" onclick="toggleTheme()"><span id="t-icon">🌙</span> <span id="t-lbl">Dark mode</span></button>
+
+<!-- Click-outside backdrop for dropdown -->
+<div class="backdrop" id="backdrop" onclick="closeDropdown()"></div>
+
+<!-- Delete confirmation modal -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <div class="confirm-title">Delete model?</div>
+    <div class="confirm-body" id="confirmBody">This will permanently remove all projections and valuation scenarios for this model.</div>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- Page header -->
+  <div class="page-hd">
+    <div class="page-title">HDFC Bank <span>· Projections &amp; Valuations</span></div>
+    <button class="btn btn-primary">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 11V14h12v-3M8 2v9M5 9l3 3 3-3"/></svg>
+      Save All
+    </button>
+  </div>
+
+  <!-- Model tabs -->
+  <div class="model-tabs-wrap">
+    <div class="model-tabs" id="modelTabs">
+
+      <!-- PE/Earnings — default model, always present -->
+      <button class="model-tab active" data-model="pe">
+        PE / Earnings
+        <span class="tab-badge">Default</span>
+      </button>
+
+      <!-- EV/EBITDA — added model, deletable -->
+      <button class="model-tab" data-model="ev" id="evTab">
+        EV / EBITDA
+        <span class="tab-del" title="Delete model" onclick="event.stopPropagation(); askDelete('EV / EBITDA', 'evTab')">
+          <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="9" y2="9"/><line x1="9" y1="1" x2="1" y2="9"/></svg>
+        </span>
+      </button>
+
+      <!-- Add model dropdown -->
+      <div class="add-model-wrap">
+        <button class="add-model-btn" id="addModelBtn" onclick="toggleDropdown()">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+          Add Model
+        </button>
+        <div class="add-model-dropdown" id="addModelDropdown">
+          <div class="dropdown-header">Choose valuation model</div>
+
+          <!-- DCF — available -->
+          <div class="model-option" onclick="addModel('dcf')">
+            <div class="model-option-icon" style="background:var(--primary-d);color:var(--primary);">
+              <!-- cash/flow icon: money with arrows -->
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="5" width="16" height="10" rx="2"/>
+                <circle cx="10" cy="10" r="2.5"/>
+                <path d="M2 8h2M16 8h2M2 12h2M16 12h2"/>
+              </svg>
+            </div>
+            <div class="model-option-text">
+              <div class="name">DCF / Cash Flow</div>
+              <div class="desc">Discounted cash flow — intrinsic value from future cash flows</div>
+            </div>
+          </div>
+
+          <!-- EV/EBITDA — already added -->
+          <div class="model-option disabled">
+            <div class="model-option-icon" style="background:var(--bg-muted);color:var(--text-muted);">
+              <!-- triangle/prism icon -->
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="10,3 18,17 2,17"/>
+                <line x1="10" y1="10" x2="10" y2="17"/>
+              </svg>
+            </div>
+            <div class="model-option-text">
+              <div class="name">EV / EBITDA</div>
+              <div class="desc">Enterprise value multiples — useful for capital-intensive businesses</div>
+            </div>
+          </div>
+
+          <!-- SOTP — available -->
+          <div class="model-option" onclick="addModel('sotp')">
+            <div class="model-option-icon" style="background:#fdf4ff;color:#9333ea;">
+              <!-- pie / segments icon -->
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10 2 A8 8 0 0 1 18 10 L10 10 Z"/>
+                <path d="M10 10 L18 10 A8 8 0 0 1 5 17.5 Z"/>
+                <circle cx="10" cy="10" r="8"/>
+              </svg>
+            </div>
+            <div class="model-option-text">
+              <div class="name">SOTP</div>
+              <div class="desc">Sum of the parts — value each business segment separately</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /model-tabs -->
+  </div>
+
+  <!-- 1. P&L -->
+  <div class="section-label">P&amp;L Projections</div>
+  <div class="panel">
+    <div class="panel-head open" onclick="togglePanel(this)">
+      <div class="panel-head-left">
+        <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg>
+        <span class="panel-title">Profit &amp; Loss</span>
+        <span class="panel-sub">· ₹ Crores</span>
+      </div>
+      <button class="btn btn-ghost" style="height:26px;font-size:11px;padding:0 10px;" onclick="event.stopPropagation()">+ Add Year</button>
+    </div>
+    <div class="panel-body">
+      <div class="grid-wrap">
+        <table class="grid">
+          <thead>
+            <tr>
+              <th></th><th>Mar 2024</th>
+              <th class="est">Mar 2025E</th><th class="est">Mar 2026E</th>
+              <th class="est">Mar 2027E</th><th class="est">Mar 2028E</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="total-row"><td class="fw7">Revenue</td><td class="fw7">1,66,300</td><td class="fw7 est-col">1,88,000</td><td class="fw7 est-col">2,12,000</td><td class="fw7 est-col">2,40,000</td><td class="fw7 est-col">2,72,000</td></tr>
+            <tr class="pct-row"><td class="indent sm muted">Revenue Growth %</td><td class="sm subtle">—</td><td class="sm est-col pos">+13.1%</td><td class="sm est-col pos">+12.8%</td><td class="sm est-col pos">+13.2%</td><td class="sm est-col pos">+13.3%</td></tr>
+            <tr><td class="muted">EBITDA Margin %</td><td><input class="input-cell" type="number" value="32" /></td><td class="est-col"><input class="input-cell" type="number" value="33" /></td><td class="est-col"><input class="input-cell" type="number" value="34" /></td><td class="est-col"><input class="input-cell" type="number" value="34" /></td><td class="est-col"><input class="input-cell" type="number" value="35" /></td></tr>
+            <tr class="total-row"><td class="fw7">EBITDA</td><td class="fw7 muted">53,216</td><td class="fw7 muted est-col">62,040</td><td class="fw7 muted est-col">72,080</td><td class="fw7 muted est-col">81,600</td><td class="fw7 muted est-col">95,200</td></tr>
+            <tr class="pct-row"><td class="indent sm muted">EBITDA Growth %</td><td class="sm subtle">—</td><td class="sm muted est-col pos">+16.6%</td><td class="sm muted est-col pos">+16.2%</td><td class="sm muted est-col pos">+13.2%</td><td class="sm muted est-col pos">+16.7%</td></tr>
+            <tr><td class="muted">Depreciation</td><td><input class="input-cell" type="number" value="2800" /></td><td class="est-col"><input class="input-cell" type="number" value="3100" /></td><td class="est-col"><input class="input-cell" type="number" value="3400" /></td><td class="est-col"><input class="input-cell" type="number" value="3700" /></td><td class="est-col"><input class="input-cell" type="number" value="4000" /></td></tr>
+            <tr><td class="muted">Interest</td><td><input class="input-cell" type="number" value="1200" /></td><td class="est-col"><input class="input-cell" type="number" value="1300" /></td><td class="est-col"><input class="input-cell" type="number" value="1400" /></td><td class="est-col"><input class="input-cell" type="number" value="1500" /></td><td class="est-col"><input class="input-cell" type="number" value="1600" /></td></tr>
+            <tr><td class="muted">Other Income</td><td><input class="input-cell" type="number" value="800" /></td><td class="est-col"><input class="input-cell" type="number" value="900" /></td><td class="est-col"><input class="input-cell" type="number" value="1000" /></td><td class="est-col"><input class="input-cell" type="number" value="1100" /></td><td class="est-col"><input class="input-cell" type="number" value="1200" /></td></tr>
+            <tr class="total-row"><td class="fw7">PBT</td><td class="fw7 muted">50,016</td><td class="fw7 muted est-col">58,540</td><td class="fw7 muted est-col">68,280</td><td class="fw7 muted est-col">77,500</td><td class="fw7 muted est-col">90,800</td></tr>
+            <tr><td class="muted">Tax %</td><td><input class="input-cell" type="number" value="25" /></td><td class="est-col"><input class="input-cell" type="number" value="25" /></td><td class="est-col"><input class="input-cell" type="number" value="25" /></td><td class="est-col"><input class="input-cell" type="number" value="25" /></td><td class="est-col"><input class="input-cell" type="number" value="25" /></td></tr>
+            <tr class="total-row"><td class="fw7">PAT</td><td class="fw7">37,512</td><td class="fw7 est-col">43,905</td><td class="fw7 est-col">51,210</td><td class="fw7 est-col">58,125</td><td class="fw7 est-col">68,100</td></tr>
+            <tr class="pct-row"><td class="indent sm muted">PAT Growth %</td><td class="sm subtle">—</td><td class="sm muted est-col pos">+17.0%</td><td class="sm muted est-col pos">+16.6%</td><td class="sm muted est-col pos">+13.5%</td><td class="sm muted est-col pos">+17.2%</td></tr>
+            <tr class="pct-row"><td class="indent sm muted">PAT Margin %</td><td class="sm subtle">22.6%</td><td class="sm muted est-col">23.4%</td><td class="sm muted est-col">24.2%</td><td class="sm muted est-col">24.2%</td><td class="sm muted est-col">25.0%</td></tr>
+            <tr><td class="muted">Forward PE</td><td class="muted">14.5×</td><td class="muted est-col">12.4×</td><td class="muted est-col">10.6×</td><td class="muted est-col">9.4×</td><td class="muted est-col">8.0×</td></tr>
+            <tr><td class="muted">Forward PEG</td><td class="subtle">—</td><td class="muted est-col">0.73×</td><td class="muted est-col">0.64×</td><td class="muted est-col">0.70×</td><td class="muted est-col">0.47×</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="grid-footer">
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--text-xmute);display:inline-block;"></span>Auto-computed</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:7px;height:7px;border-radius:50%;background:#7c3aed;display:inline-block;"></span>Overridden</span>
+        <span style="color:#3b82f6;font-size:13px;">▐</span>&nbsp;Blue = estimates
+        <span style="margin-left:auto;">Click auto cell to override · Arrow keys to navigate</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Expected Returns -->
+  <div class="section-label">Expected Returns</div>
+  <div class="erb" style="margin-bottom:24px;">
+    <span class="erb-label">Expected Returns</span>
+    <div class="erb-wrap">
+      <input class="erb-inp" type="number" value="25" />
+      <span class="erb-unit">% per year</span>
+    </div>
+    <div class="erb-stats">
+      <div class="erb-stat"><div class="erb-stat-v">₹5,44,200 Cr</div><div class="erb-stat-k">Current Mkt Cap</div></div>
+      <div class="erb-stat"><div class="erb-stat-v">₹1,636</div><div class="erb-stat-k">CMP</div></div>
+      <div class="erb-stat"><div class="erb-stat-v">₹19,420 Cr</div><div class="erb-stat-k">Terminal PAT</div></div>
+      <div class="erb-stat"><div class="erb-stat-v">3 yrs (FY28E)</div><div class="erb-stat-k">Horizon</div></div>
+    </div>
+  </div>
+
+  <!-- 3. Valuation Scenarios -->
+  <div class="section-label">Valuation Scenarios</div>
+  <div class="sc-wrap" style="margin-bottom:16px;">
+    <table class="sc-table">
+      <thead>
+        <tr>
+          <th>Scenario</th>
+          <th class="inp-col">Target PE</th>
+          <th>Target Mkt Cap</th>
+          <th>Buying Mkt Cap</th>
+          <th>Buy Below</th>
+          <th>IRR</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- Bull -->
+        <tr class="bull-row">
+          <td>
+            <span class="sc-chip">
+              <span class="sc-chip-icon">
+                <!-- Bull head: two upward horns + oval face + nostrils -->
+                <svg viewBox="0 0 20 20" fill="currentColor" stroke="none">
+                  <!-- left horn -->
+                  <path d="M5.5 9.5 C5 7, 3 4, 4.5 2 C5.2 1, 6.5 1.5, 7 3.5 L7.5 6.5 Z" opacity=".9"/>
+                  <!-- right horn -->
+                  <path d="M14.5 9.5 C15 7, 17 4, 15.5 2 C14.8 1, 13.5 1.5, 13 3.5 L12.5 6.5 Z" opacity=".9"/>
+                  <!-- head oval -->
+                  <ellipse cx="10" cy="13" rx="7" ry="5.5"/>
+                  <!-- nose bump -->
+                  <ellipse cx="10" cy="16.2" rx="3.5" ry="2" opacity=".35"/>
+                  <!-- left nostril -->
+                  <circle cx="8.3" cy="16.2" r="1.1"/>
+                  <!-- right nostril -->
+                  <circle cx="11.7" cy="16.2" r="1.1"/>
+                </svg>
+              </span>
+              <span class="sc-chip-label">Bull</span>
+            </span>
+          </td>
+          <td style="text-align:center;"><input class="sc-inp" type="number" value="35" /></td>
+          <td class="num">₹6,79,700 Cr</td>
+          <td class="num">₹3,22,800 Cr</td>
+          <td class="price">₹740</td>
+          <td class="irr">28.4%</td>
+        </tr>
+
+        <!-- Base -->
+        <tr class="base-row">
+          <td>
+            <span class="sc-chip">
+              <span class="sc-chip-icon">
+                <!-- Balance scales: pole + two pans -->
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <!-- centre pole -->
+                  <line x1="10" y1="2" x2="10" y2="18"/>
+                  <!-- horizontal arm -->
+                  <line x1="3" y1="6" x2="17" y2="6"/>
+                  <!-- left string -->
+                  <line x1="3" y1="6" x2="3" y2="9"/>
+                  <!-- left pan -->
+                  <path d="M1 9 Q3 12.5 5 9"/>
+                  <!-- right string -->
+                  <line x1="17" y1="6" x2="17" y2="9"/>
+                  <!-- right pan -->
+                  <path d="M15 9 Q17 12.5 19 9"/>
+                  <!-- base -->
+                  <line x1="7" y1="18" x2="13" y2="18"/>
+                </svg>
+              </span>
+              <span class="sc-chip-label">Base</span>
+            </span>
+          </td>
+          <td style="text-align:center;"><input class="sc-inp" type="number" value="25" /></td>
+          <td class="num">₹4,85,500 Cr</td>
+          <td class="num">₹2,30,500 Cr</td>
+          <td class="price">₹540</td>
+          <td class="irr">19.2%</td>
+        </tr>
+
+        <!-- Bear -->
+        <tr class="bear-row">
+          <td>
+            <span class="sc-chip">
+              <span class="sc-chip-icon">
+                <!-- Bear head: two round ears + round face + nose + claws hint -->
+                <svg viewBox="0 0 20 20" fill="currentColor" stroke="none">
+                  <!-- left ear -->
+                  <circle cx="5" cy="5.5" r="3.2"/>
+                  <!-- right ear -->
+                  <circle cx="15" cy="5.5" r="3.2"/>
+                  <!-- head -->
+                  <circle cx="10" cy="12.5" r="7"/>
+                  <!-- snout area -->
+                  <ellipse cx="10" cy="15.5" rx="3.5" ry="2.2" opacity=".3"/>
+                  <!-- nose -->
+                  <ellipse cx="10" cy="14.3" rx="2.2" ry="1.4" opacity=".9"/>
+                  <!-- left eye -->
+                  <circle cx="7.2" cy="11.5" r="1" fill="white"/>
+                  <!-- right eye -->
+                  <circle cx="12.8" cy="11.5" r="1" fill="white"/>
+                </svg>
+              </span>
+              <span class="sc-chip-label">Bear</span>
+            </span>
+          </td>
+          <td style="text-align:center;"><input class="sc-inp" type="number" value="18" /></td>
+          <td class="num">₹3,49,560 Cr</td>
+          <td class="num">₹1,65,900 Cr</td>
+          <td class="price">₹310</td>
+          <td class="irr">7.8%</td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 4. PEG -->
+  <div class="section-label">PEG Analysis</div>
+  <div class="peg">
+    <div class="peg-item"><div class="peg-k">Trailing PE</div><div class="peg-v">28.4×</div></div>
+    <div class="peg-div"></div>
+    <div class="peg-item"><div class="peg-k">Earnings CAGR (3Y)</div><div class="peg-v">22%</div></div>
+    <div class="peg-div"></div>
+    <div class="peg-item"><div class="peg-k">Forward PEG</div><div class="peg-v green">0.84×</div></div>
+    <div class="peg-verdict">Potentially undervalued</div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+  /* ── theme ── */
+  function toggleTheme() {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+    document.getElementById('t-icon').textContent = dark ? '🌙' : '☀️';
+    document.getElementById('t-lbl').textContent = dark ? 'Dark mode' : 'Light mode';
+  }
+
+  /* ── panel toggle ── */
+  function togglePanel(h) {
+    const b = h.nextElementSibling;
+    const open = h.classList.toggle('open');
+    open ? b.classList.remove('hidden') : b.classList.add('hidden');
+  }
+
+  /* ── Add Model dropdown ── */
+  function toggleDropdown() {
+    const btn  = document.getElementById('addModelBtn');
+    const drop = document.getElementById('addModelDropdown');
+    const back = document.getElementById('backdrop');
+    const open = drop.classList.toggle('open');
+    btn.classList.toggle('open', open);
+    back.classList.toggle('open', open);
+  }
+  function closeDropdown() {
+    document.getElementById('addModelDropdown').classList.remove('open');
+    document.getElementById('addModelBtn').classList.remove('open');
+    document.getElementById('backdrop').classList.remove('open');
+  }
+  function addModel(type) {
+    closeDropdown();
+    const labels = { dcf: 'DCF / Cash Flow', sotp: 'SOTP' };
+    const label = labels[type] || type;
+    // Insert a new tab before the "+Add" button
+    const tabs = document.getElementById('modelTabs');
+    const addWrap = tabs.querySelector('.add-model-wrap');
+    const tab = document.createElement('button');
+    tab.className = 'model-tab';
+    tab.dataset.model = type;
+    tab.innerHTML = `${label}<span class="tab-del" title="Delete model" onclick="event.stopPropagation();askDelete('${label}','${type}Tab')"><svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="9" y2="9"/><line x1="9" y1="1" x2="1" y2="9"/></svg></span>`;
+    tab.id = type + 'Tab';
+    tab.onclick = () => selectTab(tab);
+    tabs.insertBefore(tab, addWrap);
+    selectTab(tab);
+    // Mark the added model as disabled in dropdown
+    const opts = document.querySelectorAll('.model-option');
+    opts.forEach(o => { if (o.querySelector('.name')?.textContent.startsWith(label)) o.classList.add('disabled'); });
+  }
+  function selectTab(tab) {
+    document.querySelectorAll('.model-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+  }
+
+  /* ── Delete model ── */
+  let pendingDelete = null;
+  function askDelete(name, tabId) {
+    pendingDelete = tabId;
+    document.getElementById('confirmBody').textContent = `Delete "${name}" model? This will permanently remove all its projections and scenarios.`;
+    document.getElementById('confirmOverlay').classList.add('open');
+  }
+  function closeConfirm() {
+    pendingDelete = null;
+    document.getElementById('confirmOverlay').classList.remove('open');
+  }
+  function confirmDelete() {
+    if (!pendingDelete) return;
+    const tab = document.getElementById(pendingDelete) || document.querySelector(`[data-model="${pendingDelete}"]`);
+    if (tab) {
+      // if active, move to PE tab
+      if (tab.classList.contains('active')) {
+        document.querySelector('.model-tab[data-model="pe"]').classList.add('active');
+      }
+      tab.remove();
+    }
+    closeConfirm();
+  }
+</script>
+</body>
+</html>

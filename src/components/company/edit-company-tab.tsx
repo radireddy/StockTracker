@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ResearchFields } from "@/components/company/research-fields";
-import { Save } from "lucide-react";
+import { Save, Target } from "lucide-react";
 import { updateCompany } from "@/app/(authenticated)/actions/company-actions";
 import { roundPrice } from "@/lib/utils/calculations";
 import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
@@ -55,24 +55,24 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl">
       <Card className="shadow-soft overflow-hidden">
-        {/* Editor header — grounds the form without repeating the page title */}
-        <div className="flex items-start justify-between gap-4 border-b border-border/60 bg-muted/30 px-5 py-4">
-          <div>
-            <h2 className="text-base font-semibold text-foreground">Investment Profile</h2>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Your entry target, conviction and strategy.
-            </p>
+        {/* Editor header */}
+        <div className="flex items-center gap-3 border-b border-border/60 bg-gradient-to-r from-primary/5 to-transparent px-5 py-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Target className="h-4 w-4" />
           </div>
-          {(symbol || sector) && (
-            <div className="text-right">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <h2 className="text-base font-semibold text-foreground">Investment Profile</h2>
               {symbol && (
-                <span className="inline-flex items-center rounded-full border border-border bg-card px-2.5 py-0.5 text-xs font-semibold text-foreground">
+                <span className="whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 text-[0.7rem] font-semibold text-muted-foreground">
                   NSE: {symbol}
                 </span>
               )}
-              {sector && <p className="mt-1 text-xs text-muted-foreground">{sector}</p>}
             </div>
-          )}
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {sector ? `${sector} · ` : ""}Your entry target, conviction and strategy.
+            </p>
+          </div>
         </div>
 
         <CardContent className="px-5 py-6">

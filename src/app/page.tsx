@@ -13,6 +13,7 @@ import { JsonLd } from "@/components/marketing/json-ld";
 import { HeroCarousel } from "@/components/marketing/hero-carousel";
 import { PersonasStrip } from "@/components/marketing/personas-strip";
 import { FeatureGrid } from "@/components/marketing/feature-grid";
+import { MobileSection } from "@/components/marketing/mobile-section";
 import { SectionHeading } from "@/components/marketing/section-heading";
 import { FaqSection, HOME_FAQS } from "@/components/marketing/faq";
 import { AllocationDemo } from "@/components/marketing/demos/allocation-demo";
@@ -141,6 +142,9 @@ export default async function LandingPage() {
 
         {/* Feature grid */}
         <FeatureGrid />
+
+        {/* Mobile section */}
+        <MobileSection />
 
         {/* Spreadsheet replacement */}
         <section className="border-t">

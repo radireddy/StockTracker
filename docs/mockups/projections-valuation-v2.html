@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Projections & Valuations — v2 Mockup</title>
+  <style>
+    :root {
+      --bg:          #ffffff;
+      --bg-subtle:   #f8fafc;
+      --bg-muted:    #f1f5f9;
+      --surface:     #ffffff;
+      --border:      #e2e8f0;
+      --border-med:  #cbd5e1;
+      --text:        #0f172a;
+      --text-muted:  #64748b;
+      --text-subtle: #94a3b8;
+      --primary:     #2563eb;
+      --primary-dim: #eff6ff;
+
+      --bull: #16a34a;  --bull-dim: #f0fdf4;  --bull-border: #86efac;
+      --base: #2563eb;  --base-dim: #eff6ff;  --base-border: #bfdbfe;
+      --bare: #ea580c;  --bare-dim: #fff7ed;  --bare-border: #fed7aa;
+
+      --amber: #d97706; --amber-dim: #fef3c7;
+      --radius: 10px; --radius-sm: 6px;
+      --shadow-sm: 0 1px 3px rgb(0 0 0/.07), 0 1px 2px -1px rgb(0 0 0/.05);
+    }
+    [data-theme="dark"] {
+      --bg:          #0b1120;
+      --bg-subtle:   #111827;
+      --bg-muted:    #1a2235;
+      --surface:     #131d2e;
+      --border:      #1e2d45;
+      --border-med:  #243556;
+      --text:        #f0f6ff;
+      --text-muted:  #7a93b8;
+      --text-subtle: #4a6380;
+      --primary:     #3b82f6;
+      --primary-dim: #1a2d50;
+
+      --bull: #4ade80;  --bull-dim: #052e16;  --bull-border: #166534;
+      --base: #60a5fa;  --base-dim: #0c1e40;  --base-border: #1e3a7a;
+      --bare: #fb923c;  --bare-dim: #1c0900;  --bare-border: #7c2d12;
+
+      --amber: #f59e0b; --amber-dim: #1c1200;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+    input, button { font-family: inherit; }
+
+    .page { max-width: 920px; margin: 0 auto; padding: 28px 24px 80px; }
+
+    /* ── Header ── */
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .page-title { font-size: 18px; font-weight: 700; letter-spacing: -.3px; }
+    .page-title span { color: var(--text-muted); font-weight: 400; font-size: 13px; margin-left: 8px; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; height: 32px; border-radius: 99px; font-size: 13px; font-weight: 500; border: none; cursor: pointer; transition: all .15s; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { filter: brightness(1.1); }
+    .btn-ghost { background: transparent; color: var(--text-muted); border: 1.5px solid var(--border-med); }
+    .btn-ghost:hover { background: var(--bg-muted); color: var(--text); }
+    .header-actions { display: flex; gap: 8px; }
+
+    /* ── Model Tabs ── */
+    .model-tabs { display: flex; align-items: center; gap: 2px; border-bottom: 1.5px solid var(--border); margin-bottom: 22px; }
+    .model-tab { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 6px 6px 0 0; font-size: 13px; font-weight: 500; color: var(--text-muted); background: none; border: none; border-bottom: 2.5px solid transparent; cursor: pointer; white-space: nowrap; margin-bottom: -1.5px; transition: all .15s; }
+    .model-tab:hover { color: var(--text); background: var(--bg-muted); }
+    .model-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .model-tab .badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; background: var(--amber-dim); color: var(--amber); border-radius: 4px; padding: 1px 5px; }
+    .tab-add { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; font-size: 12px; color: var(--text-subtle); border: 1.5px dashed var(--border); border-radius: 6px; background: none; cursor: pointer; margin-left: 4px; transition: all .15s; }
+    .tab-add:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* ── Section label ── */
+    .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; color: var(--text-subtle); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* ── Collapsible Panel ── */
+    .panel { border: 1.5px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 16px; }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; padding: 11px 16px; background: var(--bg-muted); cursor: pointer; user-select: none; }
+    .panel-head:hover { background: var(--bg-subtle); }
+    .panel-head-left { display: flex; align-items: center; gap: 8px; }
+    .chevron { width: 14px; height: 14px; color: var(--text-subtle); transition: transform .2s; flex-shrink: 0; }
+    .panel-head.open .chevron { transform: rotate(90deg); }
+    .panel-title { font-size: 13px; font-weight: 600; color: var(--text); }
+    .panel-sub { font-size: 12px; color: var(--text-muted); margin-left: 4px; }
+    .panel-body { padding: 0; }
+    .panel-body.hidden { display: none; }
+
+    /* ── Grid Table ── */
+    .grid-wrap { overflow-x: auto; }
+    .grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .grid thead th { padding: 9px 12px; text-align: right; font-size: 11px; font-weight: 600; color: var(--text-muted); border-bottom: 1.5px solid var(--border-med); white-space: nowrap; min-width: 96px; }
+    .grid thead th:first-child { text-align: left; min-width: 150px; position: sticky; left: 0; background: var(--bg-subtle); z-index: 2; }
+    .grid thead th.est { color: #3b82f6; background: #eff6ff; }
+    [data-theme="dark"] .grid thead th.est { background: #0c1e40; color: #60a5fa; }
+    .grid tbody tr { border-bottom: 1px solid var(--border); }
+    .grid tbody tr:last-child { border-bottom: none; }
+    .grid tbody tr.total-row { background: var(--bg-muted); }
+    .grid tbody tr:not(.total-row).pct-row td { padding-top: 3px; padding-bottom: 3px; }
+    .grid tbody tr:not(.total-row):not(.pct-row):hover { background: var(--bg-subtle); }
+    .grid tbody td { padding: 7px 12px; text-align: right; font-variant-numeric: tabular-nums; }
+    .grid tbody td:first-child { text-align: left; position: sticky; left: 0; z-index: 1; background: inherit; white-space: nowrap; }
+    .total-row td:first-child { background: var(--bg-muted); }
+    .est-col { background: #f8fbff; }
+    [data-theme="dark"] .est-col { background: #0a1828; }
+    .total-row .est-col { background: #edf5ff; }
+    [data-theme="dark"] .total-row .est-col { background: #0d1e38; }
+    .fw7 { font-weight: 700; }
+    .fw6 { font-weight: 600; }
+    .sm { font-size: 12px; }
+    .muted { color: var(--text-muted); }
+    .subtle { color: var(--text-subtle); }
+    .indent { padding-left: 20px !important; }
+    .pos { color: #16a34a; } .neg { color: #dc2626; }
+    .violet { color: #7c3aed; }
+    .input-cell { width: 80px; height: 28px; border: 1.5px dashed var(--border-med); border-radius: var(--radius-sm); background: var(--bg-subtle); color: var(--text); padding: 0 8px; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; outline: none; transition: all .15s; }
+    .input-cell:focus { border-color: var(--primary); border-style: solid; box-shadow: 0 0 0 3px var(--primary-dim); background: var(--bg); }
+    .grid-footer { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-subtle); background: var(--bg-subtle); flex-wrap: wrap; }
+
+    /* ── Expected Returns bar ── */
+    .exp-returns-bar { display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: var(--bg-muted); border: 1.5px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; }
+    .erb-label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+    .erb-input-wrap { display: flex; align-items: center; gap: 6px; }
+    .erb-input { width: 64px; height: 30px; border: 1.5px solid var(--border-med); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); padding: 0 8px; font-size: 14px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; outline: none; }
+    .erb-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-dim); }
+    .erb-unit { font-size: 12px; color: var(--text-muted); }
+    .erb-info { margin-left: auto; display: flex; gap: 20px; }
+    .erb-stat { display: flex; flex-direction: column; gap: 1px; text-align: right; }
+    .erb-stat-val { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .erb-stat-key { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--text-subtle); }
+
+    /* ──────────────────────────────────────────────────
+       OPTION A — Compact inline table (spreadsheet-like)
+       ────────────────────────────────────────────────── */
+    .option-a .sc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .option-a .sc-table thead th { padding: 8px 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; color: var(--text-subtle); border-bottom: 1.5px solid var(--border-med); text-align: right; white-space: nowrap; }
+    .option-a .sc-table thead th:first-child { text-align: left; width: 80px; }
+    .option-a .sc-table tbody tr { border-bottom: 1px solid var(--border); }
+    .option-a .sc-table tbody tr:last-child { border-bottom: none; }
+    .option-a .sc-table tbody td { padding: 10px 12px; text-align: right; font-variant-numeric: tabular-nums; }
+    .option-a .sc-table tbody td:first-child { text-align: left; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+    .option-a .bull-row td:first-child { color: var(--bull); }
+    .option-a .base-row td:first-child { color: var(--base); }
+    .option-a .bare-row td:first-child { color: var(--bare); }
+    .option-a .bull-row { background: var(--bull-dim); }
+    .option-a .base-row { background: var(--base-dim); }
+    .option-a .bare-row { background: var(--bare-dim); }
+    .option-a .key-col { font-weight: 700; font-size: 14px; }
+    .option-a .key-col.bull { color: var(--bull); }
+    .option-a .key-col.base { color: var(--base); }
+    .option-a .key-col.bare { color: var(--bare); }
+    .option-a .sc-input { width: 72px; height: 28px; border: 1.5px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--text); padding: 0 8px; font-size: 13px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; outline: none; transition: all .15s; }
+    .option-a .bull-row .sc-input:focus,
+    .option-a .bull-row .sc-input:hover { border-color: var(--bull-border); background: var(--surface); }
+    .option-a .base-row .sc-input:focus,
+    .option-a .base-row .sc-input:hover { border-color: var(--base-border); background: var(--surface); }
+    .option-a .bare-row .sc-input:focus,
+    .option-a .bare-row .sc-input:hover { border-color: var(--bare-border); background: var(--surface); }
+
+    /* ──────────────────────────────────────────────────
+       OPTION B — Slim horizontal strips
+       ────────────────────────────────────────────────── */
+    .option-b .strips { display: flex; flex-direction: column; gap: 8px; }
+    .option-b .strip { display: flex; align-items: center; gap: 0; border: 1.5px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); transition: box-shadow .15s; }
+    .option-b .strip:hover { box-shadow: var(--shadow-sm); }
+    .option-b .strip-label { width: 88px; flex-shrink: 0; padding: 12px 14px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px; border-right: 1.5px solid var(--border); display: flex; flex-direction: column; gap: 2px; }
+    .option-b .strip-label .icon { font-size: 14px; }
+    .option-b .bull-strip .strip-label { color: var(--bull); background: var(--bull-dim); border-right-color: var(--bull-border); }
+    .option-b .base-strip .strip-label { color: var(--base); background: var(--base-dim); border-right-color: var(--base-border); }
+    .option-b .bare-strip .strip-label { color: var(--bare); background: var(--bare-dim); border-right-color: var(--bare-border); }
+    .option-b .strip-field { padding: 10px 14px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 3px; min-width: 120px; }
+    .option-b .strip-field-label { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--text-subtle); font-weight: 600; }
+    .option-b .strip-input { height: 26px; width: 80px; border: 1.5px solid var(--border-med); border-radius: var(--radius-sm); background: var(--bg-subtle); color: var(--text); padding: 0 8px; font-size: 13px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; outline: none; }
+    .option-b .strip-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-dim); background: var(--bg); }
+    .option-b .strip-stat { padding: 10px 14px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 3px; min-width: 110px; }
+    .option-b .strip-stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--text-subtle); font-weight: 600; }
+    .option-b .strip-stat-val { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .option-b .strip-stat-val.irr.bull { color: var(--bull); }
+    .option-b .strip-stat-val.irr.base { color: var(--base); }
+    .option-b .strip-stat-val.irr.bare { color: var(--bare); }
+    .option-b .strip-stat-val.price { color: var(--text); }
+    .option-b .strip-stat:last-child { border-right: none; }
+    .option-b .strip-stat.stretch { flex: 1; }
+
+    /* ──────────────────────────────────────────────────
+       OPTION C — Three featherlight cards, side by side
+       ────────────────────────────────────────────────── */
+    .option-c .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .option-c .card { border-radius: var(--radius); border: 1.5px solid var(--border); background: var(--surface); overflow: hidden; }
+    .option-c .card-top { padding: 10px 14px 8px; border-left: 3px solid; display: flex; align-items: center; justify-content: space-between; }
+    .option-c .bull-card .card-top { border-left-color: var(--bull); }
+    .option-c .base-card .card-top { border-left-color: var(--base); }
+    .option-c .bare-card .card-top { border-left-color: var(--bare); }
+    .option-c .card-name { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px; }
+    .option-c .bull-card .card-name { color: var(--bull); }
+    .option-c .base-card .card-name { color: var(--base); }
+    .option-c .bare-card .card-name { color: var(--bare); }
+    .option-c .card-irr { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.5px; }
+    .option-c .bull-card .card-irr { color: var(--bull); }
+    .option-c .base-card .card-irr { color: var(--base); }
+    .option-c .bare-card .card-irr { color: var(--bare); }
+    .option-c .card-irr-label { font-size: 10px; color: var(--text-subtle); margin-top: -2px; }
+    .option-c .card-body { padding: 10px 14px; display: flex; flex-direction: column; gap: 7px; border-top: 1px solid var(--border); background: var(--bg-subtle); }
+    .option-c .card-field-label { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--text-subtle); font-weight: 600; margin-bottom: 3px; }
+    .option-c .card-input { width: 100%; height: 30px; border: 1.5px solid var(--border-med); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); padding: 0 10px; font-size: 13px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; outline: none; }
+    .option-c .card-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-dim); }
+    .option-c .card-row { display: flex; justify-content: space-between; align-items: baseline; }
+    .option-c .card-row-key { font-size: 11px; color: var(--text-muted); }
+    .option-c .card-row-val { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .option-c .card-row-val.strong { font-size: 13px; font-weight: 700; }
+    .option-c .bull-card .card-row-val.strong { color: var(--bull); }
+    .option-c .base-card .card-row-val.strong { color: var(--base); }
+    .option-c .bare-card .card-row-val.strong { color: var(--bare); }
+
+    /* ── PEG Strip ── */
+    .peg-strip { display: flex; align-items: center; gap: 0; padding: 11px 16px; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); }
+    .peg-item { display: flex; flex-direction: column; gap: 2px; padding: 0 16px; }
+    .peg-item:first-child { padding-left: 0; }
+    .peg-divider { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
+    .peg-key { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; color: var(--text-subtle); }
+    .peg-val { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .peg-val.green { color: #16a34a; }
+    .peg-verdict { margin-left: auto; padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; background: #f0fdf4; color: #16a34a; }
+    [data-theme="dark"] .peg-verdict { background: #052e16; color: #4ade80; }
+
+    /* ── Option picker pills ── */
+    .option-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .option-title { font-size: 14px; font-weight: 600; color: var(--text); }
+    .option-pill { padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; background: var(--bg-muted); color: var(--text-muted); border: 1.5px solid var(--border); }
+    .option-section { margin-bottom: 32px; }
+
+    /* ── Theme toggle ── */
+    .theme-btn { position: fixed; top: 14px; right: 14px; z-index: 100; background: var(--surface); border: 1.5px solid var(--border); border-radius: 99px; padding: 5px 12px; font-size: 12px; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+    .theme-btn:hover { color: var(--text); }
+
+    /* ── Option tabs ── */
+    .option-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+    .opt-tab { padding: 5px 14px; border-radius: 99px; font-size: 12px; font-weight: 600; border: 1.5px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; transition: all .15s; }
+    .opt-tab.active { border-color: var(--primary); color: var(--primary); background: var(--primary-dim); }
+    .opt-tab:hover:not(.active) { border-color: var(--border-med); color: var(--text); }
+    .option-panel { display: none; }
+    .option-panel.active { display: block; }
+
+    .divider { height: 1px; background: var(--border); margin: 20px 0; }
+    @media (max-width: 680px) {
+      .option-c .cards { grid-template-columns: 1fr; }
+      .option-b .strip-field, .option-b .strip-stat { min-width: 90px; }
+      .erb-info { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<button class="theme-btn" onclick="toggleTheme()">
+  <span id="t-icon">🌙</span> <span id="t-lbl">Dark mode</span>
+</button>
+
+<div class="page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="page-title">HDFC Bank <span>· Projections &amp; Valuations</span></div>
+    <div class="header-actions">
+      <button class="btn btn-ghost">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 11V14h12v-3M8 2v9M5 9l3 3 3-3"/></svg>
+        Save All
+      </button>
+    </div>
+  </div>
+
+  <!-- Model Tabs -->
+  <div class="model-tabs">
+    <button class="model-tab active">PE / Earnings <span class="badge">Default</span></button>
+    <button class="model-tab">EV / EBITDA</button>
+    <button class="tab-add">
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 3v10M3 8h10"/></svg>
+      Add Model
+    </button>
+  </div>
+
+  <!-- ── 1. P&L PROJECTIONS ───────────────────────────────────────── -->
+  <div class="section-label">P&amp;L Projections</div>
+
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-head open" onclick="togglePanel(this)">
+      <div class="panel-head-left">
+        <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg>
+        <span class="panel-title">Profit &amp; Loss</span>
+        <span class="panel-sub">· ₹ Crores</span>
+      </div>
+      <button class="btn btn-ghost" style="height:26px;font-size:11px;padding:0 10px;" onclick="event.stopPropagation()">
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 3v10M3 8h10"/></svg>
+        Add Year
+      </button>
+    </div>
+    <div class="panel-body">
+      <div class="grid-wrap">
+        <table class="grid">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Mar 2024</th>
+              <th class="est">Mar 2025E</th>
+              <th class="est">Mar 2026E</th>
+              <th class="est">Mar 2027E</th>
+              <th class="est">Mar 2028E</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="total-row">
+              <td class="fw7">Revenue</td>
+              <td class="fw7">1,66,300</td>
+              <td class="fw7 est-col">1,88,000</td>
+              <td class="fw7 est-col">2,12,000</td>
+              <td class="fw7 est-col">2,40,000</td>
+              <td class="fw7 est-col">2,72,000</td>
+            </tr>
+            <tr class="pct-row">
+              <td class="indent sm muted">Revenue Growth %</td>
+              <td class="sm subtle">—</td>
+              <td class="sm est-col pos">+13.1%</td>
+              <td class="sm est-col pos">+12.8%</td>
+              <td class="sm est-col pos">+13.2%</td>
+              <td class="sm est-col pos">+13.3%</td>
+            </tr>
+            <tr>
+              <td class="muted">EBITDA Margin %</td>
+              <td><input class="input-cell" type="number" value="32" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="33" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="34" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="34" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="35" /></td>
+            </tr>
+            <tr class="total-row">
+              <td class="fw7">EBITDA</td>
+              <td class="fw7 muted">53,216</td>
+              <td class="fw7 muted est-col">62,040</td>
+              <td class="fw7 muted est-col">72,080</td>
+              <td class="fw7 muted est-col">81,600</td>
+              <td class="fw7 muted est-col">95,200</td>
+            </tr>
+            <tr class="pct-row">
+              <td class="indent sm muted">EBITDA Growth %</td>
+              <td class="sm subtle">—</td>
+              <td class="sm muted est-col pos">+16.6%</td>
+              <td class="sm muted est-col pos">+16.2%</td>
+              <td class="sm muted est-col pos">+13.2%</td>
+              <td class="sm muted est-col pos">+16.7%</td>
+            </tr>
+            <tr><td class="muted">Depreciation</td>
+              <td><input class="input-cell" type="number" value="2800" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="3100" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="3400" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="3700" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="4000" /></td>
+            </tr>
+            <tr><td class="muted">Interest</td>
+              <td><input class="input-cell" type="number" value="1200" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="1300" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="1400" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="1500" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="1600" /></td>
+            </tr>
+            <tr><td class="muted">Other Income</td>
+              <td><input class="input-cell" type="number" value="800" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="900" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="1000" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="1100" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="1200" /></td>
+            </tr>
+            <tr class="total-row">
+              <td class="fw7">PBT</td>
+              <td class="fw7 muted">50,016</td>
+              <td class="fw7 muted est-col">58,540</td>
+              <td class="fw7 muted est-col">68,280</td>
+              <td class="fw7 muted est-col">77,500</td>
+              <td class="fw7 muted est-col">90,800</td>
+            </tr>
+            <tr><td class="muted">Tax %</td>
+              <td><input class="input-cell" type="number" value="25" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="25" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="25" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="25" /></td>
+              <td class="est-col"><input class="input-cell" type="number" value="25" /></td>
+            </tr>
+            <tr class="total-row">
+              <td class="fw7">PAT</td>
+              <td class="fw7">37,512</td>
+              <td class="fw7 est-col">43,905</td>
+              <td class="fw7 est-col">51,210</td>
+              <td class="fw7 est-col">58,125</td>
+              <td class="fw7 est-col">68,100</td>
+            </tr>
+            <tr class="pct-row">
+              <td class="indent sm muted">PAT Growth %</td>
+              <td class="sm subtle">—</td>
+              <td class="sm muted est-col pos">+17.0%</td>
+              <td class="sm muted est-col pos">+16.6%</td>
+              <td class="sm muted est-col pos">+13.5%</td>
+              <td class="sm muted est-col pos">+17.2%</td>
+            </tr>
+            <tr class="pct-row">
+              <td class="indent sm muted">PAT Margin %</td>
+              <td class="sm subtle">22.6%</td>
+              <td class="sm muted est-col">23.4%</td>
+              <td class="sm muted est-col">24.2%</td>
+              <td class="sm muted est-col">24.2%</td>
+              <td class="sm muted est-col">25.0%</td>
+            </tr>
+            <tr>
+              <td class="muted">Forward PE</td>
+              <td class="muted">14.5×</td>
+              <td class="muted est-col">12.4×</td>
+              <td class="muted est-col">10.6×</td>
+              <td class="muted est-col">9.4×</td>
+              <td class="muted est-col">8.0×</td>
+            </tr>
+            <tr>
+              <td class="muted">Forward PEG</td>
+              <td class="subtle">—</td>
+              <td class="muted est-col">0.73×</td>
+              <td class="muted est-col">0.64×</td>
+              <td class="muted est-col">0.70×</td>
+              <td class="muted est-col">0.47×</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="grid-footer">
+        <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--text-subtle);"></span> Auto-computed</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#7c3aed;"></span> Overridden</span>
+        <span style="color:#3b82f6;">▐</span>&nbsp;Blue = estimates
+        <span style="margin-left:auto;">Click auto cell to override &nbsp;·&nbsp; Arrow keys to navigate</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 2. EXPECTED RETURNS ─────────────────────────────────────── -->
+  <div class="section-label">Settings</div>
+
+  <div class="exp-returns-bar" style="margin-bottom:24px;">
+    <div class="erb-label">Expected Returns</div>
+    <div class="erb-input-wrap">
+      <input class="erb-input" type="number" value="25" />
+      <span class="erb-unit">% per year</span>
+    </div>
+    <div class="erb-info">
+      <div class="erb-stat">
+        <div class="erb-stat-val">₹5,44,200 Cr</div>
+        <div class="erb-stat-key">Current Mkt Cap</div>
+      </div>
+      <div class="erb-stat">
+        <div class="erb-stat-val">₹1,636</div>
+        <div class="erb-stat-key">Current Price</div>
+      </div>
+      <div class="erb-stat">
+        <div class="erb-stat-val">₹19,420 Cr</div>
+        <div class="erb-stat-key">Terminal PAT (FY28E)</div>
+      </div>
+      <div class="erb-stat">
+        <div class="erb-stat-val">3 years</div>
+        <div class="erb-stat-key">Horizon</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 3. VALUATION SCENARIOS (3 options) ─────────────────────── -->
+  <div class="section-label">Valuation Scenarios</div>
+
+  <!-- Option picker -->
+  <div class="option-tabs">
+    <button class="opt-tab active" onclick="switchOption('A', this)">Option A — Table</button>
+    <button class="opt-tab" onclick="switchOption('B', this)">Option B — Strips</button>
+    <button class="opt-tab" onclick="switchOption('C', this)">Option C — Cards</button>
+  </div>
+
+  <!-- OPTION A: Compact colour-row table -->
+  <div class="option-panel option-a active" id="opt-A" style="margin-bottom:16px;">
+    <div class="panel" style="margin-bottom:0;">
+      <div class="panel-body" style="display:block!important;">
+        <table class="sc-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th style="text-align:center;">Target PE</th>
+              <th>Target Mkt Cap</th>
+              <th>Buying Mkt Cap</th>
+              <th>Buy Below</th>
+              <th>IRR</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="bull-row">
+              <td>🐂 Bull</td>
+              <td style="text-align:center;"><input class="sc-input" type="number" value="35" /></td>
+              <td class="muted">₹6,79,700 Cr</td>
+              <td class="muted">₹3,22,800 Cr</td>
+              <td class="fw7" style="font-size:14px;">₹740</td>
+              <td class="key-col bull">28.4%</td>
+            </tr>
+            <tr class="base-row">
+              <td>⚖️ Base</td>
+              <td style="text-align:center;"><input class="sc-input" type="number" value="25" /></td>
+              <td class="muted">₹4,85,500 Cr</td>
+              <td class="muted">₹2,30,500 Cr</td>
+              <td class="fw7" style="font-size:14px;">₹540</td>
+              <td class="key-col base">19.2%</td>
+            </tr>
+            <tr class="bare-row">
+              <td>🎯 Bare</td>
+              <td style="text-align:center;"><input class="sc-input" type="number" value="18" /></td>
+              <td class="muted">₹3,49,560 Cr</td>
+              <td class="muted">₹1,65,900 Cr</td>
+              <td class="fw7" style="font-size:14px;">₹310</td>
+              <td class="key-col bare">7.8%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION B: Slim horizontal strips -->
+  <div class="option-panel option-b" id="opt-B" style="margin-bottom:16px;">
+    <div class="strips">
+      <div class="strip bull-strip">
+        <div class="strip-label"><span class="icon">🐂</span> BULL</div>
+        <div class="strip-field">
+          <div class="strip-field-label">Target PE</div>
+          <input class="strip-input" type="number" value="35" />
+        </div>
+        <div class="strip-stat">
+          <div class="strip-stat-label">Target Mkt Cap</div>
+          <div class="strip-stat-val price">₹6,79,700 Cr</div>
+        </div>
+        <div class="strip-stat">
+          <div class="strip-stat-label">Buy Below</div>
+          <div class="strip-stat-val price fw7">₹740</div>
+        </div>
+        <div class="strip-stat stretch">
+          <div class="strip-stat-label">IRR</div>
+          <div class="strip-stat-val irr bull">28.4%</div>
+        </div>
+      </div>
+
+      <div class="strip base-strip">
+        <div class="strip-label"><span class="icon">⚖️</span> BASE</div>
+        <div class="strip-field">
+          <div class="strip-field-label">Target PE</div>
+          <input class="strip-input" type="number" value="25" />
+        </div>
+        <div class="strip-stat">
+          <div class="strip-stat-label">Target Mkt Cap</div>
+          <div class="strip-stat-val price">₹4,85,500 Cr</div>
+        </div>
+        <div class="strip-stat">
+          <div class="strip-stat-label">Buy Below</div>
+          <div class="strip-stat-val price fw7">₹540</div>
+        </div>
+        <div class="strip-stat stretch">
+          <div class="strip-stat-label">IRR</div>
+          <div class="strip-stat-val irr base">19.2%</div>
+        </div>
+      </div>
+
+      <div class="strip bare-strip">
+        <div class="strip-label"><span class="icon">🎯</span> BARE</div>
+        <div class="strip-field">
+          <div class="strip-field-label">Target PE</div>
+          <input class="strip-input" type="number" value="18" />
+        </div>
+        <div class="strip-stat">
+          <div class="strip-stat-label">Target Mkt Cap</div>
+          <div class="strip-stat-val price">₹3,49,560 Cr</div>
+        </div>
+        <div class="strip-stat">
+          <div class="strip-stat-label">Buy Below</div>
+          <div class="strip-stat-val price fw7">₹310</div>
+        </div>
+        <div class="strip-stat stretch">
+          <div class="strip-stat-label">IRR</div>
+          <div class="strip-stat-val irr bare">7.8%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION C: Light 3-column cards -->
+  <div class="option-panel option-c" id="opt-C" style="margin-bottom:16px;">
+    <div class="cards">
+      <!-- Bull -->
+      <div class="card bull-card">
+        <div class="card-top">
+          <div>
+            <div class="card-name">🐂 Bull</div>
+            <div class="card-irr-label">IRR</div>
+          </div>
+          <div>
+            <div class="card-irr">28.4%</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div>
+            <div class="card-field-label">Target PE</div>
+            <input class="card-input" type="number" value="35" />
+          </div>
+          <div class="card-row">
+            <span class="card-row-key">Target Mkt Cap</span>
+            <span class="card-row-val">₹6,79,700 Cr</span>
+          </div>
+          <div class="card-row">
+            <span class="card-row-key">Buy Below</span>
+            <span class="card-row-val strong">₹740</span>
+          </div>
+        </div>
+      </div>
+      <!-- Base -->
+      <div class="card base-card">
+        <div class="card-top">
+          <div>
+            <div class="card-name">⚖️ Base</div>
+            <div class="card-irr-label">IRR</div>
+          </div>
+          <div>
+            <div class="card-irr">19.2%</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div>
+            <div class="card-field-label">Target PE</div>
+            <input class="card-input" type="number" value="25" />
+          </div>
+          <div class="card-row">
+            <span class="card-row-key">Target Mkt Cap</span>
+            <span class="card-row-val">₹4,85,500 Cr</span>
+          </div>
+          <div class="card-row">
+            <span class="card-row-key">Buy Below</span>
+            <span class="card-row-val strong">₹540</span>
+          </div>
+        </div>
+      </div>
+      <!-- Bare -->
+      <div class="card bare-card">
+        <div class="card-top">
+          <div>
+            <div class="card-name">🎯 Bare</div>
+            <div class="card-irr-label">IRR</div>
+          </div>
+          <div>
+            <div class="card-irr">7.8%</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div>
+            <div class="card-field-label">Target PE</div>
+            <input class="card-input" type="number" value="18" />
+          </div>
+          <div class="card-row">
+            <span class="card-row-key">Target Mkt Cap</span>
+            <span class="card-row-val">₹3,49,560 Cr</span>
+          </div>
+          <div class="card-row">
+            <span class="card-row-key">Buy Below</span>
+            <span class="card-row-val strong">₹310</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 4. PEG RATIO ────────────────────────────────────────────── -->
+  <div class="section-label">PEG Analysis</div>
+
+  <div class="peg-strip">
+    <div class="peg-item">
+      <div class="peg-key">Trailing PE</div>
+      <div class="peg-val">28.4×</div>
+    </div>
+    <div class="peg-divider"></div>
+    <div class="peg-item">
+      <div class="peg-key">Earnings CAGR (3Y)</div>
+      <div class="peg-val">22%</div>
+    </div>
+    <div class="peg-divider"></div>
+    <div class="peg-item">
+      <div class="peg-key">Forward PEG</div>
+      <div class="peg-val green">0.84×</div>
+    </div>
+    <div class="peg-verdict">Potentially undervalued</div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+  function toggleTheme() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    document.getElementById('t-icon').textContent = isDark ? '🌙' : '☀️';
+    document.getElementById('t-lbl').textContent = isDark ? 'Dark mode' : 'Light mode';
+  }
+  function togglePanel(head) {
+    const body = head.nextElementSibling;
+    const open = head.classList.toggle('open');
+    body.classList.toggle('hidden', !open);
+  }
+  function switchOption(opt, btn) {
+    document.querySelectorAll('.option-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.opt-tab').forEach(b => b.classList.remove('active'));
+    document.getElementById('opt-' + opt).classList.add('active');
+    btn.classList.add('active');
+  }
+</script>
+</body>
+</html>
