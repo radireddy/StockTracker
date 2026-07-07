@@ -119,6 +119,7 @@ export function CompanyTabs({
                 companyId={company.id}
                 portfolioId={company.portfolio_id}
                 isin={company.isin}
+                currentPrice={company.indian_stocks?.price ?? null}
               />
             )}
           </Tabs.Panel>

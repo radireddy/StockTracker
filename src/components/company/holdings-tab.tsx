@@ -38,10 +38,12 @@ export function HoldingsTab({
   companyId,
   portfolioId,
   isin,
+  currentPrice,
 }: {
   companyId: string;
   portfolioId: string;
   isin: string;
+  currentPrice?: number | null;
 }) {
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -83,6 +85,9 @@ export function HoldingsTab({
   const totalQty = holdings.reduce((s, h) => s + h.quantity, 0);
   const totalCost = holdings.reduce((s, h) => s + h.quantity * h.avg_buy_price, 0);
   const weightedAvg = totalQty > 0 ? totalCost / totalQty : 0;
+  const totalCurrentValue = currentPrice != null ? totalQty * currentPrice : null;
+  const totalPnl = totalCurrentValue != null ? totalCurrentValue - totalCost : null;
+  const totalPnlPct = totalCost > 0 && totalPnl != null ? (totalPnl / totalCost) * 100 : null;
 
   // A holding this account already has for this stock. Adding to it merges the
   // new lot in (quantity summed, avg buy price recalculated as a weighted avg).
@@ -164,7 +169,7 @@ export function HoldingsTab({
       ) : (
         <>
           {holdings.length > 0 && (
-            <div className="flex gap-6 text-sm border rounded-lg px-4 py-2.5 bg-muted/20">
+            <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-sm border rounded-lg px-4 py-2.5 bg-muted/20">
               <div>
                 <span className="text-muted-foreground">Total Qty:</span>{" "}
                 <span className="font-medium tabular-nums">{fmt(totalQty)}</span>
@@ -177,6 +182,15 @@ export function HoldingsTab({
                 <span className="text-muted-foreground">Total Cost:</span>{" "}
                 <span className="font-medium tabular-nums">₹{fmt(Math.round(totalCost))}</span>
               </div>
+              {totalPnl != null && (
+                <div>
+                  <span className="text-muted-foreground">P&amp;L:</span>{" "}
+                  <span className={`font-medium tabular-nums ${totalPnl >= 0 ? "text-positive" : "text-destructive"}`}>
+                    {totalPnl >= 0 ? "+" : ""}₹{fmt(Math.round(totalPnl))}{" "}
+                    <span className="text-xs">({totalPnlPct! >= 0 ? "+" : ""}{totalPnlPct!.toFixed(1)}%)</span>
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -193,6 +207,7 @@ export function HoldingsTab({
                       <th scope="col" className="text-left px-3 py-2 font-medium">Account</th>
                       <th scope="col" className="text-right px-3 py-2 font-medium">Qty</th>
                       <th scope="col" className="text-right px-3 py-2 font-medium">Avg Price</th>
+                      <th scope="col" className="text-right px-3 py-2 font-medium">P&amp;L</th>
                       <th scope="col" className="text-center px-3 py-2 font-medium">Source</th>
                       <th scope="col" className="text-right px-3 py-2 font-medium">Actions</th>
                     </tr>
@@ -219,6 +234,7 @@ export function HoldingsTab({
                                 inputMode="decimal"
                               />
                             </td>
+                            <td className="px-3 py-2 text-right text-muted-foreground">—</td>
                             <td className="px-3 py-2 text-center">
                               <Badge variant="outline">manual</Badge>
                             </td>
@@ -235,8 +251,26 @@ export function HoldingsTab({
                           </>
                         ) : (
                           <>
-                            <td className="px-3 py-2 text-right tabular-nums">{fmt(h.quantity)}</td>
-                            <td className="px-3 py-2 text-right tabular-nums">₹{fmt(h.avg_buy_price)}</td>
+                            {(() => {
+                              const pnl = currentPrice != null ? (currentPrice - h.avg_buy_price) * h.quantity : null;
+                              const pnlPct = currentPrice != null ? ((currentPrice - h.avg_buy_price) / h.avg_buy_price) * 100 : null;
+                              return (
+                                <>
+                                  <td className="px-3 py-2 text-right tabular-nums">{fmt(h.quantity)}</td>
+                                  <td className="px-3 py-2 text-right tabular-nums">₹{fmt(h.avg_buy_price)}</td>
+                                  <td className="px-3 py-2 text-right tabular-nums">
+                                    {pnl != null ? (
+                                      <span className={pnl >= 0 ? "text-positive" : "text-destructive"}>
+                                        <span className="block">{pnl >= 0 ? "+" : ""}₹{fmt(Math.round(pnl))}</span>
+                                        <span className="text-xs opacity-80">{pnlPct! >= 0 ? "+" : ""}{pnlPct!.toFixed(1)}%</span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-muted-foreground">—</span>
+                                    )}
+                                  </td>
+                                </>
+                              );
+                            })()}
                             <td className="px-3 py-2 text-center">
                               <Badge variant={h.source === "manual" ? "outline" : "secondary"} className="text-xs capitalize">
                                 {h.source}
