@@ -79,6 +79,7 @@ export function useDashboardData(
     queryFn: () => fetchDashboard(portfolioId, portfolioType),
     staleTime: 30_000,
     refetchInterval: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 }
 
