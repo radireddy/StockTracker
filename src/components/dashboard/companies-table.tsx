@@ -101,6 +101,10 @@ function fmtRupee(n: number): string {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Math.abs(n));
 }
 
+function fmtAmt(n: number): string {
+  return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(Math.abs(n));
+}
+
 /** Colour class for a P&L / gain value. */
 function pnlClass(positive: boolean): string {
   return positive ? "text-positive" : "text-destructive";
@@ -1197,13 +1201,13 @@ function AllocationTable({
                 const rangeMinAmt = (alloc.range.min / 100) * activeTotal;
                 const rangeMaxAmt = (alloc.range.max / 100) * activeTotal;
                 const currentAmt = (activePct / 100) * activeTotal;
-                const investedTooltip = `Target range: ${fmtRupee(rangeMinAmt)} — ${fmtRupee(rangeMaxAmt)}`;
+                const investedTooltip = <>Target range: <span className="font-mono font-bold">{fmtAmt(rangeMinAmt)}</span> — <span className="font-mono font-bold">{fmtAmt(rangeMaxAmt)}</span></>;
 
                 let deltaTooltip: React.ReactNode = null;
                 if (activeStatus === "under") {
-                  deltaTooltip = <>Invest <span className="font-mono font-bold">{fmtRupee(rangeMinAmt - currentAmt)}</span> to <span className="font-mono font-bold">{fmtRupee(rangeMaxAmt - currentAmt)}</span> more to reach target</>;
+                  deltaTooltip = <>Invest <span className="font-mono font-bold">{fmtAmt(rangeMinAmt - currentAmt)}</span> to <span className="font-mono font-bold">{fmtAmt(rangeMaxAmt - currentAmt)}</span> more to reach target</>;
                 } else if (activeStatus === "over") {
-                  deltaTooltip = <>Reduce <span className="font-mono font-bold">{fmtRupee(currentAmt - rangeMaxAmt)}</span> to <span className="font-mono font-bold">{fmtRupee(currentAmt - rangeMinAmt)}</span> to reach target</>;
+                  deltaTooltip = <>Reduce <span className="font-mono font-bold">{fmtAmt(currentAmt - rangeMaxAmt)}</span> to <span className="font-mono font-bold">{fmtAmt(currentAmt - rangeMinAmt)}</span> to reach target</>;
                 }
 
                 return (
