@@ -63,25 +63,27 @@ describe("handleGridKeyDown", () => {
     expect(inputs[1].focus).toHaveBeenCalled(); // row 0, col 1
   });
 
-  it("moves right on ArrowRight", () => {
-    const event = makeKeyboardEvent(inputs[0], "ArrowRight"); // row 0, col 0
-    handleGridKeyDown(event as any);
-    expect(event.preventDefault).toHaveBeenCalled();
-    expect(inputs[1].focus).toHaveBeenCalled(); // row 0, col 1
-  });
-
-  it("moves left on ArrowLeft", () => {
-    const event = makeKeyboardEvent(inputs[1], "ArrowLeft"); // row 0, col 1
-    handleGridKeyDown(event as any);
-    expect(event.preventDefault).toHaveBeenCalled();
-    expect(inputs[0].focus).toHaveBeenCalled(); // row 0, col 0
-  });
-
   it("moves down on Enter", () => {
     const event = makeKeyboardEvent(inputs[1], "Enter"); // row 0, col 1
     handleGridKeyDown(event as any);
     expect(event.preventDefault).toHaveBeenCalled();
     expect(inputs[4].focus).toHaveBeenCalled(); // row 1, col 1
+  });
+
+  // ArrowLeft/Right are no longer intercepted — the browser handles cursor
+  // movement within the number input; Tab/Shift+Tab handle horizontal nav.
+  it("does not intercept ArrowRight", () => {
+    const event = makeKeyboardEvent(inputs[0], "ArrowRight");
+    handleGridKeyDown(event as any);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(inputs[1].focus).not.toHaveBeenCalled();
+  });
+
+  it("does not intercept ArrowLeft", () => {
+    const event = makeKeyboardEvent(inputs[1], "ArrowLeft");
+    handleGridKeyDown(event as any);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(inputs[0].focus).not.toHaveBeenCalled();
   });
 
   it("does nothing for non-arrow keys", () => {
@@ -90,37 +92,30 @@ describe("handleGridKeyDown", () => {
     expect(event.preventDefault).not.toHaveBeenCalled();
   });
 
-  it("does not move past top boundary", () => {
+  it("prevents default at top boundary (no navigation)", () => {
     const event = makeKeyboardEvent(inputs[0], "ArrowUp"); // row 0, col 0
     handleGridKeyDown(event as any);
-    expect(event.preventDefault).not.toHaveBeenCalled();
+    // preventDefault is always called for Up/Down/Enter to block number spinner
+    expect(event.preventDefault).toHaveBeenCalled();
+    // but no focus change
+    inputs.forEach((i) => expect(i.focus).not.toHaveBeenCalled());
   });
 
-  it("does not move past bottom boundary", () => {
+  it("prevents default at bottom boundary (no navigation)", () => {
     const event = makeKeyboardEvent(inputs[8], "ArrowDown"); // row 2, col 2
     handleGridKeyDown(event as any);
-    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(event.preventDefault).toHaveBeenCalled();
+    inputs.forEach((i) => expect(i.focus).not.toHaveBeenCalled());
   });
 
-  it("does not move past left boundary", () => {
-    const event = makeKeyboardEvent(inputs[0], "ArrowLeft"); // row 0, col 0
-    handleGridKeyDown(event as any);
-    expect(event.preventDefault).not.toHaveBeenCalled();
-  });
-
-  it("does not move past right boundary", () => {
-    const event = makeKeyboardEvent(inputs[2], "ArrowRight"); // row 0, col 2
-    handleGridKeyDown(event as any);
-    expect(event.preventDefault).not.toHaveBeenCalled();
-  });
-
-  it("does nothing when not inside a table", () => {
+  it("prevents default even when not inside a table", () => {
     const input = document.createElement("input");
     input.setAttribute("data-row", "0");
     input.setAttribute("data-col", "0");
     document.body.appendChild(input);
     const event = makeKeyboardEvent(input, "ArrowDown");
     handleGridKeyDown(event as any);
-    expect(event.preventDefault).not.toHaveBeenCalled();
+    // preventDefault fires before the table check to block number spinner
+    expect(event.preventDefault).toHaveBeenCalled();
   });
 });

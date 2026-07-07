@@ -331,6 +331,16 @@ html {
    color-mix reproduces the intended tint over the page background, opaquely,
    and resolves per-theme via the CSS variables. */
 @layer utilities {
+  /* Hide native number-input spinners (used in projection / P&L grids). */
+  .no-spin {
+    -moz-appearance: textfield;
+  }
+  .no-spin::-webkit-inner-spin-button,
+  .no-spin::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+
   .sticky-col {
     background-color: var(--background);
   }

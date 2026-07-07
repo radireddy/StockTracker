@@ -186,7 +186,7 @@ export function ProjectionGrid({
                               step="any"
                               data-row={rowIndex}
                               data-col={idx}
-                              className={`w-full h-8 text-right text-sm tabular-nums rounded outline-none transition-all ${
+                              className={`no-spin w-full h-9 text-right text-sm tabular-nums rounded outline-none transition-all ${
                                 inputVal === ""
                                   ? "bg-muted/30 border border-dashed border-border/60 hover:border-border hover:bg-muted/50"
                                   : "border border-transparent bg-transparent hover:bg-muted/30"
@@ -221,7 +221,7 @@ export function ProjectionGrid({
                               step="any"
                               data-row={rowIndex}
                               data-col={idx}
-                              className={`w-full h-8 text-right text-sm tabular-nums rounded outline-none transition-all ${
+                              className={`no-spin w-full h-9 text-right text-sm tabular-nums rounded outline-none transition-all ${
                                 inputVal === ""
                                   ? "bg-muted/30 border border-dashed border-border/60 hover:border-border hover:bg-muted/50"
                                   : "border border-transparent bg-transparent hover:bg-muted/30"
@@ -230,7 +230,7 @@ export function ProjectionGrid({
                                   ? "text-violet-600 dark:text-violet-400"
                                   : ""
                               } ${isHighlight ? "font-bold" : ""} ${
-                                isPct ? "text-xs text-muted-foreground pr-4 px-1" : "px-2"
+                                isPct ? "pr-6 px-2" : "px-2"
                               }`}
                               value={inputVal}
                               onChange={(e) =>
@@ -244,7 +244,7 @@ export function ProjectionGrid({
                               autoFocus={isEditing}
                             />
                             {isPct && inputVal !== "" && (
-                              <span className="absolute right-1 text-xs text-muted-foreground pointer-events-none">%</span>
+                              <span className="absolute right-2 text-sm text-muted-foreground pointer-events-none select-none">%</span>
                             )}
                           </div>
                         </td>
