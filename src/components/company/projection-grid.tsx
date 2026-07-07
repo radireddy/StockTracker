@@ -57,11 +57,11 @@ export function ProjectionGrid({
   return (
     <div className="space-y-0">
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-border/60">
+      <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="border-b-2 border-border/40">
-              <th className="sticky-col sticky left-0 z-30 py-3 pl-4 sm:pl-5 pr-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-[140px] sm:min-w-[180px]">
+            <tr className="border-b border-border">
+              <th className="sticky-col-highlight sticky left-0 z-30 py-2.5 pl-4 sm:pl-5 pr-4 text-left text-[0.68rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground min-w-[140px] sm:min-w-[180px]">
                 &nbsp;
               </th>
               {data.map((fy, idx) => {
@@ -71,17 +71,17 @@ export function ProjectionGrid({
                   <th
                     key={idx}
                     scope="col"
-                    className={`group py-3 px-3 text-right text-xs font-semibold tracking-wide min-w-[100px] ${
+                    className={`group py-2.5 px-2.5 text-right text-[0.68rem] font-semibold uppercase tracking-[0.05em] min-w-[100px] ${
                       isEst
-                        ? "text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/20"
-                        : "text-muted-foreground bg-background"
+                        ? "text-primary bg-primary/10"
+                        : "text-muted-foreground bg-muted/40"
                     }`}
                   >
                     <div className="flex items-center justify-end gap-1.5">
                       {isEditingH ? (
                         <input
                           type="text"
-                          className="w-20 h-6 text-right text-xs font-semibold bg-white dark:bg-slate-900 border border-blue-400/50 rounded px-1 outline-none focus:ring-1 focus:ring-blue-400/50"
+                          className="w-20 h-6 text-right text-xs font-semibold bg-card border border-primary/40 rounded px-1 outline-none focus:ring-1 focus:ring-primary/30"
                           defaultValue={fy.year}
                           autoFocus
                           onBlur={(e) => {
@@ -132,12 +132,10 @@ export function ProjectionGrid({
                 <tr
                   key={row.key}
                   className={[
-                    "group/row transition-colors",
-                    row.dividerAbove ? "border-t border-border/40" : "",
-                    isHighlight
-                      ? "bg-muted/40 dark:bg-muted/20 border-t border-border/30"
-                      : "border-b border-border/10",
-                    !isHighlight && !isPct ? "hover:bg-muted/20" : "",
+                    "group/row transition-colors border-b border-border/50 last:border-0",
+                    row.dividerAbove ? "border-t border-border/50" : "",
+                    isHighlight ? "bg-muted/40" : "",
+                    !isHighlight ? "hover:bg-muted/40" : "",
                   ]
                     .filter(Boolean)
                     .join(" ")}
@@ -145,13 +143,13 @@ export function ProjectionGrid({
                   {/* Label */}
                   <th
                     scope="row"
-                    className={`sticky left-0 z-10 py-2 pl-4 sm:pl-5 pr-3 whitespace-nowrap text-left font-normal ${
+                    className={`sticky left-0 z-10 py-2 pl-4 sm:pl-5 pr-3 whitespace-nowrap text-left font-normal text-sm ${
                       isHighlight
                         ? "sticky-col-highlight font-bold text-foreground"
                         : isHeader
                         ? "sticky-col font-semibold text-foreground"
                         : isPct
-                        ? "sticky-col text-muted-foreground text-xs pl-6 sm:pl-8"
+                        ? "sticky-col text-[0.7rem] text-muted-foreground pl-6 sm:pl-8"
                         : "sticky-col text-foreground/80"
                     }`}
                   >
@@ -167,10 +165,10 @@ export function ProjectionGrid({
                     const isEditing = editingCell === cid;
                     const isGrowth = row.key.includes("growth");
 
-                    const estBg = isEst ? "bg-blue-50/30 dark:bg-blue-950/10" : "";
+                    const estBg = isEst ? "bg-primary/[0.04]" : "";
                     const highlightBg = isHighlight
                       ? isEst
-                        ? "bg-blue-50/50 dark:bg-blue-950/15"
+                        ? "bg-primary/[0.07]"
                         : "bg-muted/40 dark:bg-muted/20"
                       : "";
 
@@ -192,7 +190,7 @@ export function ProjectionGrid({
                                 inputVal === ""
                                   ? "bg-muted/30 border border-dashed border-border/60 hover:border-border hover:bg-muted/50"
                                   : "border border-transparent bg-transparent hover:bg-muted/30"
-                              } focus:bg-white dark:focus:bg-slate-900 focus:ring-1 focus:ring-blue-400/50 focus:border-blue-400/50 ${
+                              } focus:bg-card focus:ring-1 focus:ring-primary/30 focus:border-primary/50 ${
                                 isOverridden
                                   ? "text-violet-600 dark:text-violet-400"
                                   : ""
@@ -227,7 +225,7 @@ export function ProjectionGrid({
                                 inputVal === ""
                                   ? "bg-muted/30 border border-dashed border-border/60 hover:border-border hover:bg-muted/50"
                                   : "border border-transparent bg-transparent hover:bg-muted/30"
-                              } focus:bg-white dark:focus:bg-slate-900 focus:ring-1 focus:ring-blue-400/50 focus:border-blue-400/50 ${
+                              } focus:bg-card focus:ring-1 focus:ring-primary/30 focus:border-primary/50 ${
                                 isOverridden
                                   ? "text-violet-600 dark:text-violet-400"
                                   : ""
@@ -302,10 +300,10 @@ export function ProjectionGrid({
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 mt-3 text-[11px] text-muted-foreground px-1">
-        <span>Click any auto-calculated cell to override</span>
-        <span className="text-violet-500">Purple = manually overridden</span>
-        <span className="text-blue-500">Blue columns = estimates</span>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 border-t border-border/50 text-[11px] text-muted-foreground bg-muted/20">
+        <span>Click any computed cell to override</span>
+        <span className="text-violet-500 dark:text-violet-400">Purple = manually overridden</span>
+        <span className="text-primary">Teal columns = estimates</span>
       </div>
     </div>
   );

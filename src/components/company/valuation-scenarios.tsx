@@ -58,26 +58,26 @@ const SCENARIO_CFG = {
   bull: {
     label: "Bull",
     Icon: BullIcon,
-    rowCls: "bg-green-50/60 dark:bg-green-950/20",
-    chipCls: "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400",
-    iconCls: "bg-green-600 dark:bg-green-500",
-    irrCls: "text-green-700 dark:text-green-400",
+    stripeCls: "bg-positive",
+    iconBgCls: "bg-positive/15 text-positive",
+    labelCls: "text-positive",
+    irrCls: "text-positive",
   },
   base: {
     label: "Base",
     Icon: BaseIcon,
-    rowCls: "bg-blue-50/60 dark:bg-blue-950/20",
-    chipCls: "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400",
-    iconCls: "bg-blue-600 dark:bg-blue-500",
-    irrCls: "text-blue-700 dark:text-blue-400",
+    stripeCls: "bg-blue-500 dark:bg-blue-400",
+    iconBgCls: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+    labelCls: "text-blue-600 dark:text-blue-400",
+    irrCls: "text-blue-600 dark:text-blue-400",
   },
   bare: {
     label: "Bear",
     Icon: BearIcon,
-    rowCls: "bg-red-50/60 dark:bg-red-950/20",
-    chipCls: "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400",
-    iconCls: "bg-red-600 dark:bg-red-500",
-    irrCls: "text-red-600 dark:text-red-400",
+    stripeCls: "bg-destructive",
+    iconBgCls: "bg-destructive/10 text-destructive",
+    labelCls: "text-destructive",
+    irrCls: "text-destructive",
   },
 } as const;
 
@@ -157,129 +157,144 @@ export function ValuationScenarios({
   return (
     <div className="space-y-4">
       {/* ── Scenario table ──────────────────────────────────────────── */}
-      <div className="rounded-lg border border-border/60 overflow-hidden">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="border-b border-border/60 bg-muted/30">
-              <th className="py-2 px-4 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground w-44">
-                Scenario
-              </th>
-              {inputFields.map((f) => (
-                <th key={f.key} className="py-2 px-4 text-center text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
-                  {f.label}
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="sticky top-0 z-10 bg-muted/40 py-2.5 pl-2.5 pr-3 text-left text-[0.68rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground min-w-[140px]">
+                  Scenario
                 </th>
-              ))}
-              {outputFields.map((f) => (
-                <th key={f.key} className="py-2 px-4 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
-                  {f.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {(["bull", "base", "bare"] as const).map((type, rowIdx) => {
-              const cfg = SCENARIO_CFG[type];
-              const inputs = scenarioData[type];
-              const derived = derivedScenarios[type];
-              const stored = storedDerivedScenarios?.[type] ?? {};
+                {inputFields.map((f) => (
+                  <th key={f.key} className="sticky top-0 z-10 bg-muted/40 py-2.5 px-2.5 text-center text-[0.68rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground whitespace-nowrap">
+                    {f.label}
+                  </th>
+                ))}
+                {outputFields.map((f) => (
+                  <th key={f.key} className="sticky top-0 z-10 bg-muted/40 py-2.5 px-2.5 text-right text-[0.68rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground whitespace-nowrap">
+                    {f.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(["bull", "base", "bare"] as const).map((type, rowIdx) => {
+                const cfg = SCENARIO_CFG[type];
+                const inputs = scenarioData[type];
+                const derived = derivedScenarios[type];
+                const stored = storedDerivedScenarios?.[type] ?? {};
 
-              return (
-                <tr key={type} className={`border-b border-border/30 last:border-0 ${cfg.rowCls}`}>
-                  <td className="py-3 px-4">
-                    <span className={`inline-flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full border ${cfg.chipCls}`}>
-                      <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white ${cfg.iconCls}`}>
-                        <cfg.Icon />
-                      </span>
-                      <span className="text-[11px] font-bold uppercase tracking-wider">{cfg.label}</span>
-                    </span>
-                  </td>
-
-                  {inputFields.map((f, colIdx) => (
-                    <td key={f.key} className="py-3 px-4 text-center">
-                      <input
-                        type="number"
-                        step="any"
-                        data-row={rowIdx}
-                        data-col={colIdx}
-                        className="w-20 h-8 text-right text-sm tabular-nums rounded-md border border-border/60 bg-background/80 px-2 outline-none transition-all hover:border-border focus:border-primary focus:ring-1 focus:ring-primary/30 focus:bg-background"
-                        placeholder="—"
-                        value={inputs[f.key] ?? ""}
-                        onChange={(e) => onScenarioChange(type, f.key, e.target.value)}
-                        onKeyDown={handleGridKeyDown}
-                      />
+                return (
+                  <tr key={type} className="border-b border-border/50 last:border-0 transition-colors hover:bg-muted/40">
+                    <td className="py-2 pl-2.5 pr-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className={`w-[3px] self-stretch rounded-full shrink-0 ${cfg.stripeCls}`} aria-hidden="true" />
+                        <span className={`flex items-center justify-center w-7 h-7 rounded-lg shrink-0 ${cfg.iconBgCls}`}>
+                          <cfg.Icon />
+                        </span>
+                        <span className={`text-sm font-semibold ${cfg.labelCls}`}>{cfg.label}</span>
+                      </div>
                     </td>
-                  ))}
 
-                  {outputFields.map((f) => {
-                    const live = derived[f.key] ?? null;
-                    const stale = stored[f.key] ?? null;
-                    const val = live ?? stale;
-                    const isStale = live == null && stale != null;
-                    const isIrr = f.key === "irr";
-                    const isBuyPrice = f.key === "buy_price";
-
-                    return (
-                      <td key={f.key} className="py-3 px-4 text-right">
-                        {val != null ? (
-                          <span className={[
-                            "tabular-nums",
-                            isStale ? "italic text-muted-foreground" : "",
-                            isIrr ? `text-base font-extrabold ${cfg.irrCls}` : "",
-                            isBuyPrice ? "text-sm font-bold" : "",
-                            !isIrr && !isBuyPrice ? "text-sm text-muted-foreground" : "",
-                          ].filter(Boolean).join(" ")}>
-                            {fmtField(f.key, val)}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground/30">—</span>
-                        )}
+                    {inputFields.map((f, colIdx) => (
+                      <td key={f.key} className="py-2 px-2.5 text-center">
+                        <input
+                          type="number"
+                          step="any"
+                          data-row={rowIdx}
+                          data-col={colIdx}
+                          className="w-20 h-8 text-right text-sm tabular-nums rounded-md border border-border bg-background px-2 outline-none transition-all hover:border-border/80 focus:border-primary focus:ring-1 focus:ring-primary/30"
+                          placeholder="—"
+                          value={inputs[f.key] ?? ""}
+                          onChange={(e) => onScenarioChange(type, f.key, e.target.value)}
+                          onKeyDown={handleGridKeyDown}
+                        />
                       </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    ))}
+
+                    {outputFields.map((f) => {
+                      const live = derived[f.key] ?? null;
+                      const stale = stored[f.key] ?? null;
+                      const val = live ?? stale;
+                      const isStale = live == null && stale != null;
+                      const isIrr = f.key === "irr";
+                      const isBuyPrice = f.key === "buy_price";
+
+                      return (
+                        <td key={f.key} className="py-2 px-2.5 text-right">
+                          {val != null ? (
+                            <span className={[
+                              "tabular-nums",
+                              isStale ? "italic text-muted-foreground" : "",
+                              isIrr ? `text-base font-extrabold ${cfg.irrCls}` : "",
+                              isBuyPrice ? "text-sm font-semibold" : "",
+                              !isIrr && !isBuyPrice ? "text-sm font-mono text-muted-foreground" : "",
+                            ].filter(Boolean).join(" ")}>
+                              {fmtField(f.key, val)}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/30">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* ── PEG strip ───────────────────────────────────────────────── */}
       {horizonPeg && (
-        <div className="flex flex-wrap items-end gap-6 rounded-md border border-border/50 px-4 py-3 bg-muted/20">
-          <div>
-            <p className="text-xs text-muted-foreground">Trailing PE</p>
-            <p className="text-sm font-semibold tabular-nums">
-              {horizonPeg.currentPe != null
-                ? horizonPeg.currentPe.toLocaleString("en-IN", { maximumFractionDigits: 1, minimumFractionDigits: 1 })
-                : "—"}
-            </p>
+        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
+          <div className="px-4 py-2 bg-muted/40 border-b border-border">
+            <p className="text-[0.68rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground">PEG Analysis</p>
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Earnings CAGR ({horizon}Y)</p>
-            <p className="text-sm font-semibold tabular-nums">
-              {horizonPeg.earningsCagr != null ? `${horizonPeg.earningsCagr}%` : "—"}
-            </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border">
+            <div className="px-4 py-3">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground">Trailing PE</p>
+              <p className="text-sm font-semibold tabular-nums mt-0.5">
+                {horizonPeg.currentPe != null
+                  ? horizonPeg.currentPe.toLocaleString("en-IN", { maximumFractionDigits: 1, minimumFractionDigits: 1 })
+                  : "—"}
+              </p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground">Earnings CAGR ({horizon}Y)</p>
+              <p className="text-sm font-semibold tabular-nums mt-0.5">
+                {horizonPeg.earningsCagr != null ? `${horizonPeg.earningsCagr}%` : "—"}
+              </p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground">Forward PEG</p>
+              <p className={`text-sm font-bold tabular-nums mt-0.5 ${
+                horizonPeg.forwardPeg == null ? "" :
+                horizonPeg.forwardPeg < 1 ? "text-positive" :
+                horizonPeg.forwardPeg <= 2 ? "text-amber-600 dark:text-amber-400" :
+                "text-destructive"
+              }`}>
+                {horizonPeg.forwardPeg != null
+                  ? horizonPeg.forwardPeg.toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 })
+                  : "—"}
+              </p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground">Assessment</p>
+              <p className={`text-sm font-semibold mt-0.5 ${
+                horizonPeg.forwardPeg == null ? "text-muted-foreground" :
+                horizonPeg.forwardPeg < 1 ? "text-positive" :
+                horizonPeg.forwardPeg <= 2 ? "text-amber-600 dark:text-amber-400" :
+                "text-destructive"
+              }`}>
+                {horizonPeg.forwardPeg == null ? "—"
+                  : horizonPeg.forwardPeg < 1 ? "Undervalued"
+                  : horizonPeg.forwardPeg <= 2 ? "Fair Value"
+                  : "Overvalued"}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Forward PEG Ratio</p>
-            <p className={`text-sm font-bold tabular-nums ${
-              horizonPeg.forwardPeg == null ? "" :
-              horizonPeg.forwardPeg < 1 ? "text-green-700 dark:text-green-400" :
-              horizonPeg.forwardPeg <= 2 ? "text-amber-700 dark:text-amber-400" :
-              "text-red-700 dark:text-red-400"
-            }`}>
-              {horizonPeg.forwardPeg != null
-                ? horizonPeg.forwardPeg.toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 })
-                : "—"}
-            </p>
-          </div>
-          {horizonPeg.forwardPeg != null && (
-            <p className="text-xs text-muted-foreground">
-              {horizonPeg.forwardPeg < 1 ? "Potentially undervalued"
-                : horizonPeg.forwardPeg <= 2 ? "Fairly valued"
-                : "Potentially overvalued"}
-            </p>
-          )}
         </div>
       )}
     </div>

@@ -516,12 +516,12 @@ export function ProjectionsValuationTab({
       {activeMs && activeStrategy && activeComputedYears && (
         <div className="space-y-5">
           {/* 1. P&L Projections (collapsible) */}
-          <div>
+          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
             <button
               type="button"
               aria-expanded={projOpen}
               onClick={() => setProjOpen((v) => !v)}
-              className="w-full flex items-center justify-between px-4 py-2.5 rounded-t-lg border border-border/60 bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors text-left"
+              className="w-full flex items-center justify-between px-4 py-2.5 bg-muted/40 hover:bg-muted/60 cursor-pointer transition-colors text-left border-b border-border"
             >
               <div className="flex items-center gap-2">
                 {projOpen
@@ -542,76 +542,70 @@ export function ProjectionsValuationTab({
               </div>
             </button>
             {projOpen && (
-              <div className="border border-t-0 border-border/60 rounded-b-lg overflow-hidden">
-                <ProjectionGrid
-                  data={activeComputedYears}
-                  rowConfigs={activeStrategy.rowConfigs}
-                  overrides={activeMs.overrides}
-                  onCellChange={(yearIdx, key, value) => handleCellChange(activeMs.model.id, yearIdx, key, value)}
-                  onYearChange={(idx, value) => handleYearChange(activeMs.model.id, idx, value)}
-                  onRemoveYear={(idx) => handleRemoveYear(activeMs.model.id, idx)}
-                />
-              </div>
+              <ProjectionGrid
+                data={activeComputedYears}
+                rowConfigs={activeStrategy.rowConfigs}
+                overrides={activeMs.overrides}
+                onCellChange={(yearIdx, key, value) => handleCellChange(activeMs.model.id, yearIdx, key, value)}
+                onYearChange={(idx, value) => handleYearChange(activeMs.model.id, idx, value)}
+                onRemoveYear={(idx) => handleRemoveYear(activeMs.model.id, idx)}
+              />
             )}
           </div>
 
           {/* 2. Expected Returns */}
-          <div>
-            <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-              Expected Returns
-            </h3>
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
-              {/* Target Returns input */}
+          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 border-b border-border">
+              <label className="text-sm font-medium text-foreground whitespace-nowrap">Target Returns</label>
               <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-foreground whitespace-nowrap">Target Returns</label>
                 <input
                   type="number"
                   step="any"
-                  className="w-16 h-8 text-right text-sm font-bold tabular-nums rounded-md border border-border/60 bg-background px-2 outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
+                  className="w-16 h-8 text-right text-sm font-bold tabular-nums rounded-md border border-border bg-background px-2 outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
                   value={activeMs.expReturns}
                   onChange={(e) => handleExpReturnsChange(e.target.value === "" ? 25 : Number(e.target.value))}
                 />
                 <span className="text-sm text-muted-foreground">% / year</span>
               </div>
-              {/* Reference metrics — 2-col grid on mobile, horizontal strip on sm+ */}
-              <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 border-t border-border/40 pt-3 sm:mt-0 sm:grid-cols-none sm:flex sm:items-center sm:gap-0 sm:divide-x sm:divide-border/60 sm:border-t-0 sm:pt-0 sm:ml-auto sm:w-auto">
-                {[
-                  {
-                    label: "Mkt Cap",
-                    value: (() => {
-                      const mc = marketCapInCrores(company.indian_stocks?.market_cap);
-                      return mc != null ? `₹${Math.round(mc).toLocaleString("en-IN")} Cr` : "—";
-                    })(),
-                  },
-                  {
-                    label: "CMP",
-                    value: company.indian_stocks?.price != null
-                      ? `₹${company.indian_stocks.price.toLocaleString("en-IN")}`
+            </div>
+            {/* Reference metrics */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border">
+              {[
+                {
+                  label: "Mkt Cap",
+                  value: (() => {
+                    const mc = marketCapInCrores(company.indian_stocks?.market_cap);
+                    return mc != null ? `₹${Math.round(mc).toLocaleString("en-IN")} Cr` : "—";
+                  })(),
+                },
+                {
+                  label: "CMP",
+                  value: company.indian_stocks?.price != null
+                    ? `₹${company.indian_stocks.price.toLocaleString("en-IN")}`
+                    : "—",
+                },
+                {
+                  label: activeStrategy.getTerminalMetricLabel(),
+                  value: (() => {
+                    const terminalYear = activeComputedYears[activeComputedYears.length - 1] ?? null;
+                    const v = activeStrategy.getTerminalMetricValue(terminalYear);
+                    return v != null ? `₹${fmtNum(v)} Cr` : "—";
+                  })(),
+                },
+                {
+                  label: "Horizon",
+                  value: activeEstimateYears
+                    ? `${activeEstimateYears} yrs`
+                    : company.investment_horizon_years
+                      ? `${company.investment_horizon_years} yrs`
                       : "—",
-                  },
-                  {
-                    label: activeStrategy.getTerminalMetricLabel(),
-                    value: (() => {
-                      const terminalYear = activeComputedYears[activeComputedYears.length - 1] ?? null;
-                      const v = activeStrategy.getTerminalMetricValue(terminalYear);
-                      return v != null ? `₹${fmtNum(v)} Cr` : "—";
-                    })(),
-                  },
-                  {
-                    label: "Horizon",
-                    value: activeEstimateYears
-                      ? `${activeEstimateYears} yrs`
-                      : company.investment_horizon_years
-                        ? `${company.investment_horizon_years} yrs`
-                        : "—",
-                  },
-                ].map(({ label, value }) => (
-                  <div key={label} className="sm:px-3 sm:first:pl-0 sm:last:pr-0">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</p>
-                    <p className="text-sm font-semibold tabular-nums">{value}</p>
-                  </div>
-                ))}
-              </div>
+                },
+              ].map(({ label, value }) => (
+                <div key={label} className="px-4 py-3">
+                  <p className="text-[0.68rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground">{label}</p>
+                  <p className="text-sm font-semibold tabular-nums mt-0.5">{value}</p>
+                </div>
+              ))}
             </div>
           </div>
 
