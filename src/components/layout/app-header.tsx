@@ -19,6 +19,7 @@ export function AppHeader({ profile }: { profile: Profile }) {
       <div className="flex h-14 items-center px-4">
         <Link
           href="/dashboard"
+          prefetch={false}
           className="mr-2 flex items-center gap-2 font-bold tracking-tight text-primary"
         >
           <span className="grid h-[26px] w-[26px] place-items-center rounded-lg bg-gradient-to-br from-primary to-primary/60 text-[15px] font-bold text-primary-foreground shadow-soft">
