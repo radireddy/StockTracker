@@ -1,15 +1,14 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { updateCompany, getCompanyThesis } from "@/app/(authenticated)/actions/company-actions";
+import { useAutoSave } from "@/hooks/use-auto-save";
 
 export function ThesisTab({ companyId }: { companyId: string }) {
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState("");
-  const [saving, setSaving] = useState(false);
   const htmlRef = useRef("");
 
   useEffect(() => {
@@ -21,16 +20,14 @@ export function ThesisTab({ companyId }: { companyId: string }) {
       htmlRef.current = html;
       setLoading(false);
     });
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [companyId]);
 
-  const handleSave = async () => {
-    setSaving(true);
-    await updateCompany(companyId, { thesis: htmlRef.current });
-    setSaving(false);
-  };
+  const saveFn = useCallback(
+    (html: string) => updateCompany(companyId, { thesis: html }),
+    [companyId]
+  );
+  const autoSave = useAutoSave(saveFn, { delay: 1000 });
 
   if (loading) {
     return (
@@ -41,17 +38,15 @@ export function ThesisTab({ companyId }: { companyId: string }) {
   }
 
   return (
-    <div className="space-y-3">
-      <RichTextEditor
-        content={content}
-        placeholder="Write your investment thesis..."
-        minHeight="200px"
-        onChange={(html) => { htmlRef.current = html; }}
-        companyId={companyId}
-      />
-      <Button size="sm" onClick={handleSave} disabled={saving}>
-        {saving ? "Saving..." : "Save Thesis"}
-      </Button>
-    </div>
+    <RichTextEditor
+      content={content}
+      placeholder="Write your investment thesis..."
+      minHeight="200px"
+      onChange={(html) => {
+        htmlRef.current = html;
+        autoSave.trigger(html);
+      }}
+      companyId={companyId}
+    />
   );
 }

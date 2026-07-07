@@ -48,6 +48,7 @@ export function ResearchFields({
   buyPriceDefaultValue,
   buyPricePlaceholder = "0.00",
   buyPriceHint,
+  onBuyPriceChange,
   starRequired = false,
   horizon,
 }: {
@@ -58,6 +59,7 @@ export function ResearchFields({
   buyPriceDefaultValue?: number | string;
   buyPricePlaceholder?: string;
   buyPriceHint?: React.ReactNode;
+  onBuyPriceChange?: (val: string) => void;
   starRequired?: boolean;
   horizon: HorizonConfig;
 }) {
@@ -78,6 +80,7 @@ export function ResearchFields({
             inputMode="decimal"
             defaultValue={buyPriceDefaultValue}
             placeholder={buyPricePlaceholder}
+            onChange={onBuyPriceChange ? (e) => onBuyPriceChange(e.target.value) : undefined}
           />
           {buyPriceHint && <p className="text-xs text-muted-foreground tabular-nums">{buyPriceHint}</p>}
         </div>

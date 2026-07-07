@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-import { ChevronDown, ChevronRight, Plus, Save, Star } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Star } from "lucide-react";
 import { ProjectionGrid } from "@/components/company/projection-grid";
 import { ValuationScenarios } from "@/components/company/valuation-scenarios";
 import { getStrategy, getAvailableTypesExcluding } from "@/lib/projections/registry";
@@ -32,8 +32,8 @@ import {
 } from "@/app/(authenticated)/actions/projection-actions";
 import { updateCompany } from "@/app/(authenticated)/actions/company-actions";
 import { fmtNum, marketCapInCrores } from "@/lib/utils/calculations";
-import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
+import { useAutoSave } from "@/hooks/use-auto-save";
 import type { Company, ProjectionModel, FinancialYear, ProjectionType } from "@/types/database";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -176,7 +176,6 @@ export function ProjectionsValuationTab({
   });
 
   const [projOpen, setProjOpen] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   // Compute and report base IRR from default model
@@ -200,6 +199,54 @@ export function ProjectionsValuationTab({
   useEffect(() => {
     onBaseIrrChange?.(computedBaseIrr);
   }, [computedBaseIrr, onBaseIrrChange]);
+
+  const projectionsAutoSaveFn = useCallback(async (states: ModelState[]) => {
+    const models = states.map((ms) => {
+      const strategy = getStrategy(ms.model.projection_type);
+      const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, marketCapInCrores(company.indian_stocks?.market_cap));
+      const terminalYear = computedYears[computedYears.length - 1] ?? null;
+      const estimateYears = ms.financialYears.filter((fy) => fy.is_estimate).length;
+      const companyForCalc = {
+        market_cap: marketCapInCrores(company.indian_stocks?.market_cap),
+        current_price: company.indian_stocks?.price ?? null,
+        expected_returns: ms.expReturns,
+        investment_horizon_years: estimateYears || company.investment_horizon_years,
+      };
+      const scenarios = (["bull", "base", "bare"] as const).map((type) => ({
+        scenario_type: type,
+        ...strategy.computeValuationDerived(ms.scenarioData[type], terminalYear, companyForCalc),
+        ...ms.scenarioData[type],
+      }));
+      const autoKeys = new Set(strategy.rowConfigs.filter((r) => r.type === "auto").map((r) => r.key));
+      return {
+        projection_model_id: ms.model.id,
+        financial_years: computedYears.map(({ id, user_id, created_at, updated_at, ...fy }, idx) => {
+          const row: Record<string, unknown> = { ...fy, sort_order: idx };
+          autoKeys.forEach((key) => { if (!ms.overrides.has(oKey(key, idx))) row[key] = null; });
+          return row;
+        }),
+        valuation_scenarios: scenarios,
+      };
+    });
+    const expReturns = states[0]?.expReturns ?? 25;
+    const [saveRes] = await Promise.all([
+      saveAllProjections(company.id, models),
+      updateCompany(company.id, { expected_returns: expReturns / 100 }),
+    ]);
+    if (saveRes.ok) router.refresh();
+    return saveRes;
+  }, [company, router]);
+
+  const projectionsAutoSave = useAutoSave(projectionsAutoSaveFn, { delay: 1500 });
+
+  const isInitialRender = useRef(true);
+  useEffect(() => {
+    if (isInitialRender.current) {
+      isInitialRender.current = false;
+      return;
+    }
+    projectionsAutoSave.trigger(modelStates);
+  }, [modelStates]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const availableTypes = useMemo(() => {
     const existingTypes = modelStates.map((ms) => ms.model.projection_type);
@@ -336,50 +383,6 @@ export function ProjectionsValuationTab({
     setDeleteTarget(null);
   }, [deleteTarget, company.id, activeModelId]);
 
-  const handleSaveAll = useCallback(async () => {
-    setSaving(true);
-    try {
-      const models = modelStates.map((ms) => {
-        const strategy = getStrategy(ms.model.projection_type);
-        const computedYears = strategy.computeFields(ms.financialYears, ms.overrides, marketCapInCrores(company.indian_stocks?.market_cap));
-        const terminalYear = computedYears[computedYears.length - 1] ?? null;
-        const estimateYears = ms.financialYears.filter((fy) => fy.is_estimate).length;
-        const companyForCalc = {
-          market_cap: marketCapInCrores(company.indian_stocks?.market_cap),
-          current_price: company.indian_stocks?.price ?? null,
-          expected_returns: ms.expReturns,
-          investment_horizon_years: estimateYears || company.investment_horizon_years,
-        };
-        const scenarios = (["bull", "base", "bare"] as const).map((type) => ({
-          scenario_type: type,
-          ...strategy.computeValuationDerived(ms.scenarioData[type], terminalYear, companyForCalc),
-          ...ms.scenarioData[type],
-        }));
-        const autoKeys = new Set(strategy.rowConfigs.filter((r) => r.type === "auto").map((r) => r.key));
-        return {
-          projection_model_id: ms.model.id,
-          financial_years: computedYears.map(({ id, user_id, created_at, updated_at, ...fy }, idx) => {
-            const row: Record<string, unknown> = { ...fy, sort_order: idx };
-            autoKeys.forEach((key) => { if (!ms.overrides.has(oKey(key, idx))) row[key] = null; });
-            return row;
-          }),
-          valuation_scenarios: scenarios,
-        };
-      });
-      const expReturns = modelStates[0]?.expReturns ?? 25;
-      const [saveRes] = await Promise.all([
-        saveAllProjections(company.id, models),
-        updateCompany(company.id, { expected_returns: expReturns / 100 }),
-      ]);
-      if (!saveRes.ok) return toastError(saveRes);
-      router.refresh();
-      toast.success("Projections saved");
-    } catch (err) {
-      toastError(err, { message: "Couldn't save your projections." });
-    } finally {
-      setSaving(false);
-    }
-  }, [modelStates, company, router]);
 
   // ─── Active model ─────────────────────────────────────────────────────────
 
@@ -408,12 +411,6 @@ export function ProjectionsValuationTab({
       {/* ── Page header ─────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold text-foreground">Projections &amp; Valuations</h2>
-        {modelStates.length > 0 && (
-          <Button size="sm" onClick={handleSaveAll} disabled={saving} className="h-8 px-4 text-xs gap-1.5 rounded-full">
-            <Save className="h-3.5 w-3.5" />
-            {saving ? "Saving…" : "Save All"}
-          </Button>
-        )}
       </div>
 
       {/* ── Model tabs ──────────────────────────────────────────────── */}

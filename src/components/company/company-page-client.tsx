@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { CompanyHeader } from "@/components/company/company-header";
 import { CompanyTabs } from "@/components/company/company-tabs";
+import { SaveStatusProvider } from "@/contexts/save-status-context";
 import type { CompanyWithRelations } from "@/types/database";
 
 export function CompanyPageClient({
@@ -21,13 +22,13 @@ export function CompanyPageClient({
   }, []);
 
   return (
-    <>
+    <SaveStatusProvider>
       <CompanyHeader company={company} baseIrr={baseIrr} />
       <CompanyTabs
         company={company}
         onBaseIrrChange={handleBaseIrrChange}
         portfolioType={portfolioType}
       />
-    </>
+    </SaveStatusProvider>
   );
 }

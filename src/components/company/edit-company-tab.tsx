@@ -1,25 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { ResearchFields } from "@/components/company/research-fields";
-import { Save, Target } from "lucide-react";
+import { Target } from "lucide-react";
 import { updateCompany } from "@/app/(authenticated)/actions/company-actions";
 import { roundPrice } from "@/lib/utils/calculations";
 import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
+import { useAutoSave } from "@/hooks/use-auto-save";
 import type { Company } from "@/types/database";
+
+interface SavePayload {
+  buyPrice: string;
+  starRating: number;
+  strategy: string;
+}
 
 export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company; baseCaseBuyPrice?: number | null }) {
   const router = useRouter();
-  const [saving, setSaving] = useState(false);
   const invalidate = useInvalidateDashboard();
-  // Un-rated companies show as "Not rated" (0 = all stars muted), not a filled
-  // default — on the dashboard they land in the 0★ bucket (0% target).
+
   const [starRating, setStarRating] = useState<number>(company.star_rating ?? 0);
   const [strategy, setStrategy] = useState<string>(company.strategy ?? "");
+  const buyPriceRef = useRef<string>(
+    company.buy_price != null ? String(roundPrice(company.buy_price)) : ""
+  );
 
   const currentPrice = company.indian_stocks?.price ?? null;
   const symbol = company.indian_stocks?.nse_symbol ?? null;
@@ -33,27 +40,49 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
         ? `Trading at ₹${roundPrice(currentPrice).toLocaleString("en-IN")} now`
         : null;
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setSaving(true);
-    const fd = new FormData(e.currentTarget);
-    try {
-      await updateCompany(company.id, {
-        buy_price: fd.get("buy_price") ? roundPrice(Number(fd.get("buy_price"))) : null,
-        // Keep un-rated companies null so the dashboard groups them under 0★
-        // and nudges — never silently persist a rating the user didn't pick.
-        star_rating: starRating || null,
-        strategy: (strategy as "core" | "satellite") || null,
-      });
-      invalidate();
-      router.refresh();
-    } finally {
-      setSaving(false);
-    }
-  };
+  const saveFn = useCallback(async (payload: SavePayload) => {
+    const result = await updateCompany(company.id, {
+      buy_price: payload.buyPrice ? roundPrice(Number(payload.buyPrice)) : null,
+      // Keep un-rated companies null so the dashboard groups them under 0★
+      // and nudges — never silently persist a rating the user didn't pick.
+      star_rating: payload.starRating || null,
+      strategy: (payload.strategy as "core" | "satellite") || null,
+    });
+    invalidate();
+    router.refresh();
+    return result;
+  }, [company.id, invalidate, router]);
+
+  const autoSave = useAutoSave(saveFn, { delay: 800 });
+  const immediateAutoSave = useAutoSave(saveFn, { delay: 0 });
+
+  const currentPayload = useCallback(
+    (overrides?: Partial<SavePayload>): SavePayload => ({
+      buyPrice: buyPriceRef.current,
+      starRating,
+      strategy,
+      ...overrides,
+    }),
+    [starRating, strategy]
+  );
+
+  const handleBuyPriceChange = useCallback((val: string) => {
+    buyPriceRef.current = val;
+    autoSave.trigger(currentPayload({ buyPrice: val }));
+  }, [autoSave, currentPayload]);
+
+  const handleStarRatingChange = useCallback((val: number) => {
+    setStarRating(val);
+    immediateAutoSave.trigger(currentPayload({ starRating: val }));
+  }, [immediateAutoSave, currentPayload]);
+
+  const handleStrategyChange = useCallback((val: string) => {
+    setStrategy(val);
+    immediateAutoSave.trigger(currentPayload({ strategy: val }));
+  }, [immediateAutoSave, currentPayload]);
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-2xl">
+    <div className="max-w-2xl">
       <Card className="shadow-soft overflow-hidden">
         {/* Editor header */}
         <div className="flex items-center gap-3 border-b border-border/60 bg-gradient-to-r from-primary/5 to-transparent px-5 py-4">
@@ -78,24 +107,18 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
         <CardContent className="px-5 py-6">
           <ResearchFields
             starRating={starRating}
-            onStarRatingChange={setStarRating}
+            onStarRatingChange={handleStarRatingChange}
             strategy={strategy}
-            onStrategyChange={setStrategy}
+            onStrategyChange={handleStrategyChange}
             buyPriceDefaultValue={company.buy_price != null ? roundPrice(company.buy_price) : ""}
             buyPricePlaceholder={baseCaseBuyPrice != null ? String(roundPrice(baseCaseBuyPrice)) : "0.00"}
             buyPriceHint={buyPriceHint}
+            onBuyPriceChange={handleBuyPriceChange}
             starRequired
             horizon={{ editable: false, years: horizon }}
           />
-
-          <div className="mt-7 flex items-center gap-3 border-t border-border/60 pt-5">
-            <Button type="submit" disabled={saving} className="gap-1.5">
-              <Save className="h-4 w-4" />
-              {saving ? "Saving…" : "Save Changes"}
-            </Button>
-          </div>
         </CardContent>
       </Card>
-    </form>
+    </div>
   );
 }

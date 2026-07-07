@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Stars } from "@/components/ui/stars";
 import { marginOfSafety, isBuySignal, effectiveBuyPrice, fmtPrice, fmtIrr, fmtMarketCap } from "@/lib/utils/calculations";
 import { DeleteCompanyButton } from "@/components/dashboard/delete-company-dialogs";
+import { useSaveStatus } from "@/contexts/save-status-context";
 import type { CompanyWithRelations } from "@/types/database";
 
 function MetricItem({ label, value, className, title }: { label: string; value: ReactNode; className?: string; title?: string }) {
@@ -14,6 +15,20 @@ function MetricItem({ label, value, className, title }: { label: string; value: 
       <span className={`text-lg font-semibold tabular-nums ${className ?? ""}`}>{value}</span>
     </div>
   );
+}
+
+function SaveIndicator() {
+  const { status } = useSaveStatus();
+  if (status === "idle") return null;
+  const label =
+    status === "saving" ? "Saving…" :
+    status === "saved" ? "✓ Saved" :
+    "Save failed";
+  const color =
+    status === "saving" ? "text-muted-foreground" :
+    status === "saved" ? "text-positive" :
+    "text-destructive";
+  return <span className={`text-xs ${color}`}>{label}</span>;
 }
 
 export function CompanyHeader({
@@ -54,6 +69,7 @@ export function CompanyHeader({
               <span className="text-sm text-muted-foreground">{companySymbol}</span>
             )}
             {buy && <Badge className="border-transparent bg-positive/15 text-positive text-xs px-2 py-0.5">BUY</Badge>}
+            <SaveIndicator />
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2 pt-0.5">
