@@ -100,6 +100,7 @@ export function PortfolioNav() {
         </Pill>
         <Link
           href="/settings"
+          prefetch={false}
           className="ml-1 text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
         >
           Manage
