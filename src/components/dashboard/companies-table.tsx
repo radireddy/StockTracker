@@ -1201,9 +1201,9 @@ function AllocationTable({
 
                 let deltaTooltip: React.ReactNode = null;
                 if (activeStatus === "under") {
-                  deltaTooltip = <>Invest <span className="font-mono font-bold text-white">{fmtRupee(rangeMinAmt - currentAmt)}</span> to <span className="font-mono font-bold text-white">{fmtRupee(rangeMaxAmt - currentAmt)}</span> more to reach target</>;
+                  deltaTooltip = <>Invest <span className="font-mono font-bold">{fmtRupee(rangeMinAmt - currentAmt)}</span> to <span className="font-mono font-bold">{fmtRupee(rangeMaxAmt - currentAmt)}</span> more to reach target</>;
                 } else if (activeStatus === "over") {
-                  deltaTooltip = <>Reduce <span className="font-mono font-bold text-white">{fmtRupee(currentAmt - rangeMaxAmt)}</span> to <span className="font-mono font-bold text-white">{fmtRupee(currentAmt - rangeMinAmt)}</span> to reach target</>;
+                  deltaTooltip = <>Reduce <span className="font-mono font-bold">{fmtRupee(currentAmt - rangeMaxAmt)}</span> to <span className="font-mono font-bold">{fmtRupee(currentAmt - rangeMinAmt)}</span> to reach target</>;
                 }
 
                 return (
@@ -1265,7 +1265,7 @@ function AllocationTable({
                             <TooltipTrigger className="cursor-help" onClick={(e) => e.stopPropagation()}>
                               <StatusTag status={activeStatus} />
                             </TooltipTrigger>
-                            <TooltipContent side="bottom" className="whitespace-nowrap text-sm">{deltaTooltip}</TooltipContent>
+                            <TooltipContent side="bottom" className="!max-w-none whitespace-nowrap !bg-gray-900 !text-white text-sm">{deltaTooltip}</TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       ) : (
