@@ -36,7 +36,7 @@ export function Segmented<T extends string>({
       role="group"
       aria-label={ariaLabel}
       className={cn(
-        "inline-flex rounded-[10px] bg-muted p-[3px]",
+        "inline-flex rounded-[10px] bg-muted dark:bg-background p-[3px]",
         className
       )}
     >
@@ -52,7 +52,7 @@ export function Segmented<T extends string>({
               "rounded-lg font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               size === "sm" ? "px-2.5 py-1 text-xs" : "px-3.5 py-1.5 text-[0.83rem]",
               active
-                ? "bg-card text-foreground shadow-soft"
+                ? "bg-card text-foreground shadow-soft dark:bg-muted dark:shadow-none"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
