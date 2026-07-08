@@ -188,6 +188,15 @@ html {
   }
 }
 
+/* Dropdown menu items have cursor-default baked into the component class, which
+   beats @layer base rules. This unlayered rule wins the cascade. */
+[data-slot="dropdown-menu-item"]:not([data-disabled]),
+[data-slot="dropdown-menu-radio-item"]:not([data-disabled]),
+[data-slot="dropdown-menu-checkbox-item"]:not([data-disabled]),
+[data-slot="dropdown-menu-sub-trigger"]:not([data-disabled]) {
+  cursor: pointer;
+}
+
 /* Tiptap editor styles */
 .tiptap-editor .ProseMirror {
   outline: none;
