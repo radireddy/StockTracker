@@ -4,9 +4,12 @@ import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { ResearchFields } from "@/components/company/research-fields";
-import { Target } from "lucide-react";
+import { ResearchFields, FieldLabel } from "@/components/company/research-fields";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Target, TrendingUp } from "lucide-react";
 import { updateCompany } from "@/app/(authenticated)/actions/company-actions";
+import { updateMarketCap } from "@/app/(authenticated)/actions/price-actions";
 import { roundPrice } from "@/lib/utils/calculations";
 import { useInvalidateDashboard } from "@/hooks/use-dashboard-data";
 import { useAutoSave } from "@/hooks/use-auto-save";
@@ -27,6 +30,9 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
   const buyPriceRef = useRef<string>(
     company.buy_price != null ? String(roundPrice(company.buy_price)) : ""
   );
+
+  const marketCapNull = company.indian_stocks?.market_cap == null;
+  const marketCapRef = useRef<string>("");
 
   const currentPrice = company.indian_stocks?.price ?? null;
   const symbol = company.indian_stocks?.nse_symbol ?? null;
@@ -56,6 +62,17 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
   const autoSave = useAutoSave(saveFn, { delay: 800 });
   const immediateAutoSave = useAutoSave(saveFn, { delay: 0 });
 
+  const marketCapSaveFn = useCallback(async (croresStr: string) => {
+    const crores = croresStr ? parseFloat(croresStr) : null;
+    return updateMarketCap(company.isin, crores != null && isFinite(crores) ? crores : null);
+  }, [company.isin]);
+  const marketCapAutoSave = useAutoSave(marketCapSaveFn, { delay: 800 });
+
+  const handleMarketCapChange = useCallback((val: string) => {
+    marketCapRef.current = val;
+    marketCapAutoSave.trigger(val);
+  }, [marketCapAutoSave]);
+
   const currentPayload = useCallback(
     (overrides?: Partial<SavePayload>): SavePayload => ({
       buyPrice: buyPriceRef.current,
@@ -82,7 +99,7 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
   }, [immediateAutoSave, currentPayload]);
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl space-y-4">
       <Card className="shadow-soft overflow-hidden">
         {/* Editor header */}
         <div className="flex items-center gap-3 border-b border-border/60 bg-gradient-to-r from-primary/5 to-transparent px-5 py-4">
@@ -119,6 +136,43 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
           />
         </CardContent>
       </Card>
+
+      {marketCapNull && (
+        <Card className="shadow-soft overflow-hidden">
+          <div className="flex items-center gap-3 border-b border-border/60 bg-gradient-to-r from-muted/40 to-transparent px-5 py-4">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <TrendingUp className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base font-semibold text-foreground">Market Data</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">Not available from market data — enter manually.</p>
+            </div>
+          </div>
+          <CardContent className="px-5 py-6">
+            <div className="max-w-[200px] space-y-2">
+              <Label htmlFor="market_cap_crores" className="p-0">
+                <FieldLabel>Market Cap</FieldLabel>
+              </Label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">₹</span>
+                <Input
+                  id="market_cap_crores"
+                  type="number"
+                  step="1"
+                  min="0"
+                  inputMode="numeric"
+                  placeholder="0"
+                  defaultValue={marketCapRef.current}
+                  onChange={(e) => handleMarketCapChange(e.target.value)}
+                  className="h-10 pl-7 pr-10 text-base tabular-nums"
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">Cr</span>
+              </div>
+              <p className="text-xs text-muted-foreground">In Crores (₹ 1 Cr = ₹1,00,00,000)</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

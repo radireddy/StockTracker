@@ -167,15 +167,16 @@ export async function refreshPrices(
     }
 
     attemptedSymbols.push(symbol);
-    rows.push({
+    const row: PriceUpdateRow = {
       isin,
       price: quote.price,
       change: quote.change,
       change_pct: quote.changePct,
       volume: quote.volume ?? null,
-      market_cap: quote.marketCap ?? null,
       last_updated: now,
-    });
+    };
+    if (quote.marketCap != null) row.market_cap = quote.marketCap;
+    rows.push(row);
   }
 
   // Single bulk round-trip instead of one UPDATE per stock. If the batch

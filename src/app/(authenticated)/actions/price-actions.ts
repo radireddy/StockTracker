@@ -7,6 +7,7 @@ import { stockPriceRegistry } from "@/lib/providers/stock-price/registry";
 import { revalidatePath } from "next/cache";
 import { createLogger } from "@/lib/logger";
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { action, type ActionResult } from "@/lib/action-result";
 const log = createLogger({ service: "price-actions" });
 
 const provider = stockPriceRegistry.getActive();
@@ -206,4 +207,18 @@ export async function manualRefreshPrices() {
     totalSymbols: symbols.length,
     outsideTradingHours: !isIndianTradingHours(),
   };
+}
+
+export async function updateMarketCap(isin: string, marketCapCrores: number | null): Promise<ActionResult> {
+  await getAuthUser(); // ensures authenticated
+  return action(async () => {
+    const adminClient = createAdminClient();
+    const rawRupees = marketCapCrores != null ? Math.round(marketCapCrores * 1e7) : null;
+    const { error } = await adminClient
+      .from("indian_stocks")
+      .update({ market_cap: rawRupees })
+      .eq("isin", isin);
+    if (error) throw new Error(error.message);
+    revalidatePath("/");
+  });
 }
