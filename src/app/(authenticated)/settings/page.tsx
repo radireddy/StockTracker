@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PortfolioManager } from "@/components/settings/portfolio-manager";
 import { AllocationRangesEditor } from "@/components/settings/allocation-ranges-editor";
 import { AccountsManager } from "@/components/account/accounts-manager";
+import { DeleteAccountDialog } from "@/components/settings/delete-account-dialog";
 import { getPortfolios } from "@/app/(authenticated)/actions/portfolio-actions";
 import type { AllocationRanges } from "@/types/database";
 import type { Metadata } from "next";
@@ -74,6 +75,18 @@ export default async function SettingsPage() {
         </CardContent>
       </Card>
       <AccountsManager />
+      <Card className="border-destructive/30 shadow-soft">
+        <CardHeader>
+          <CardTitle className="text-destructive">Danger Zone</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between gap-4">
+          <p className="text-sm text-muted-foreground">
+            Permanently delete your account and all associated data.
+            This action cannot be undone.
+          </p>
+          <DeleteAccountDialog />
+        </CardContent>
+      </Card>
     </div>
   );
 }
