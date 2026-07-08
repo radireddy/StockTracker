@@ -12,7 +12,11 @@
     "start": "next start",
     "lint": "eslint",
     "seed:stocks": "tsx scripts/seed-indian-stocks.ts",
+    "seed:test-account": "tsx scripts/create-test-account.ts",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "vercel:link": "vercel link",
@@ -67,6 +71,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@types/dompurify": "^3.0.5",
