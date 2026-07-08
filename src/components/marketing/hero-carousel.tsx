@@ -114,7 +114,7 @@ export function HeroCarousel() {
                     active ? "opacity-100" : "pointer-events-none opacity-0",
                   ].join(" ")}
                 >
-                  <span className="inline-block rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">
+                  <span className="inline-block rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground dark:bg-primary/10 dark:text-primary">
                     {s.eyebrow}
                   </span>
                   <Tag className="mt-5 text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl lg:text-[2.75rem]">
@@ -146,7 +146,7 @@ export function HeroCarousel() {
                 onClick={() => go(idx)}
                 className={[
                   "h-2 rounded-full transition-all",
-                  idx === i ? "w-6 bg-primary" : "w-2 bg-border hover:bg-muted-foreground/40",
+                  idx === i ? "w-6 bg-primary" : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50",
                 ].join(" ")}
               />
             ))}

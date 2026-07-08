@@ -93,7 +93,7 @@ export function EditCompanyTab({ company, baseCaseBuyPrice }: { company: Company
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <h2 className="text-base font-semibold text-foreground">Investment Profile</h2>
               {symbol && (
-                <span className="whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 text-[0.7rem] font-semibold text-muted-foreground">
+                <span className="whitespace-nowrap rounded-full border border-border dark:border-muted-foreground/20 bg-muted/60 px-2 py-0.5 text-[0.7rem] font-semibold text-muted-foreground">
                   NSE: {symbol}
                 </span>
               )}

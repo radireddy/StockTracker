@@ -319,7 +319,7 @@ export default function ImportPage() {
               className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
                 files.length > 0
                   ? "border-primary/50 bg-primary/5"
-                  : "border-muted-foreground/25 hover:border-muted-foreground/50"
+                  : "border-muted-foreground/40 hover:border-muted-foreground/60"
               } ${phase !== "select" ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}
               onClick={() => phase === "select" && fileInputRef.current?.click()}
             >

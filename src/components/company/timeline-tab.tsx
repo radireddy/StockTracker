@@ -202,7 +202,7 @@ export function TimelineTab({ companyId }: { companyId: string }) {
                   </div>
                 </div>
                 <div
-                  className="prose prose-sm max-w-none text-foreground/80"
+                  className="prose prose-sm max-w-none text-foreground/80 dark:prose-invert prose-headings:text-foreground prose-strong:text-foreground prose-a:text-primary prose-code:bg-muted prose-code:text-foreground prose-blockquote:text-muted-foreground prose-blockquote:border-border prose-hr:border-border"
                   dangerouslySetInnerHTML={{ __html: entry.content }}
                 />
               </>

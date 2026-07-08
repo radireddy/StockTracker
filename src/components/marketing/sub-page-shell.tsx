@@ -85,7 +85,7 @@ export function SubPageShell({
           <div className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
             <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-12">
               <div className="min-w-0">
-                <span className="inline-block rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">
+                <span className="inline-block rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground dark:bg-primary/10 dark:text-primary">
                   {eyebrow}
                 </span>
                 <h1 className="mt-5 text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl lg:text-[2.75rem]">

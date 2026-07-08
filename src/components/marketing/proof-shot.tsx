@@ -34,9 +34,9 @@ export function ProofShot({
       <div className="mx-auto max-w-5xl px-4 py-20">
         <div className="overflow-hidden rounded-xl border border-border bg-card shadow-lg shadow-black/[0.03]">
           <div className="flex items-center gap-1.5 border-b border-border bg-muted/50 px-4 py-2.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-border" aria-hidden />
-            <span className="h-2.5 w-2.5 rounded-full bg-border" aria-hidden />
-            <span className="h-2.5 w-2.5 rounded-full bg-border" aria-hidden />
+            <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" aria-hidden />
+            <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" aria-hidden />
+            <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" aria-hidden />
             <span className="ml-3 truncate text-[11px] text-muted-foreground">
               app.stocktracks.in
             </span>

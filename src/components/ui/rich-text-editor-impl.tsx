@@ -195,7 +195,7 @@ function ToolbarButton({
 }
 
 function ToolbarDivider() {
-  return <div className="mx-0.5 h-5 w-px bg-border/60" />;
+  return <div className="mx-0.5 h-5 w-px bg-muted-foreground/20" />;
 }
 
 function FontSizePicker({ editor }: { editor: Editor }) {
@@ -723,7 +723,7 @@ function SelectionBubbleMenu({ editor }: { editor: Editor }) {
   return (
     <BubbleMenu
       editor={editor}
-      className="flex items-center gap-0.5 rounded-full border border-border bg-popover px-1.5 py-1 shadow-lift"
+      className="flex items-center gap-0.5 rounded-full border border-border dark:border-muted-foreground/20 bg-popover px-1.5 py-1 shadow-lift"
     >
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
