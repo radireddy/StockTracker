@@ -5,6 +5,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import type { Account } from "@/types/database";
+import { accountLabel } from "@/lib/accounts";
 
 /**
  * Controlled account picker: choose an existing account. Accounts are created
@@ -39,7 +40,9 @@ export function AccountSelect({
   return (
     <Select value={value || null} onValueChange={(v) => onChange(v ?? "")}>
       <SelectTrigger id={id} className={`w-full ${className ?? ""}`}>
-        <SelectValue placeholder="Select account…" />
+        <SelectValue placeholder="Select account…">
+          {(v) => accountLabel(accounts, v, "Select account…")}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         {accounts.map((a) => (

@@ -170,6 +170,9 @@ export function MoveStockDialog({
                   <Input
                     value={quantity}
                     onChange={(e) => setQuantity(e.target.value)}
+                    type="number"
+                    min={0}
+                    step="any"
                     inputMode="decimal"
                     placeholder="e.g. 100"
                   />
@@ -179,6 +182,9 @@ export function MoveStockDialog({
                   <Input
                     value={avgPrice}
                     onChange={(e) => setAvgPrice(e.target.value)}
+                    type="number"
+                    min={0}
+                    step="any"
                     inputMode="decimal"
                     placeholder="e.g. 245.50"
                   />

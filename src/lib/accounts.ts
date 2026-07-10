@@ -30,6 +30,21 @@ export async function resolveAccountId(
   throw new Error("Account is required");
 }
 
+/**
+ * Resolve the display label for a selected account id. base-ui's Select renders
+ * the raw value (the account id) unless the trigger is given a value→label
+ * mapping, so pickers use this to show the human-readable label. Returns
+ * `fallback` when the value is empty or matches no account.
+ */
+export function accountLabel(
+  accounts: Array<{ id: string; label: string }>,
+  value: string | null | undefined,
+  fallback = ""
+): string {
+  if (!value) return fallback;
+  return accounts.find((a) => a.id === value)?.label ?? fallback;
+}
+
 /** Build a normalized `accounts` update object from form input (trim; empty → null). */
 export function buildAccountUpdate(input: {
   label?: string;

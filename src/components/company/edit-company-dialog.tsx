@@ -84,6 +84,7 @@ export function EditCompanyDialog({ company }: { company: Company }) {
                 id="edit-buy_price"
                 name="buy_price"
                 type="number"
+                min={0}
                 step="any"
                 defaultValue={company.buy_price ?? ""}
               />
@@ -96,7 +97,9 @@ export function EditCompanyDialog({ company }: { company: Company }) {
                 required
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select" />
+                  <SelectValue placeholder="Select">
+                    {(v) => (v ? `${v} Star${v === "1" ? "" : "s"}` : "Select")}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {[1, 2, 3, 4].map((s) => (
@@ -114,7 +117,11 @@ export function EditCompanyDialog({ company }: { company: Company }) {
                 defaultValue={company.strategy ?? ""}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select" />
+                  <SelectValue placeholder="Select">
+                    {(v) =>
+                      v === "core" ? "Core" : v === "satellite" ? "Satellite" : "Select"
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="core">Core</SelectItem>

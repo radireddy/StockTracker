@@ -227,6 +227,9 @@ export function HoldingsTab({
                                 value={editQty}
                                 onChange={(e) => setEditQty(e.target.value)}
                                 className="h-8 w-24 ml-auto text-right"
+                                type="number"
+                                min={0}
+                                step="any"
                                 inputMode="decimal"
                               />
                             </td>
@@ -235,6 +238,9 @@ export function HoldingsTab({
                                 value={editPrice}
                                 onChange={(e) => setEditPrice(e.target.value)}
                                 className="h-8 w-28 ml-auto text-right"
+                                type="number"
+                                min={0}
+                                step="any"
                                 inputMode="decimal"
                               />
                             </td>
@@ -338,11 +344,11 @@ export function HoldingsTab({
                   </div>
                   <div className="space-y-1">
                     <label htmlFor="add-holding-qty" className="text-xs text-muted-foreground">Quantity <span className="text-destructive">*</span></label>
-                    <Input id="add-holding-qty" value={addQty} onChange={(e) => setAddQty(e.target.value)} inputMode="decimal" className="h-9" />
+                    <Input id="add-holding-qty" value={addQty} onChange={(e) => setAddQty(e.target.value)} type="number" min={0} step="any" inputMode="decimal" className="h-9" />
                   </div>
                   <div className="space-y-1">
                     <label htmlFor="add-holding-price" className="text-xs text-muted-foreground">Avg buy price <span className="text-destructive">*</span></label>
-                    <Input id="add-holding-price" value={addPrice} onChange={(e) => setAddPrice(e.target.value)} inputMode="decimal" className="h-9" />
+                    <Input id="add-holding-price" value={addPrice} onChange={(e) => setAddPrice(e.target.value)} type="number" min={0} step="any" inputMode="decimal" className="h-9" />
                   </div>
                 </div>
               </fieldset>
