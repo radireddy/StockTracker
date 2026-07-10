@@ -24,6 +24,7 @@ import { getAccounts } from "@/app/(authenticated)/actions/account-actions";
 import type { Holding, Account } from "@/types/database";
 import { Pencil, Trash2, Check, X, Plus, Loader2, Info } from "lucide-react";
 import { AccountSelect } from "@/components/account/account-select";
+import { summarizeHoldings } from "@/lib/holdings";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
 
@@ -82,12 +83,10 @@ export function HoldingsTab({
     refresh();
   }, [refresh]);
 
-  const totalQty = holdings.reduce((s, h) => s + h.quantity, 0);
-  const totalCost = holdings.reduce((s, h) => s + h.quantity * h.avg_buy_price, 0);
-  const weightedAvg = totalQty > 0 ? totalCost / totalQty : 0;
-  const totalCurrentValue = currentPrice != null ? totalQty * currentPrice : null;
-  const totalPnl = totalCurrentValue != null ? totalCurrentValue - totalCost : null;
-  const totalPnlPct = totalCost > 0 && totalPnl != null ? (totalPnl / totalCost) * 100 : null;
+  const { totalQty, totalCost, weightedAvg, totalPnl, totalPnlPct } = summarizeHoldings(
+    holdings,
+    currentPrice ?? null
+  );
 
   // A holding this account already has for this stock. Adding to it merges the
   // new lot in (quantity summed, avg buy price recalculated as a weighted avg).
@@ -186,8 +185,13 @@ export function HoldingsTab({
                 <div>
                   <span className="text-muted-foreground">P&amp;L:</span>{" "}
                   <span className={`font-medium tabular-nums ${totalPnl >= 0 ? "text-positive" : "text-destructive"}`}>
-                    {totalPnl >= 0 ? "+" : ""}₹{fmt(Math.round(totalPnl))}{" "}
-                    <span className="text-xs">({totalPnlPct! >= 0 ? "+" : ""}{totalPnlPct!.toFixed(1)}%)</span>
+                    {totalPnl >= 0 ? "+" : ""}₹{fmt(Math.round(totalPnl))}
+                    {totalPnlPct != null && (
+                      <>
+                        {" "}
+                        <span className="text-xs">({totalPnlPct >= 0 ? "+" : ""}{totalPnlPct.toFixed(1)}%)</span>
+                      </>
+                    )}
                   </span>
                 </div>
               )}
@@ -253,7 +257,10 @@ export function HoldingsTab({
                           <>
                             {(() => {
                               const pnl = currentPrice != null ? (currentPrice - h.avg_buy_price) * h.quantity : null;
-                              const pnlPct = currentPrice != null ? ((currentPrice - h.avg_buy_price) / h.avg_buy_price) * 100 : null;
+                              const pnlPct =
+                                currentPrice != null && h.avg_buy_price > 0
+                                  ? ((currentPrice - h.avg_buy_price) / h.avg_buy_price) * 100
+                                  : null;
                               return (
                                 <>
                                   <td className="px-3 py-2 text-right tabular-nums">{fmt(h.quantity)}</td>
@@ -262,7 +269,9 @@ export function HoldingsTab({
                                     {pnl != null ? (
                                       <span className={pnl >= 0 ? "text-positive" : "text-destructive"}>
                                         <span className="block">{pnl >= 0 ? "+" : ""}₹{fmt(Math.round(pnl))}</span>
-                                        <span className="text-xs opacity-80">{pnlPct! >= 0 ? "+" : ""}{pnlPct!.toFixed(1)}%</span>
+                                        {pnlPct != null && (
+                                          <span className="text-xs opacity-80">{pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(1)}%</span>
+                                        )}
                                       </span>
                                     ) : (
                                       <span className="text-muted-foreground">—</span>
