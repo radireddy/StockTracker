@@ -55,10 +55,13 @@ export function isIndianTradingHours(): boolean {
 export async function ensureMissingStocks(
   adminClient: SupabaseClient
 ): Promise<{ created: number; unresolved: string[] }> {
-  // Find companies with no matching indian_stocks row
+  // Find companies with no matching indian_stocks row. `indian_stocks` must be
+  // embedded in the select for PostgREST to treat it as the FK relationship;
+  // otherwise `.is("indian_stocks", null)` is read as a (non-existent) column
+  // and the query fails with "column companies.indian_stocks does not exist".
   const { data: orphans, error } = await adminClient
     .from("companies")
-    .select("isin")
+    .select("isin, indian_stocks(isin)")
     .is("indian_stocks", null);
 
   if (error) {
