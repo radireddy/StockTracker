@@ -5,6 +5,7 @@ import {
   matchAccount,
   shouldBackfillClientId,
   classifyDetection,
+  accountLabel,
 } from "@/lib/accounts";
 
 const USER = "user-1";
@@ -109,6 +110,27 @@ describe("shouldBackfillClientId", () => {
   });
   it("false when no client id given", () => {
     expect(shouldBackfillClientId({ client_id: null }, null)).toBe(false);
+  });
+});
+
+describe("accountLabel", () => {
+  const accts = [
+    { id: "a1", label: "My Zerodha" },
+    { id: "9b819c1d-8e86-4f02-82f4-3ee4113c454f", label: "YY7859 (Zerodha)" },
+  ];
+  it("resolves an id to its label (regression: showed the raw uuid)", () => {
+    expect(accountLabel(accts, "9b819c1d-8e86-4f02-82f4-3ee4113c454f")).toBe("YY7859 (Zerodha)");
+  });
+  it("returns the fallback for an empty/nullish value", () => {
+    expect(accountLabel(accts, "", "Select account…")).toBe("Select account…");
+    expect(accountLabel(accts, null, "Select account…")).toBe("Select account…");
+    expect(accountLabel(accts, undefined, "Select account…")).toBe("Select account…");
+  });
+  it("returns the fallback when the id matches no account", () => {
+    expect(accountLabel(accts, "missing", "Select account…")).toBe("Select account…");
+  });
+  it("defaults the fallback to an empty string", () => {
+    expect(accountLabel(accts, "missing")).toBe("");
   });
 });
 

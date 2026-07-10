@@ -76,6 +76,7 @@ export function ResearchFields({
             id="buy_price"
             name="buy_price"
             type="number"
+            min={0}
             step="0.01"
             inputMode="decimal"
             defaultValue={buyPriceDefaultValue}

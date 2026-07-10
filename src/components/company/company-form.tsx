@@ -246,11 +246,11 @@ export function CompanyForm() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="position-quantity" className="p-0"><FieldLabel>Quantity</FieldLabel></Label>
-                  <Input id="position-quantity" value={quantity} onChange={(e) => setQuantity(e.target.value)} inputMode="decimal" placeholder="e.g. 100" className="h-10 text-base tabular-nums" />
+                  <Input id="position-quantity" value={quantity} onChange={(e) => setQuantity(e.target.value)} type="number" min={0} step="any" inputMode="decimal" placeholder="e.g. 100" className="h-10 text-base tabular-nums" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="position-avg-price" className="p-0"><FieldLabel>Avg Buy Price</FieldLabel></Label>
-                  <MoneyInput id="position-avg-price" value={avgPrice} onChange={(e) => setAvgPrice(e.target.value)} inputMode="decimal" placeholder="245.50" />
+                  <MoneyInput id="position-avg-price" value={avgPrice} onChange={(e) => setAvgPrice(e.target.value)} type="number" min={0} step="any" inputMode="decimal" placeholder="245.50" />
                 </div>
               </div>
             </CardContent>

@@ -557,6 +557,7 @@ export function ProjectionsValuationTab({
               <div className="flex items-center gap-2">
                 <input
                   type="number"
+                  min={0}
                   step="any"
                   className="w-16 h-8 text-right text-sm font-bold tabular-nums rounded-md border border-border bg-background px-2 outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
                   value={activeMs.expReturns}
