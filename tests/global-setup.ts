@@ -135,4 +135,62 @@ export default async function globalSetup() {
     ".playwright/empty-user-auth-state.json",
     emptyEmail,
   );
+
+  // ── Import test user (full Zerodha import flow) ───────────────────────────
+  const importEmail = process.env.TEST_IMPORT_USER_EMAIL;
+  const importPassword = process.env.TEST_IMPORT_USER_PASSWORD;
+
+  if (!importEmail || !importPassword) {
+    console.warn("⚠  globalSetup: TEST_IMPORT_USER_EMAIL / TEST_IMPORT_USER_PASSWORD not set — skipping import user setup");
+    return;
+  }
+
+  // Create user if they don't exist yet
+  const importSignInCheck = await anon.auth.signInWithPassword({ email: importEmail, password: importPassword });
+  if (importSignInCheck.error) {
+    const { error: createErr } = await admin.auth.admin.createUser({
+      email: importEmail,
+      password: importPassword,
+      email_confirm: true,
+    });
+    if (createErr) throw new Error(`Failed to create import test user: ${createErr.message}`);
+    console.log(`✓ globalSetup: created import test user ${importEmail}`);
+  }
+
+  const { data: importSignIn } = await anon.auth.signInWithPassword({ email: importEmail, password: importPassword });
+  const importUserId = importSignIn?.user?.id;
+  if (!importUserId) throw new Error("Could not resolve import test user ID");
+
+  // Wipe accounts so each run starts with no pre-existing broker accounts.
+  // This ensures the import always exercises the "create new account" path.
+  await admin.from("accounts").delete().eq("user_id", importUserId);
+  console.log(`✓ globalSetup: wiped accounts for ${importEmail}`);
+
+  // Ensure the user has at least one holdings portfolio (import page requires it).
+  const { data: existingPortfolios } = await admin
+    .from("portfolios")
+    .select("id")
+    .eq("user_id", importUserId)
+    .eq("type", "holdings");
+
+  if (!existingPortfolios || existingPortfolios.length === 0) {
+    const { error: portfolioErr } = await admin.from("portfolios").insert({
+      user_id: importUserId,
+      name: "My Portfolio",
+      type: "holdings",
+      is_default: true,
+      sort_order: 0,
+    });
+    if (portfolioErr) throw new Error(`Failed to create holdings portfolio for import user: ${portfolioErr.message}`);
+    console.log(`✓ globalSetup: created holdings portfolio for ${importEmail}`);
+  }
+
+  await saveAuthState(
+    supabaseUrl,
+    supabaseAnonKey,
+    importEmail,
+    importPassword,
+    ".playwright/import-user-auth-state.json",
+    importEmail,
+  );
 }
