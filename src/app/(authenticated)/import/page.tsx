@@ -30,6 +30,7 @@ import {
   RefreshCw,
   RotateCcw,
   Trash2,
+  Lock,
 } from "lucide-react";
 
 /** Result returned synchronously by POST /api/import. */
@@ -371,11 +372,20 @@ export default function ImportPage() {
           </div>
 
           {phase === "select" && (
-            <Button className="w-full" disabled={files.length === 0 || !portfolioId || detecting} onClick={handleContinue}>
-              {detecting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Continue{files.length > 1 ? ` (${files.length} files)` : ""}
-              {!detecting && <ArrowRight className="h-4 w-4 ml-2" />}
-            </Button>
+            <>
+              <div className="flex items-start gap-2 rounded-md border border-border/40 bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+                <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+                <span>
+                  Your statement is stored under your account only and is never visible to other users.
+                  Settings → Delete Account removes it permanently.
+                </span>
+              </div>
+              <Button className="w-full" disabled={files.length === 0 || !portfolioId || detecting} onClick={handleContinue}>
+                {detecting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Continue{files.length > 1 ? ` (${files.length} files)` : ""}
+                {!detecting && <ArrowRight className="h-4 w-4 ml-2" />}
+              </Button>
+            </>
           )}
 
           {phase === "review" && (
@@ -411,6 +421,7 @@ export default function ImportPage() {
               <li>Consolidated view sums positions across all accounts; filter by account on the dashboard.</li>
               <li>New stocks are added to your portfolio automatically.</li>
               <li>Statements are limited to 100 stocks for now.</li>
+              <li>Your data is isolated per user with row-level security — only you can see it.</li>
             </ul>
           </div>
         </CardContent>

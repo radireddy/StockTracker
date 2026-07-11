@@ -16,6 +16,7 @@ import { FeatureGrid } from "@/components/marketing/feature-grid";
 import { MobileSection } from "@/components/marketing/mobile-section";
 import { SectionHeading } from "@/components/marketing/section-heading";
 import { FaqSection, HOME_FAQS } from "@/components/marketing/faq";
+import { PrivacyStrip } from "@/components/marketing/privacy-strip";
 import { AllocationDemo } from "@/components/marketing/demos/allocation-demo";
 import { LiveValuationDemo } from "@/components/marketing/demos/live-valuation-demo";
 import { TimelineDemo } from "@/components/marketing/demos/timeline-demo";
@@ -168,6 +169,9 @@ export default async function LandingPage() {
 
         {/* FAQ */}
         <FaqSection faqs={HOME_FAQS} />
+
+        {/* Privacy & security */}
+        <PrivacyStrip />
       </main>
 
       <SiteFooter />

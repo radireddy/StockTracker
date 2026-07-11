@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Upload, PlusCircle, Star, Target, TrendingUp, BarChart2 } from "lucide-react";
+import { Upload, PlusCircle, Star, Target, TrendingUp, BarChart2, Lock, Shield, Trash2 } from "lucide-react";
 
 function SignalCard({
   icon,
@@ -154,6 +154,49 @@ export function WelcomeScreen() {
           high-conviction names and trim the crowded ones. The data decides —
           not the panic.
         </p>
+      </div>
+
+      {/* Privacy assurance */}
+      <div className="mx-auto mt-6 w-full max-w-2xl rounded-2xl border border-border bg-card p-5">
+        <div className="mb-4 flex items-center gap-2">
+          <Lock size={14} className="text-primary" aria-hidden />
+          <p className="text-sm font-semibold text-foreground">Your portfolio is private by design</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="flex gap-3">
+            <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-accent text-primary">
+              <Lock size={13} aria-hidden />
+            </span>
+            <div>
+              <p className="text-xs font-semibold text-foreground">Isolated at the database</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                Row-level security means no other user — or query — can ever see your rows.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-accent text-primary">
+              <Shield size={13} aria-hidden />
+            </span>
+            <div>
+              <p className="text-xs font-semibold text-foreground">Encrypted in transit and at rest</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                All traffic runs over HTTPS. Data is encrypted at rest on the hosting infrastructure.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-accent text-primary">
+              <Trash2 size={13} aria-hidden />
+            </span>
+            <div>
+              <p className="text-xs font-semibold text-foreground">Delete everything, permanently</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                Settings → Delete Account wipes your portfolio, holdings, research notes, files and account instantly — no recovery.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
