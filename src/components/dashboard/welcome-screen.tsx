@@ -1,5 +1,27 @@
 import Link from "next/link";
-import { Upload, PlusCircle, Star, Target, TrendingUp } from "lucide-react";
+import { Upload, PlusCircle, Star, Target, TrendingUp, BarChart2 } from "lucide-react";
+
+function SignalCard({
+  icon,
+  question,
+  answer,
+}: {
+  icon: React.ReactNode;
+  question: string;
+  answer: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-5">
+      <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent text-primary">
+        {icon}
+      </span>
+      <p className="mt-3 text-[0.82rem] font-medium text-muted-foreground">
+        {question}
+      </p>
+      <p className="mt-1 text-sm font-semibold text-foreground">{answer}</p>
+    </div>
+  );
+}
 
 function Step({
   number,
@@ -33,46 +55,77 @@ function Step({
 export function WelcomeScreen() {
   return (
     <div className="flex flex-col items-center px-4 py-16">
-      {/* Pain narrative */}
-      <div className="mx-auto max-w-xl text-center">
-        <span className="inline-block rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground dark:bg-primary/10 dark:text-primary">
-          For research advisory subscribers
-        </span>
-        <h2 className="mt-5 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Your RA just published a buy call.
-          <br />
-          The stock moved 6% by Monday.
+      {/* Main headline — data over emotions */}
+      <div className="mx-auto max-w-2xl text-center">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          Every buy and sell decision,
+          <br className="hidden sm:block" /> backed by data. Not by how you
+          feel.
         </h2>
-        <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-          StockTracker makes sure you always know if it&rsquo;s still worth
-          buying — and exactly how much to add. Set up takes minutes.
+        <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-muted-foreground">
+          Most investors buy because something feels right and sell because
+          something feels wrong. StockTracker gives you three live answers so
+          every call is objective — not emotional.
         </p>
       </div>
 
-      {/* 3 steps */}
-      <div className="mt-10 w-full max-w-xl space-y-3">
+      {/* 3 data signals — the core value, prominently shown */}
+      <div className="mt-10 grid w-full max-w-2xl gap-4 sm:grid-cols-3">
+        <SignalCard
+          icon={<Target size={18} aria-hidden />}
+          question="Should I buy this today?"
+          answer="Margin of safety — live, against today's price"
+        />
+        <SignalCard
+          icon={<BarChart2 size={18} aria-hidden />}
+          question="How much should I add or trim?"
+          answer="Allocation gap — in exact rupees, per conviction"
+        />
+        <SignalCard
+          icon={<TrendingUp size={18} aria-hidden />}
+          question="Is it still worth it at this price?"
+          answer="Base-case return — IRR recomputed live, not from a PDF"
+        />
+      </div>
+
+      {/* RA callout — one line, not the headline */}
+      <p className="mt-6 text-center text-sm text-muted-foreground">
+        Subscribed to a research advisory service?{" "}
+        <Link
+          href="/research-advisory-portfolio-tracker"
+          className="font-medium text-primary hover:underline"
+        >
+          See how StockTracker makes static RA reports live →
+        </Link>
+      </p>
+
+      {/* Setup steps */}
+      <div className="mt-12 w-full max-w-2xl space-y-3">
+        <p className="text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Set up in 3 steps
+        </p>
         <Step
           number={1}
           icon={<Upload size={16} aria-hidden />}
           title="Import your holdings"
-          detail="Real quantities + cost basis from your broker statement → allocation comes alive instantly"
+          detail="Real quantities + cost basis from your broker statement — allocation and P&L come alive instantly"
         />
         <Step
           number={2}
           icon={<PlusCircle size={16} aria-hidden />}
-          title="Add your RA companies"
-          detail="Both the ones you own and the ones you're watching — same full research depth for both"
+          title="Add your companies"
+          detail="Holdings you own and names you're watching — same full research depth for both"
         />
         <Step
           number={3}
           icon={<Star size={16} aria-hidden />}
-          title="Set rating, target price & valuation"
-          detail="MoS%, IRR and a live BUY signal activate the moment you enter the data from the report"
+          title="Set conviction rating, target price & valuation"
+          detail="MoS%, base-case IRR and a live BUY signal activate the moment you enter the numbers"
         />
       </div>
 
       {/* CTAs */}
-      <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
         <Link
           href="/import"
           className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-soft transition-[filter] hover:brightness-105"
@@ -90,29 +143,17 @@ export function WelcomeScreen() {
       </div>
 
       {/* Volatility promise */}
-      <div className="mx-auto mt-14 w-full max-w-xl rounded-2xl border border-border bg-card p-6 text-center">
+      <div className="mx-auto mt-14 w-full max-w-2xl rounded-2xl border border-border bg-card p-6 text-center">
         <p className="text-base font-semibold text-foreground">
-          The next time volatility hits, you&rsquo;ll have an answer.
+          When volatility hits, most investors freeze. You won&rsquo;t.
         </p>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Which companies are below your buy price. Which positions are
-          under-allocated. The exact rupees to deploy. Data, not panic.
+          A market fall looks like a crisis or a buying opportunity — without
+          data you can&rsquo;t tell which. With live MoS, allocation gaps and
+          base-case returns in front of you, you shuffle the portfolio, add to
+          high-conviction names and trim the crowded ones. The data decides —
+          not the panic.
         </p>
-        <div className="mt-5 flex flex-wrap justify-center gap-2">
-          {[
-            { icon: <Target size={12} />, label: "MoS live" },
-            { icon: <TrendingUp size={12} />, label: "Allocation gap" },
-            { icon: <Star size={12} />, label: "BUY signal" },
-          ].map((chip) => (
-            <span
-              key={chip.label}
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary"
-            >
-              {chip.icon}
-              {chip.label}
-            </span>
-          ))}
-        </div>
       </div>
     </div>
   );
