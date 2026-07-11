@@ -373,8 +373,10 @@ export default function ImportPage() {
 
           {phase === "select" && (
             <>
-              <div className="flex items-start gap-2 rounded-md border border-border/40 bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
-                <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+              <div className="flex items-start gap-2.5 rounded-xl border border-privacy/20 bg-privacy/[0.04] px-3.5 py-3 text-xs text-muted-foreground">
+                <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md bg-privacy/10 text-privacy">
+                  <Lock className="h-3 w-3" aria-hidden />
+                </span>
                 <span>
                   Your statement is stored under your account only and is never visible to other users.
                   Settings → Delete Account removes it permanently.

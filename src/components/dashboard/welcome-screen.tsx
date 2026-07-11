@@ -157,44 +157,37 @@ export function WelcomeScreen() {
       </div>
 
       {/* Privacy assurance */}
-      <div className="mx-auto mt-6 w-full max-w-2xl rounded-2xl border border-border bg-card p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <Lock size={14} className="text-primary" aria-hidden />
-          <p className="text-sm font-semibold text-foreground">Your portfolio is private by design</p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="flex gap-3">
-            <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-accent text-primary">
-              <Lock size={13} aria-hidden />
+      <div className="mx-auto mt-6 w-full max-w-2xl rounded-2xl border border-privacy/20 bg-privacy/[0.04] p-5">
+        <p className="mb-4 text-center text-[0.65rem] font-bold uppercase tracking-[0.14em] text-privacy">
+          Your portfolio is private by design
+        </p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-2 rounded-xl border border-privacy/15 bg-card p-4 shadow-soft">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-privacy/10 text-privacy">
+              <Lock size={14} aria-hidden />
             </span>
-            <div>
-              <p className="text-xs font-semibold text-foreground">Isolated at the database</p>
-              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                Row-level security means no other user — or query — can ever see your rows.
-              </p>
-            </div>
+            <p className="text-xs font-bold text-foreground">Isolated at the database</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Row-level security means no other user — or query — can ever see your rows.
+            </p>
           </div>
-          <div className="flex gap-3">
-            <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-accent text-primary">
-              <Shield size={13} aria-hidden />
+          <div className="flex flex-col gap-2 rounded-xl border border-privacy/15 bg-card p-4 shadow-soft">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-privacy/10 text-privacy">
+              <Shield size={14} aria-hidden />
             </span>
-            <div>
-              <p className="text-xs font-semibold text-foreground">Encrypted in transit and at rest</p>
-              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                All traffic runs over HTTPS. Data is encrypted at rest on the hosting infrastructure.
-              </p>
-            </div>
+            <p className="text-xs font-bold text-foreground">Encrypted in transit and at rest</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              All traffic runs over HTTPS. Data is encrypted at rest on the hosting infrastructure.
+            </p>
           </div>
-          <div className="flex gap-3">
-            <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-accent text-primary">
-              <Trash2 size={13} aria-hidden />
+          <div className="flex flex-col gap-2 rounded-xl border border-privacy/15 bg-card p-4 shadow-soft">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-privacy/10 text-privacy">
+              <Trash2 size={14} aria-hidden />
             </span>
-            <div>
-              <p className="text-xs font-semibold text-foreground">Delete everything, permanently</p>
-              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                Settings → Delete Account wipes your portfolio, holdings, research notes, files and account instantly — no recovery.
-              </p>
-            </div>
+            <p className="text-xs font-bold text-foreground">Delete everything, permanently</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Settings → Delete Account wipes your portfolio, holdings, research notes, files and account instantly — no recovery.
+            </p>
           </div>
         </div>
       </div>
