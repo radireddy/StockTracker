@@ -58,6 +58,8 @@ html {
   --color-positive: var(--positive);
   --color-warning: var(--warning);
   --color-amber: var(--amber);
+  --color-privacy: var(--privacy);
+  --color-privacy-foreground: var(--privacy-foreground);
 }
 
 :root {
@@ -102,6 +104,9 @@ html {
   /* Soft depth for cards/heroes — one definition, reused everywhere. */
   --shadow-soft: 0 1px 2px oklch(0 0 0 / 0.04), 0 8px 24px oklch(0 0 0 / 0.04);
   --shadow-lift: 0 2px 4px oklch(0 0 0 / 0.05), 0 14px 34px oklch(0 0 0 / 0.08);
+  /* Privacy / trust section — deep sapphire indigo, distinct from the teal primary */
+  --privacy: oklch(0.46 0.22 264);
+  --privacy-foreground: oklch(0.97 0.02 264);
 }
 
 .dark {
@@ -142,6 +147,8 @@ html {
   --amber: oklch(0.82 0.15 80);
   --shadow-soft: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px oklch(0 0 0 / 0.3);
   --shadow-lift: 0 2px 4px oklch(0 0 0 / 0.4), 0 14px 34px oklch(0 0 0 / 0.5);
+  --privacy: oklch(0.62 0.20 264);
+  --privacy-foreground: oklch(0.97 0.02 264);
 }
 
 @layer base {
