@@ -17,6 +17,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Eye, Star, Trash2, ArrowUp, ArrowDown, Check, Pencil } from "lucide-react";
 import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+} from "@/components/ui/dropdown-menu";
+import {
   getPortfolios,
   updatePortfolio,
   deletePortfolio,
@@ -43,6 +48,7 @@ export function PortfolioManager({
   const [portfolios, setPortfolios] = useState(initialPortfolios);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [colorMenuId, setColorMenuId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PortfolioWithCount | null>(null);
   const [deleteSummary, setDeleteSummary] = useState<{
     companies: number;
@@ -154,25 +160,44 @@ export function PortfolioManager({
             key={p.id}
             className="flex items-center gap-3 rounded-lg border border-border/60 px-3 py-2.5"
           >
-            {/* Color dot */}
-            <div className="relative group">
-              <span
-                className="h-3 w-3 rounded-full block cursor-pointer"
+            {/* Color dot — click to open a picker (base-ui popover handles
+                positioning, outside-click and escape; the old CSS group-hover
+                menu had a dead gap between the dot and the swatches so the
+                menu closed before the cursor could reach a colour). */}
+            <DropdownMenu
+              open={colorMenuId === p.id}
+              onOpenChange={(open) => setColorMenuId(open ? p.id : null)}
+            >
+              <DropdownMenuTrigger
+                aria-label={`Change colour for ${p.name}`}
+                className="h-3.5 w-3.5 rounded-full block cursor-pointer outline-none transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 style={{ backgroundColor: p.color ?? "#6b7280" }}
               />
-              <div className="hidden group-hover:flex absolute top-6 left-0 z-10 gap-1 bg-popover p-2 rounded-lg shadow-lg border">
-                {COLORS.map((c) => (
-                  <button
-                    key={c}
-                    className={`h-5 w-5 rounded-full border ${
-                      p.color === c ? "border-foreground" : "border-transparent"
-                    }`}
-                    style={{ backgroundColor: c }}
-                    onClick={() => handleColorChange(p.id, c)}
-                  />
-                ))}
-              </div>
-            </div>
+              <DropdownMenuContent align="start" className="flex w-auto min-w-0 gap-1.5 p-2">
+                {COLORS.map((c) => {
+                  const selected = p.color === c;
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      aria-label={`Colour ${c}`}
+                      aria-pressed={selected}
+                      className="h-5 w-5 rounded-full transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      style={{
+                        backgroundColor: c,
+                        boxShadow: selected
+                          ? `0 0 0 2px var(--popover), 0 0 0 4px ${c}`
+                          : "inset 0 0 0 1px rgb(0 0 0 / 0.12)",
+                      }}
+                      onClick={() => {
+                        handleColorChange(p.id, c);
+                        setColorMenuId(null);
+                      }}
+                    />
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* Name */}
             {editingId === p.id ? (

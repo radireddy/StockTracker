@@ -47,7 +47,9 @@ export default async function SettingsPage() {
           <p><strong>Email:</strong> {profile?.email}</p>
           <p>
             <strong>Plan:</strong>{" "}
-            <Badge variant="outline">{profile?.plan ?? "free"}</Badge>
+            <Badge className="border-primary/25 bg-primary/10 font-semibold uppercase tracking-wide text-primary">
+              {profile?.plan ?? "free"}
+            </Badge>
           </p>
         </CardContent>
       </Card>
