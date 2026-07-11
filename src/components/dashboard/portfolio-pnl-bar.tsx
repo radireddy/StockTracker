@@ -1,5 +1,7 @@
 "use client";
 
+import { computePortfolioPnl } from "@/lib/utils/portfolio-pnl";
+
 type CompanyWithStock = {
   quantity: number | null;
   avg_buy_price: number | null;
@@ -26,25 +28,10 @@ export function PortfolioPnlBar({
   companies: CompanyWithStock[];
   accountsCount: number;
 }) {
-  let totalInvested = 0;
-  let totalCurrent = 0;
-  let held = 0;
+  const result = computePortfolioPnl(companies);
+  if (!result) return null;
 
-  for (const c of companies) {
-    const qty = c.quantity;
-    const avgBuy = c.avg_buy_price;
-    if (!qty || !avgBuy) continue;
-    const currentPrice = c.indian_stocks?.price ?? null;
-    if (currentPrice == null) continue;
-    totalInvested += qty * avgBuy;
-    totalCurrent += qty * currentPrice;
-    held += 1;
-  }
-
-  if (totalInvested === 0) return null;
-
-  const pnl = totalCurrent - totalInvested;
-  const pnlPct = (pnl / totalInvested) * 100;
+  const { totalCurrent, totalInvested, pnl, pnlPct, heldCount: held } = result;
   const up = pnl >= 0;
 
   return (

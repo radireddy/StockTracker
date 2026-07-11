@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { AllocationRanges } from "@/types/database";
-import { getEffectiveRanges, getAllocationStatus } from "@/lib/utils/calculations";
+import { computeStarGroups, countUnrated } from "@/lib/utils/allocation-summary";
 import { Stars } from "@/components/ui/stars";
 import { StatusTag, STATUS_VAR, STATUS_LABEL } from "@/components/dashboard/status-tag";
 
@@ -25,42 +25,14 @@ export function AllocationSummaryBar({
   companies: CompanyWithStock[];
   allocationRanges: AllocationRanges | null;
 }) {
-  const ranges = getEffectiveRanges(allocationRanges);
-
-  const starGroups = useMemo(() => {
-    let totalValue = 0;
-    const groupValues: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
-
-    for (const c of companies) {
-      const qty = c.quantity;
-      const price = c.indian_stocks?.price;
-      if (!qty || !price) continue;
-      const value = qty * price;
-      totalValue += value;
-      const star = c.star_rating ?? 0;
-      if (star >= 0 && star <= 4) groupValues[star] += value;
-    }
-
-    if (totalValue === 0) return null;
-
-    return [4, 3, 2, 1, 0].map((star) => {
-      const pct = (groupValues[star] / totalValue) * 100;
-      const range = ranges[String(star)] ?? { min: 0, max: 2 };
-      const count = companies.filter(
-        (c) => (c.star_rating ?? 0) === star && c.quantity && c.quantity > 0
-      ).length;
-      const groupMin = range.min * count;
-      const groupMax = range.max * count;
-      const status = getAllocationStatus(pct, { min: groupMin, max: groupMax });
-      return { star, pct, groupMin, groupMax, status, count };
-    });
-  }, [companies, ranges]);
+  const starGroups = useMemo(
+    () => computeStarGroups(companies, allocationRanges),
+    [companies, allocationRanges]
+  );
 
   if (!starGroups) return null;
 
-  const unratedCount = companies.filter(
-    (c) => c.star_rating == null && c.quantity != null && c.quantity > 0
-  ).length;
+  const unratedCount = countUnrated(companies);
 
   return (
     <div className="flex flex-col gap-3.5 rounded-2xl border bg-card p-6 shadow-soft">
