@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { GoogleCta } from "@/components/marketing/google-cta";
 import { usePrefersReducedMotion } from "@/hooks/use-in-view";
 import { LiveValuationDemo } from "./demos/live-valuation-demo";
@@ -21,14 +22,19 @@ type Slide = {
   headline: string;
   sub: string;
   Demo: () => React.JSX.Element;
+  secondaryLink?: { label: string; href: string };
 };
 
 const SLIDES: Slide[] = [
   {
-    eyebrow: "For the research-service subscriber",
-    headline: "Your target price was obsolete the day it was printed.",
-    sub: "A PDF freezes the numbers. StockTracker recomputes buy price, margin of safety and IRR against the live price — so what you see is true today, not last quarter.",
+    eyebrow: "For the research advisory subscriber",
+    headline: "Your RA's buy call landed at ₹420. The stock opened at ₹441.",
+    sub: "The target in that PDF was computed at a price that no longer exists. You're doing mental math — does the MoS still hold? Am I already over-allocated? StockTracker recomputes buy price, margin of safety and IRR against the live price the moment you open it. When markets fall and noise spikes, you open one screen: which names are below your buy price, which are under-allocated, the exact rupees to deploy. The data decides — not the panic.",
     Demo: LiveValuationDemo,
+    secondaryLink: {
+      label: "Using an RA service? See how StockTracker was built for you →",
+      href: "/research-advisory-portfolio-tracker",
+    },
   },
   {
     eyebrow: "For the capital deployer",
@@ -123,6 +129,14 @@ export function HeroCarousel() {
                   <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
                     {s.sub}
                   </p>
+                  {s.secondaryLink && (
+                    <Link
+                      href={s.secondaryLink.href}
+                      className="mt-4 block text-sm font-medium text-primary hover:underline"
+                    >
+                      {s.secondaryLink.label}
+                    </Link>
+                  )}
                 </div>
               );
             })}

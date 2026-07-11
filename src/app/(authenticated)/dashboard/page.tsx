@@ -9,6 +9,7 @@ import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { PortfolioPnlBar } from "@/components/dashboard/portfolio-pnl-bar";
 import { AllocationSummaryBar } from "@/components/dashboard/allocation-summary-bar";
 import { ResearchGuidanceCard } from "@/components/dashboard/research-guidance-card";
+import { WelcomeScreen } from "@/components/dashboard/welcome-screen";
 import { hasResearchData } from "@/lib/utils/research-data";
 import { PortfolioNav } from "@/components/portfolio/portfolio-nav";
 import { Button } from "@/components/ui/button";
@@ -146,6 +147,8 @@ export default function DashboardPage() {
         <div role="status" aria-live="polite" className="py-12 text-center text-sm text-muted-foreground">
           Loading companies...
         </div>
+      ) : isHoldings && (data?.companies?.length ?? 0) === 0 ? (
+        <WelcomeScreen />
       ) : (
         <>
           {/* Desktop: dense data table */}
