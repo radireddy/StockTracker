@@ -45,7 +45,7 @@ const SLIDES: Slide[] = [
   },
   {
     eyebrow: "For the capital deployer",
-    headline: "You have ₹5L to invest. Which stock? How much?",
+    headline: "You have 5L to invest. Which stock? How much?",
     sub: "Conviction-weighted target bands per star rating show exactly which holdings are under-allocated — and the rupee amount that brings each back into range.",
     Demo: AllocationDemo,
   },
