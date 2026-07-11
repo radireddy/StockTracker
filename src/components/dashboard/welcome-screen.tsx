@@ -84,7 +84,7 @@ export function WelcomeScreen() {
         <SignalCard
           icon={<TrendingUp size={18} aria-hidden />}
           question="Is it still worth it at this price?"
-          answer="Base-case return — IRR recomputed live, not from a PDF"
+          answer="Bull / base / bear buy price range — derived from your assumptions, live"
         />
       </div>
 
@@ -119,8 +119,8 @@ export function WelcomeScreen() {
         <Step
           number={3}
           icon={<Star size={16} aria-hidden />}
-          title="Set conviction rating, target price & valuation"
-          detail="MoS%, base-case IRR and a live BUY signal activate the moment you enter the numbers"
+          title="Set rating, valuation assumptions & expected return"
+          detail="Bull, base and bear case buy prices are derived from your assumptions — giving you a range, not a single number. MoS%, IRR and a BUY signal turn live instantly."
         />
       </div>
 

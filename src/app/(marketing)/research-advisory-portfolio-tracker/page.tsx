@@ -29,8 +29,12 @@ export const metadata: Metadata = {
 
 const POINTS = [
   {
+    title: "A buy price range, not a single number",
+    body: "Enter the bull, base and bear case assumptions from the report — or build your own. StockTracker back-solves the buy price for each scenario. Below the base-case price the fundamentals work; near the bear-case price you need full conviction. A range is more honest than a single target.",
+  },
+  {
     title: "Live, never frozen",
-    body: "Enter the RA's target price and valuation scenarios once. Margin of safety, IRR and your buy price recompute against the live CMP every time you open the app. The PDF was a snapshot — this is the live feed.",
+    body: "The PDF target was computed at a price that no longer exists. Every valuation in StockTracker — margin of safety, IRR, buy price — recomputes against the live CMP the moment you open it. Always today's answer, never last month's.",
   },
   {
     title: "Allocation to the rupee",
@@ -98,8 +102,8 @@ export default function RaSubscriberPage() {
       <RaPainSection />
 
       <ValuePoints
-        title="Three problems, three features that solve them"
-        sub="From stale PDF to live dashboard — each pain has a direct answer."
+        title="From stale PDF to live, data-backed decisions"
+        sub="Four features that solve the RA subscriber's real problems."
         points={POINTS}
       />
 

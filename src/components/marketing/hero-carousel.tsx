@@ -5,6 +5,7 @@ import Link from "next/link";
 import { GoogleCta } from "@/components/marketing/google-cta";
 import { usePrefersReducedMotion } from "@/hooks/use-in-view";
 import { LiveValuationDemo } from "./demos/live-valuation-demo";
+import { ValuationScenariosDemo } from "./demos/valuation-scenarios-demo";
 import { AllocationDemo } from "./demos/allocation-demo";
 import { UnifiedCompanyDemo } from "./demos/unified-company-demo";
 import { DashboardScanDemo } from "./demos/dashboard-scan-demo";
@@ -35,6 +36,12 @@ const SLIDES: Slide[] = [
       label: "Using an RA service? See how StockTracker was built for you →",
       href: "/research-advisory-portfolio-tracker",
     },
+  },
+  {
+    eyebrow: "For the investor who builds their own model",
+    headline: "Set your expected return. Get your buy price range.",
+    sub: "Enter bull, base and bear case assumptions — target multiple, growth, margin. StockTracker back-solves the buy price for each scenario, giving you a range instead of a single number. Below the base-case price the fundamentals work; near the bear-case price you need maximum conviction. The model tells you exactly where to start buying and where to add more.",
+    Demo: ValuationScenariosDemo,
   },
   {
     eyebrow: "For the capital deployer",
