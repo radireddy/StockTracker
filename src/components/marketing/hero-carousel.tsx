@@ -28,7 +28,7 @@ type Slide = {
 const SLIDES: Slide[] = [
   {
     eyebrow: "For the research advisory subscriber",
-    headline: "Your RA's buy call landed at ₹420. The stock opened at ₹441.",
+    headline: "Your RA's buy call landed at 420. The stock opened at 441.",
     sub: "The target in that PDF was computed at a price that no longer exists. You're doing mental math — does the MoS still hold? Am I already over-allocated? StockTracker recomputes buy price, margin of safety and IRR against the live price the moment you open it. When markets fall and noise spikes, you open one screen: which names are below your buy price, which are under-allocated, the exact rupees to deploy. The data decides — not the panic.",
     Demo: LiveValuationDemo,
     secondaryLink: {
