@@ -38,9 +38,9 @@ const SLIDES: Slide[] = [
     },
   },
   {
-    eyebrow: "For the investor who builds their own model",
-    headline: "Set your expected return. Get your buy price range.",
-    sub: "Enter bull, base and bear case assumptions — target multiple, growth, margin. StockTracker back-solves the buy price for each scenario, giving you a range instead of a single number. Below the base-case price the fundamentals work; near the bear-case price you need maximum conviction. The model tells you exactly where to start buying and where to add more.",
+    eyebrow: "For the conviction investor",
+    headline: "Bull. Base. Bear. You know which price is yours.",
+    sub: "Back-solve your buy price from your own assumptions — target multiple, growth rate, margin — across three scenarios. StockTracker shows you a range: where the base case works, where you need full conviction. Write the thesis that justifies the conviction alongside the model. Six months later, when the price moves and the quarter disappoints, you open one page and ask the only question that matters: does the thesis still hold?",
     Demo: ValuationScenariosDemo,
   },
   {
