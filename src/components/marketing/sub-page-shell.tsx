@@ -14,6 +14,10 @@ import {
 
 /** Other product pages to cross-link, minus the current one. */
 const ALL = [
+  {
+    href: "/research-advisory-portfolio-tracker",
+    label: "Research advisory portfolio tracker",
+  },
   { href: "/zerodha-portfolio-tracker", label: "Zerodha portfolio tracker" },
   {
     href: "/intrinsic-value-margin-of-safety",

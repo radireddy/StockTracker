@@ -35,8 +35,8 @@ export const metadata: Metadata = {
 const DEEP_DIVES = [
   {
     eyebrow: "Live, never stale",
-    title: "Valuations that recompute with the price",
-    body: "Set your bull, base and bare assumptions once. Margin of safety, IRR and your buy signal update against the live price — the discipline of a research desk, always current.",
+    title: "Your assumptions. A buy price range that moves with the market.",
+    body: "Enter your bull, base and bear case — target multiple, growth, margin. StockTracker back-solves the buy price for each scenario, giving you a range instead of a single number. As the price moves, margin of safety, IRR and the BUY signal update in real time. Never stale, never a guess.",
     Demo: LiveValuationDemo,
   },
   {
