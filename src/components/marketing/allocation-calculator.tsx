@@ -252,13 +252,6 @@ function Results({
   result: CalculatorResult;
   isLoggedIn: boolean | null;
 }) {
-  const STAR_LABELS: Record<Star, string> = {
-    4: "★★★★",
-    3: "★★★",
-    2: "★★",
-    1: "★",
-  };
-
   const deployedIsAbsolute =
     result.totalDeployedMin === result.totalDeployedMax;
   const bufferIsAbsolute = result.cashBufferMin === result.cashBufferMax;
