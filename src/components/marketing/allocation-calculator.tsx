@@ -258,10 +258,11 @@ function Results({
   isLoggedIn: boolean | null;
 }) {
   const { isBudgetConstrained, isUnderCapitalized } = result;
+  const isNormal = !isBudgetConstrained && !isUnderCapitalized;
 
-  // In the constrained case, suggested total = totalAmount exactly (by construction).
-  const deployedIsAbsolute = result.totalDeployedMin === result.totalDeployedMax;
-  const bufferIsAbsolute = result.cashBufferMin === result.cashBufferMax;
+  const cashAtMax = result.cashBufferMin; // cash remaining after max deployment
+  const cashPctAtMax = Math.round((cashAtMax / result.totalAmount) * 100);
+  const maxPct = Math.round((result.totalDeployedMax / result.totalAmount) * 100);
 
   return (
     <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-5">
@@ -274,10 +275,21 @@ function Results({
         </div>
       )}
 
-      {/* Soft suggestion: min fits but max doesn't */}
+      {/* Budget-constrained: min fits, max doesn't */}
       {isBudgetConstrained && (
         <div className="rounded-lg border border-primary/30 bg-primary/[0.05] px-4 py-2.5 text-sm text-foreground">
           Full amount deployed — each bucket&apos;s suggested % falls within your target range.
+        </div>
+      )}
+
+      {/* Normal: budget covers max — show cash remaining after max deployment */}
+      {isNormal && result.buckets.length > 0 && (
+        <div className="rounded-lg border border-border bg-muted/40 px-4 py-2.5 text-sm text-foreground">
+          {cashAtMax === 0 ? (
+            <>Investing at maximum targets deploys your full <span className="font-medium">{fmt(result.totalAmount)}</span> — no cash buffer.</>
+          ) : (
+            <>Investing at maximum targets deploys <span className="font-medium">{fmt(result.totalDeployedMax)} ({maxPct}%)</span> — <span className="font-medium">{fmt(cashAtMax)} ({cashPctAtMax}%)</span> stays as cash.</>
+          )}
         </div>
       )}
 
@@ -310,6 +322,8 @@ function Results({
                       "—"
                     ) : isBudgetConstrained && b.suggestedAmount !== null && b.suggestedPct !== null ? (
                       `${fmt(b.suggestedAmount)} (${b.suggestedPct.toFixed(1)}%)`
+                    ) : isNormal ? (
+                      `${fmt(b.perStockMax)} (${b.range.max}%)`
                     ) : (
                       fmtRange(b.perStockMin, b.perStockMax, b.isAbsolute)
                     )}
@@ -319,6 +333,8 @@ function Results({
                       "—"
                     ) : isBudgetConstrained && b.suggestedAmount !== null && b.suggestedPct !== null ? (
                       `${fmt(b.suggestedAmount * b.count)} (${(b.suggestedPct * b.count).toFixed(1)}%)`
+                    ) : isNormal ? (
+                      `${fmt(b.bucketMax)} (${b.range.max * b.count}%)`
                     ) : (
                       fmtRange(b.bucketMin, b.bucketMax, b.isAbsolute)
                     )}
@@ -337,57 +353,35 @@ function Results({
                       </span>{" "}
                       of {fmt(result.totalAmount)} total (100%)
                     </>
-                  ) : (
+                  ) : isNormal ? (
                     <>
-                      Targeting{" "}
+                      At max targets:{" "}
                       <span className="font-medium text-foreground">
-                        {fmtRange(
-                          result.totalDeployedMin,
-                          result.totalDeployedMax,
-                          deployedIsAbsolute
-                        )}
+                        {fmt(result.totalDeployedMax)}
                       </span>{" "}
-                      of {fmt(result.totalAmount)} total (
-                      {fmtPctRange(
-                        result.totalDeployedMin,
-                        result.totalDeployedMax,
-                        result.totalAmount
-                      )}
-                      )
+                      ({maxPct}%) of {fmt(result.totalAmount)}
                     </>
-                  )}
+                  ) : null}
                 </td>
                 <td
                   colSpan={2}
                   className={`pt-3 text-right text-xs font-medium ${
-                    result.isFullyDeployed || isBudgetConstrained
+                    isBudgetConstrained || cashAtMax === 0
                       ? "text-primary"
                       : "text-muted-foreground"
                   }`}
                 >
                   {isBudgetConstrained ? (
                     "Fully deployed at suggested allocation"
-                  ) : result.isFullyDeployed ? (
-                    "Fully deployed — no cash buffer"
-                  ) : (
+                  ) : isNormal && cashAtMax === 0 ? (
+                    "Fully deployed at max targets"
+                  ) : isNormal ? (
                     <>
                       Cash buffer:{" "}
-                      <span className="text-foreground">
-                        {fmtRange(
-                          result.cashBufferMin,
-                          result.cashBufferMax,
-                          bufferIsAbsolute
-                        )}
-                      </span>{" "}
-                      (
-                      {fmtPctRange(
-                        result.cashBufferMin,
-                        result.cashBufferMax,
-                        result.totalAmount
-                      )}
-                      )
+                      <span className="text-foreground">{fmt(cashAtMax)}</span>{" "}
+                      ({cashPctAtMax}%)
                     </>
-                  )}
+                  ) : null}
                 </td>
               </tr>
             </tfoot>
