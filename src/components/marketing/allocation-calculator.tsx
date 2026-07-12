@@ -98,7 +98,7 @@ export function AllocationCalculator() {
         {/* Total amount */}
         <div className="space-y-2">
           <label
-            className="text-sm font-medium text-foreground"
+            className="block text-sm font-medium text-foreground"
             htmlFor="total-amount"
           >
             Total investment amount
@@ -252,17 +252,28 @@ function Results({
   result: CalculatorResult;
   isLoggedIn: boolean | null;
 }) {
-  const deployedIsAbsolute =
-    result.totalDeployedMin === result.totalDeployedMax;
+  const { isBudgetConstrained, isUnderCapitalized } = result;
+
+  // In the constrained case, suggested total = totalAmount exactly (by construction).
+  const deployedIsAbsolute = result.totalDeployedMin === result.totalDeployedMax;
   const bufferIsAbsolute = result.cashBufferMin === result.cashBufferMax;
 
   return (
     <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-5">
       <h2 className="text-base font-semibold text-foreground">Results</h2>
 
-      {result.isOverAllocated && (
-        <div className="rounded-lg border border-chart-4/40 bg-chart-4/10 px-4 py-2.5 text-sm text-chart-4">
-          Your targets exceed your total — reduce stock counts or percentages.
+      {/* Hard error: can't meet even minimum targets */}
+      {isUnderCapitalized && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+          Your total is too small to meet even the minimum targets — add more capital or reduce stock counts.
+        </div>
+      )}
+
+      {/* Soft suggestion: min fits but max doesn't */}
+      {isBudgetConstrained && (
+        <div className="rounded-lg border border-primary/30 bg-primary/[0.05] px-4 py-2.5 text-sm text-foreground">
+          <span className="font-medium text-primary">Suggested allocation</span>
+          {" "}— your budget covers the minimum but not the maximum targets. The table shows the optimal percentage within each range that deploys your full amount.
         </div>
       )}
 
@@ -291,49 +302,78 @@ function Results({
                     {b.count}
                   </td>
                   <td className="py-2.5 pr-4 text-right tabular-nums font-medium text-foreground">
-                    {b.hasRangeError
-                      ? "—"
-                      : fmtRange(b.perStockMin, b.perStockMax, b.isAbsolute)}
+                    {b.hasRangeError ? (
+                      "—"
+                    ) : isBudgetConstrained && b.suggestedAmount !== null ? (
+                      <>
+                        <span>{fmt(b.suggestedAmount)}</span>
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          {b.suggestedPct?.toFixed(1)}% · range {fmtRange(b.perStockMin, b.perStockMax, b.isAbsolute)}
+                        </span>
+                      </>
+                    ) : (
+                      fmtRange(b.perStockMin, b.perStockMax, b.isAbsolute)
+                    )}
                   </td>
                   <td className="py-2.5 text-right tabular-nums font-medium text-foreground">
-                    {b.hasRangeError
-                      ? "—"
-                      : fmtRange(b.bucketMin, b.bucketMax, b.isAbsolute)}
+                    {b.hasRangeError ? (
+                      "—"
+                    ) : isBudgetConstrained && b.suggestedAmount !== null ? (
+                      <>
+                        <span>{fmt(b.suggestedAmount * b.count)}</span>
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          range {fmtRange(b.bucketMin, b.bucketMax, b.isAbsolute)}
+                        </span>
+                      </>
+                    ) : (
+                      fmtRange(b.bucketMin, b.bucketMax, b.isAbsolute)
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-border">
-                <td
-                  colSpan={2}
-                  className="pt-3 text-xs text-muted-foreground"
-                >
-                  Targeting{" "}
-                  <span className="font-medium text-foreground">
-                    {fmtRange(
-                      result.totalDeployedMin,
-                      result.totalDeployedMax,
-                      deployedIsAbsolute
-                    )}
-                  </span>{" "}
-                  of {fmt(result.totalAmount)} total (
-                  {fmtPctRange(
-                    result.totalDeployedMin,
-                    result.totalDeployedMax,
-                    result.totalAmount
+                <td colSpan={2} className="pt-3 text-xs text-muted-foreground">
+                  {isBudgetConstrained ? (
+                    <>
+                      Suggested:{" "}
+                      <span className="font-medium text-foreground">
+                        {fmt(result.totalAmount)}
+                      </span>{" "}
+                      of {fmt(result.totalAmount)} total (100%)
+                    </>
+                  ) : (
+                    <>
+                      Targeting{" "}
+                      <span className="font-medium text-foreground">
+                        {fmtRange(
+                          result.totalDeployedMin,
+                          result.totalDeployedMax,
+                          deployedIsAbsolute
+                        )}
+                      </span>{" "}
+                      of {fmt(result.totalAmount)} total (
+                      {fmtPctRange(
+                        result.totalDeployedMin,
+                        result.totalDeployedMax,
+                        result.totalAmount
+                      )}
+                      )
+                    </>
                   )}
-                  )
                 </td>
                 <td
                   colSpan={2}
                   className={`pt-3 text-right text-xs font-medium ${
-                    result.isFullyDeployed
+                    result.isFullyDeployed || isBudgetConstrained
                       ? "text-primary"
                       : "text-muted-foreground"
                   }`}
                 >
-                  {result.isFullyDeployed ? (
+                  {isBudgetConstrained ? (
+                    "Fully deployed at suggested allocation"
+                  ) : result.isFullyDeployed ? (
                     "Fully deployed — no cash buffer"
                   ) : (
                     <>
@@ -391,7 +431,7 @@ function MarketingPitch() {
           },
           {
             title: "Know the exact amount to add or trim",
-            body: 'Not “rebalance” — the precise number for each stock to bring it into range.',
+            body: 'Not "rebalance" — the precise number for each stock to bring it into range.',
           },
         ].map((point) => (
           <div key={point.title} className="flex gap-3">
