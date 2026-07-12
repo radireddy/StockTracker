@@ -14,6 +14,7 @@ import {
 
 /** Other product pages to cross-link, minus the current one. */
 const ALL = [
+  { href: "/allocation-calculator", label: "Stock allocation calculator" },
   {
     href: "/research-advisory-portfolio-tracker",
     label: "Research advisory portfolio tracker",
