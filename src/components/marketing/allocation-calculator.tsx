@@ -309,11 +309,11 @@ function Results({
                   <td className="py-2.5 pr-4 text-right tabular-nums font-medium text-foreground">
                     {b.hasRangeError ? (
                       "—"
-                    ) : isBudgetConstrained && b.suggestedAmount !== null ? (
+                    ) : isBudgetConstrained && b.suggestedAmount !== null && b.suggestedPct !== null ? (
                       <>
-                        <span>{fmt(b.suggestedAmount)} ({b.suggestedPct?.toFixed(1)}%)</span>
+                        <span>{fmt(b.suggestedAmount)} ({b.suggestedPct.toFixed(1)}%)</span>
                         <span className="block text-xs font-normal text-muted-foreground">
-                          {fmtMinMax(b.perStockMin, b.perStockMax, b.isAbsolute)}
+                          range: {b.range.min}–{b.range.max}%
                         </span>
                       </>
                     ) : (
@@ -327,7 +327,7 @@ function Results({
                       <>
                         <span>{fmt(b.suggestedAmount * b.count)} ({(b.suggestedPct * b.count).toFixed(1)}%)</span>
                         <span className="block text-xs font-normal text-muted-foreground">
-                          {fmtMinMax(b.bucketMin, b.bucketMax, b.isAbsolute)}
+                          range: {b.range.min * b.count}–{b.range.max * b.count}%
                         </span>
                       </>
                     ) : (
