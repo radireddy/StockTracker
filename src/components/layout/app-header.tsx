@@ -11,7 +11,6 @@ export function AppHeader({ profile }: { profile: Profile }) {
   const navLinks = [
     { href: "/dashboard", label: "Dashboard", active: pathname === "/dashboard" },
     { href: "/import", label: "Import", active: pathname.startsWith("/import") },
-    { href: "/allocation-calculator", label: "Allocation calculator", active: pathname === "/allocation-calculator" },
     { href: "/settings", label: "Settings", active: pathname.startsWith("/settings") },
   ];
 
@@ -44,7 +43,15 @@ export function AppHeader({ profile }: { profile: Profile }) {
             </Link>
           ))}
         </nav>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-3">
+          <Link
+            href="/allocation-calculator"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden text-sm text-muted-foreground hover:text-foreground lg:block"
+          >
+            Allocation calculator
+          </Link>
           <UserNav profile={profile} />
         </div>
       </div>
