@@ -1,16 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { computeStarGroups, countUnrated } from "@/lib/utils/allocation-summary";
+import type { CompanyForAllocation } from "@/lib/utils/allocation-summary";
 import { DEFAULT_ALLOCATION_RANGES } from "@/types/database";
 
 function makeCompany(overrides: {
   star_rating?: number | null;
   quantity?: number | null;
   price?: number | null;
-} = {}) {
+} = {}): CompanyForAllocation {
   return {
-    star_rating: "star_rating" in overrides ? overrides.star_rating! : 4,
-    quantity: "quantity" in overrides ? overrides.quantity : 10,
-    indian_stocks: { price: "price" in overrides ? overrides.price : 100 },
+    star_rating: overrides.star_rating !== undefined ? overrides.star_rating : 4,
+    quantity: overrides.quantity !== undefined ? overrides.quantity : 10,
+    indian_stocks: { price: overrides.price !== undefined ? overrides.price : 100 },
   };
 }
 

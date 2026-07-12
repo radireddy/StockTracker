@@ -1,15 +1,16 @@
 import { describe, it, expect } from "vitest";
 import { computePortfolioPnl } from "@/lib/utils/portfolio-pnl";
+import type { CompanyForPnl } from "@/lib/utils/portfolio-pnl";
 
 function makeCompany(overrides: {
   quantity?: number | null;
   avg_buy_price?: number | null;
   price?: number | null;
-} = {}) {
+} = {}): CompanyForPnl {
   return {
-    quantity: "quantity" in overrides ? overrides.quantity : 10,
-    avg_buy_price: "avg_buy_price" in overrides ? overrides.avg_buy_price : 80,
-    indian_stocks: { price: "price" in overrides ? overrides.price : 100 },
+    quantity: overrides.quantity !== undefined ? overrides.quantity : 10,
+    avg_buy_price: overrides.avg_buy_price !== undefined ? overrides.avg_buy_price : 80,
+    indian_stocks: { price: overrides.price !== undefined ? overrides.price : 100 },
   };
 }
 
