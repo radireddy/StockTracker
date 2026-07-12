@@ -35,16 +35,15 @@ function applyColorTheme(id: ColorThemeId) {
 }
 
 export function ColorThemeProvider({ children }: { children: ReactNode }) {
-  const [colorTheme, setColorThemeState] =
-    useState<ColorThemeId>(DEFAULT_COLOR_THEME);
+  const [colorTheme, setColorThemeState] = useState<ColorThemeId>(() => {
+    if (typeof window === "undefined") return DEFAULT_COLOR_THEME;
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return isValidColorThemeId(stored) ? stored : DEFAULT_COLOR_THEME;
+  });
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (isValidColorThemeId(stored)) {
-      setColorThemeState(stored);
-      applyColorTheme(stored);
-    }
-  }, []);
+    applyColorTheme(colorTheme);
+  }, [colorTheme]);
 
   function setColorTheme(id: ColorThemeId) {
     setColorThemeState(id);
