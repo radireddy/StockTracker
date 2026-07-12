@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockTracker — All Surfaces Preview</title>
+<style>
+/* ============================================================
+   THEMES — same CSS variable definitions as before
+   ============================================================ */
+[data-theme="a"][data-mode="light"] {
+  --bg:#f5f4f8;--card:#fff;--fg:#1e1b4b;--fg-muted:#6b7280;--border:#e0dfe8;
+  --primary:#4338ca;--primary-fg:#fff;--primary-dim:#ede9f6;--primary-mid:#a5b4fc;
+  --secondary:#f3f2f9;--accent:#d97706;--accent-fg:#fff;--accent-dim:#fef3c7;
+  --header-bg:rgba(245,244,248,0.94);--row-hover:#f3f1fb;--row-border:#ebe8f8;
+  --input-bg:#fff;--shadow:0 1px 3px rgba(0,0,0,.06),0 6px 20px rgba(67,56,202,.06);
+  --shadow-card:0 1px 2px rgba(0,0,0,.04),0 4px 12px rgba(0,0,0,.04);--ring:#818cf8;--radius:8px;
+}
+[data-theme="a"][data-mode="dark"] {
+  --bg:#0f0e1a;--card:#1a1828;--fg:#e8e6f2;--fg-muted:#9ca3af;--border:rgba(255,255,255,.09);
+  --primary:#818cf8;--primary-fg:#0f0e1a;--primary-dim:#252040;--primary-mid:#4f46e5;
+  --secondary:#1e1c30;--accent:#fbbf24;--accent-fg:#0f0e1a;--accent-dim:#2a1f06;
+  --header-bg:rgba(15,14,26,.94);--row-hover:#211e36;--row-border:rgba(255,255,255,.06);
+  --input-bg:#211e36;--shadow:0 1px 3px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.3);
+  --shadow-card:0 1px 2px rgba(0,0,0,.4),0 4px 12px rgba(0,0,0,.3);--ring:#818cf8;--radius:8px;
+}
+[data-theme="b"][data-mode="light"] {
+  --bg:#f0f4f8;--card:#fff;--fg:#0c2340;--fg-muted:#64748b;--border:#d1dde8;
+  --primary:#0369a1;--primary-fg:#fff;--primary-dim:#e0f2fe;--primary-mid:#7dd3fc;
+  --secondary:#f1f7fc;--accent:#0e7490;--accent-fg:#fff;--accent-dim:#cffafe;
+  --header-bg:rgba(240,244,248,0.94);--row-hover:#f0f7fc;--row-border:#daeaf5;
+  --input-bg:#fff;--shadow:0 1px 3px rgba(0,0,0,.06),0 6px 20px rgba(3,105,161,.07);
+  --shadow-card:0 1px 2px rgba(0,0,0,.04),0 4px 12px rgba(0,0,0,.04);--ring:#38bdf8;--radius:8px;
+}
+[data-theme="b"][data-mode="dark"] {
+  --bg:#080e18;--card:#0f1923;--fg:#e2e8f0;--fg-muted:#94a3b8;--border:rgba(255,255,255,.08);
+  --primary:#38bdf8;--primary-fg:#080e18;--primary-dim:#0c2a3f;--primary-mid:#0369a1;
+  --secondary:#0f1e2d;--accent:#22d3ee;--accent-fg:#080e18;--accent-dim:#071e25;
+  --header-bg:rgba(8,14,24,.94);--row-hover:#131e2c;--row-border:rgba(255,255,255,.06);
+  --input-bg:#131e2c;--shadow:0 1px 3px rgba(0,0,0,.5),0 6px 20px rgba(0,0,0,.4);
+  --shadow-card:0 1px 2px rgba(0,0,0,.5),0 4px 12px rgba(0,0,0,.4);--ring:#38bdf8;--radius:8px;
+}
+[data-theme="c"][data-mode="light"] {
+  --bg:#faf9fc;--card:#fff;--fg:#1e0a3c;--fg-muted:#6b7280;--border:#e5e0f0;
+  --primary:#7c3aed;--primary-fg:#fff;--primary-dim:#f5f3ff;--primary-mid:#c4b5fd;
+  --secondary:#f8f7ff;--accent:#d97706;--accent-fg:#fff;--accent-dim:#fef3c7;
+  --header-bg:rgba(250,249,252,0.94);--row-hover:#f8f5ff;--row-border:#ede6fc;
+  --input-bg:#fff;--shadow:0 1px 3px rgba(0,0,0,.06),0 6px 20px rgba(124,58,237,.07);
+  --shadow-card:0 1px 2px rgba(0,0,0,.04),0 4px 12px rgba(0,0,0,.04);--ring:#a78bfa;--radius:8px;
+}
+[data-theme="c"][data-mode="dark"] {
+  --bg:#0d0a18;--card:#180f2a;--fg:#ede9f6;--fg-muted:#9ca3af;--border:rgba(255,255,255,.08);
+  --primary:#a78bfa;--primary-fg:#0d0a18;--primary-dim:#1e1333;--primary-mid:#7c3aed;
+  --secondary:#1a1030;--accent:#fbbf24;--accent-fg:#0d0a18;--accent-dim:#261a06;
+  --header-bg:rgba(13,10,24,.94);--row-hover:#1e1336;--row-border:rgba(255,255,255,.06);
+  --input-bg:#1e1336;--shadow:0 1px 3px rgba(0,0,0,.5),0 6px 20px rgba(0,0,0,.4);
+  --shadow-card:0 1px 2px rgba(0,0,0,.5),0 4px 12px rgba(0,0,0,.4);--ring:#a78bfa;--radius:8px;
+}
+:root {
+  --positive:#16a34a;--positive-dim:#dcfce7;--positive-text:#15803d;
+  --negative:#dc2626;--negative-dim:#fee2e2;--negative-text:#b91c1c;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;font-size:13px;background:#111827;color:#e2e8f0;min-height:100vh;}
+
+/* ---- CONTROL BAR ---- */
+#controls{position:sticky;top:0;z-index:9999;background:#1a1a2e;color:#e2e8f0;display:flex;align-items:center;gap:8px;padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.1);flex-wrap:wrap;}
+.ctrl-label{font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-right:2px;}
+.theme-btn,.mode-btn,.view-btn{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:5px;border:1.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#e2e8f0;cursor:pointer;font-size:11px;font-weight:600;transition:all .15s;}
+.theme-btn:hover,.mode-btn:hover,.view-btn:hover{background:rgba(255,255,255,.1);}
+.theme-btn.active{border-color:#38bdf8;background:rgba(56,189,248,.12);color:#38bdf8;}
+.mode-btn.active{border-color:#fbbf24;background:rgba(251,191,36,.1);color:#fbbf24;}
+.view-btn.active{border-color:#a78bfa;background:rgba(167,139,250,.1);color:#a78bfa;}
+.swatch-dot{width:9px;height:9px;border-radius:50%;}
+.divider{width:1px;height:22px;background:rgba(255,255,255,.1);margin:0 2px;}
+.kbd{font-size:9px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:3px;padding:1px 4px;color:#94a3b8;margin-left:2px;}
+
+/* ---- LAYOUT SHELL ---- */
+#preview-area{display:flex;justify-content:center;padding:20px;min-height:calc(100vh - 41px);}
+
+/* ---- DESKTOP FRAME ---- */
+.desktop-frame{width:100%;max-width:1080px;border-radius:12px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.08);}
+
+/* ---- MOBILE FRAME ---- */
+.mobile-outer{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;justify-content:center;}
+.mobile-frame-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;}
+.mobile-label{font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:.06em;text-transform:uppercase;}
+.phone-shell{width:320px;border-radius:28px;border:6px solid #1f2937;box-shadow:0 8px 40px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.06);overflow:hidden;background:#1f2937;}
+.phone-notch{height:28px;background:#111827;display:flex;align-items:center;justify-content:center;}
+.phone-notch-pill{width:80px;height:10px;background:#0f172a;border-radius:10px;}
+.phone-screen{background:var(--bg);height:560px;overflow:hidden;position:relative;}
+
+/* ---- SHARED APP CHROME ---- */
+.app-header{background:var(--header-bg);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);display:flex;align-items:center;height:50px;padding:0 18px;gap:10px;}
+.logo-mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--primary),color-mix(in srgb,var(--primary) 70%,#000));display:grid;place-items:center;color:var(--primary-fg);font-weight:800;font-size:14px;flex-shrink:0;}
+.brand{font-weight:700;color:var(--primary);font-size:13px;letter-spacing:-.3px;}
+.nav-links{display:flex;gap:16px;margin-left:12px;}
+.nav-a{color:var(--fg-muted);font-size:12px;cursor:pointer;}
+.nav-a.active{color:var(--fg);font-weight:600;}
+.header-right{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.btn-p{background:var(--primary);color:var(--primary-fg);border:none;border-radius:var(--radius);padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;}
+.btn-o{background:transparent;color:var(--fg-muted);border:1px solid var(--border);border-radius:var(--radius);padding:5px 10px;font-size:11px;cursor:pointer;}
+.avatar-sm{width:28px;height:28px;border-radius:50%;background:var(--primary-dim);color:var(--primary);display:grid;place-items:center;font-weight:700;font-size:11px;border:1.5px solid var(--primary-mid);}
+
+/* ---- MOBILE-SPECIFIC CHROME ---- */
+.mobile-header{background:var(--header-bg);border-bottom:1px solid var(--border);display:flex;align-items:center;height:46px;padding:0 14px;gap:8px;}
+.mobile-body{background:var(--bg);padding:14px;overflow-y:auto;height:calc(560px - 46px - 52px);}
+.bottom-nav{position:absolute;bottom:0;left:0;right:0;height:52px;background:var(--card);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;padding:0 8px;}
+.bn-item{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 12px;border-radius:8px;}
+.bn-item.active{background:var(--primary-dim);}
+.bn-icon{font-size:16px;}
+.bn-label{font-size:9px;font-weight:600;color:var(--fg-muted);}
+.bn-item.active .bn-label{color:var(--primary);}
+
+/* ---- DASHBOARD CONTENT ---- */
+.page-body{background:var(--bg);padding:14px 16px;transition:background .25s;}
+.eyebrow{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--primary);margin-bottom:3px;}
+.page-title{font-size:20px;font-weight:800;letter-spacing:-.5px;color:var(--fg);}
+.page-sub{color:var(--fg-muted);font-size:11px;margin-top:3px;}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;}
+.stats-row-2col{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:calc(var(--radius) + 2px);padding:10px 12px;box-shadow:var(--shadow-card);}
+.stat-label{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--fg-muted);margin-bottom:4px;}
+.stat-val{font-size:16px;font-weight:800;letter-spacing:-.4px;color:var(--fg);}
+.stat-sub{font-size:10px;font-weight:600;margin-top:2px;}
+.pos{color:var(--positive-text);}
+.neg{color:var(--negative-text);}
+.table-card{background:var(--card);border:1px solid var(--border);border-radius:calc(var(--radius)+2px);overflow:hidden;box-shadow:var(--shadow-card);}
+.tbl-head{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:4px;background:var(--secondary);padding:8px 12px;border-bottom:1px solid var(--border);}
+.th{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--fg-muted);}
+.tbl-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:4px;padding:9px 12px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;}
+.tbl-row:last-child{border-bottom:none;}
+.tbl-row:hover{background:var(--row-hover);}
+.co-name{font-weight:700;color:var(--fg);font-size:11px;}
+.co-sec{font-size:9px;color:var(--fg-muted);}
+.td{font-size:11px;color:var(--fg);}
+.badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;}
+.badge-buy{background:var(--positive-dim);color:var(--positive-text);}
+.badge-hold{background:var(--secondary);color:var(--fg-muted);}
+.stars{color:var(--accent);font-size:11px;letter-spacing:-2px;}
+
+/* ---- MOBILE COMPANY CARDS ---- */
+.co-card{background:var(--card);border:1px solid var(--border);border-radius:calc(var(--radius)+2px);padding:12px;margin-bottom:8px;box-shadow:var(--shadow-card);}
+.co-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
+.co-avatar{width:32px;height:32px;border-radius:8px;background:var(--primary-dim);color:var(--primary);display:grid;place-items:center;font-weight:800;font-size:12px;border:1px solid var(--row-border);}
+.co-info{flex:1;margin-left:10px;}
+.co-card-name{font-weight:700;color:var(--fg);font-size:13px;}
+.co-card-sec{font-size:10px;color:var(--fg-muted);margin-top:1px;}
+.co-card-metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.metric-label{font-size:9px;color:var(--fg-muted);text-transform:uppercase;letter-spacing:.05em;}
+.metric-val{font-size:12px;font-weight:700;color:var(--fg);margin-top:2px;}
+.pill-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.pill{padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;}
+.pill-buy{background:var(--positive-dim);color:var(--positive-text);}
+.pill-hold{background:var(--secondary);color:var(--fg-muted);}
+.pill-pnl-pos{background:var(--positive-dim);color:var(--positive-text);}
+.pill-pnl-neg{background:var(--negative-dim);color:var(--negative-text);}
+.pill-theme{background:var(--primary-dim);color:var(--primary);}
+
+/* ---- MARKETING PAGE ---- */
+.mkt-hero{background:var(--bg);padding:28px 24px 20px;position:relative;overflow:hidden;}
+.mkt-hero::before{content:'';position:absolute;inset:-20px;background:radial-gradient(50% 60% at 50% 0%,color-mix(in srgb,var(--primary) 9%,transparent),transparent 70%);pointer-events:none;}
+.mkt-eyebrow{display:inline-block;background:var(--primary-dim);color:var(--primary);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;}
+.mkt-title{font-size:22px;font-weight:900;letter-spacing:-.6px;color:var(--fg);line-height:1.2;margin-bottom:8px;}
+.mkt-title span{color:var(--primary);}
+.mkt-sub{font-size:12px;color:var(--fg-muted);line-height:1.6;margin-bottom:16px;max-width:480px;}
+.mkt-cta-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.mkt-cta{background:var(--primary);color:var(--primary-fg);padding:9px 18px;border-radius:var(--radius);font-size:12px;font-weight:700;border:none;cursor:pointer;box-shadow:var(--shadow);}
+.mkt-cta-ghost{background:transparent;color:var(--fg-muted);padding:9px 14px;border-radius:var(--radius);font-size:12px;font-weight:600;border:1px solid var(--border);cursor:pointer;}
+.mkt-features{background:var(--card);border-top:1px solid var(--border);padding:16px 20px;}
+.feature-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:10px;}
+.feature-item{display:flex;gap:8px;align-items:flex-start;}
+.feature-icon{width:28px;height:28px;border-radius:7px;background:var(--primary-dim);display:grid;place-items:center;font-size:14px;flex-shrink:0;}
+.feature-name{font-weight:700;font-size:11px;color:var(--fg);}
+.feature-desc{font-size:10px;color:var(--fg-muted);margin-top:2px;line-height:1.5;}
+.mkt-trust{display:flex;gap:16px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);align-items:center;flex-wrap:wrap;}
+.trust-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--fg-muted);}
+.trust-icon{font-size:13px;}
+
+/* ---- MOBILE MARKETING ---- */
+.mkt-mobile-hero{background:var(--bg);padding:20px 16px 14px;position:relative;overflow:hidden;}
+.mkt-mobile-hero::before{content:'';position:absolute;inset:-20px;background:radial-gradient(50% 60% at 50% 0%,color-mix(in srgb,var(--primary) 10%,transparent),transparent 70%);pointer-events:none;}
+.mkt-mobile-eyebrow{display:inline-block;background:var(--primary-dim);color:var(--primary);padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;}
+.mkt-mobile-title{font-size:18px;font-weight:900;letter-spacing:-.4px;color:var(--fg);line-height:1.2;margin-bottom:6px;}
+.mkt-mobile-title span{color:var(--primary);}
+.mkt-mobile-sub{font-size:11px;color:var(--fg-muted);line-height:1.6;margin-bottom:12px;}
+.mkt-mobile-cta{background:var(--primary);color:var(--primary-fg);padding:10px 18px;border-radius:var(--radius);font-size:12px;font-weight:700;border:none;cursor:pointer;width:100%;box-shadow:var(--shadow);}
+.mkt-mobile-features{background:var(--card);border-top:1px solid var(--border);padding:14px;}
+.feat-list{display:flex;flex-direction:column;gap:10px;margin-top:6px;}
+.feat-row{display:flex;gap:8px;align-items:flex-start;}
+
+transition-bg{transition:background .25s,color .25s,border-color .25s;}
+</style>
+</head>
+<body data-theme="b" data-mode="light">
+
+<!-- ===== CONTROL BAR ===== -->
+<div id="controls">
+  <span class="ctrl-label">Theme</span>
+  <button class="theme-btn" id="btn-a" onclick="setTheme('a')"><span class="swatch-dot" style="background:#4338ca"></span>A — Indigo</button>
+  <button class="theme-btn active" id="btn-b" onclick="setTheme('b')"><span class="swatch-dot" style="background:#0369a1"></span>B — Sapphire</button>
+  <button class="theme-btn" id="btn-c" onclick="setTheme('c')"><span class="swatch-dot" style="background:#7c3aed"></span>C — Violet</button>
+  <div class="divider"></div>
+  <span class="ctrl-label">Mode</span>
+  <button class="mode-btn active" id="btn-light" onclick="setMode('light')">☀ Light</button>
+  <button class="mode-btn" id="btn-dark" onclick="setMode('dark')">🌙 Dark</button>
+  <div class="divider"></div>
+  <span class="ctrl-label">View</span>
+  <button class="view-btn active" id="view-desktop" onclick="setView('desktop')">🖥 Desktop</button>
+  <button class="view-btn" id="view-mobile" onclick="setView('mobile')">📱 Mobile app</button>
+  <button class="view-btn" id="view-marketing" onclick="setView('marketing')">🌐 Marketing page</button>
+  <span style="margin-left:4px;font-size:10px;color:#475569;">Keys: A B C · D · 1 2 3</span>
+</div>
+
+<div id="preview-area">
+
+  <!-- ===== DESKTOP VIEW ===== -->
+  <div id="view-desktop-content" class="desktop-frame" style="background:var(--bg)">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-mark">S</div>
+      <span class="brand">StockTracker</span>
+      <nav class="nav-links">
+        <span class="nav-a active">Dashboard</span>
+        <span class="nav-a">Import</span>
+        <span class="nav-a">Settings</span>
+      </nav>
+      <div class="header-right">
+        <button class="btn-o">⟳ Refresh</button>
+        <button class="btn-p">＋ Add company</button>
+        <div class="avatar-sm">RA</div>
+      </div>
+    </header>
+    <!-- Body -->
+    <div class="page-body" style="min-height:500px;">
+      <div style="margin-bottom:14px">
+        <div class="eyebrow">Portfolio</div>
+        <div class="page-title">Flexicap Portfolio</div>
+        <div class="page-sub">31 companies · 3 accounts</div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-label">Portfolio Value</div><div class="stat-val">₹24.7L</div><div class="stat-sub pos">+₹3.2L overall</div></div>
+        <div class="stat-card"><div class="stat-label">Invested</div><div class="stat-val">₹21.5L</div><div class="stat-sub" style="color:var(--fg-muted)">Cost basis</div></div>
+        <div class="stat-card"><div class="stat-label">Day P&L</div><div class="stat-val pos">+₹18,240</div><div class="stat-sub pos">+0.74%</div></div>
+        <div class="stat-card"><div class="stat-label">IRR</div><div class="stat-val">22.4%</div><div class="stat-sub pos">Annualised</div></div>
+      </div>
+      <div class="table-card">
+        <div class="tbl-head"><span class="th">Company</span><span class="th">CMP</span><span class="th">MoS</span><span class="th">P&L</span><span class="th">Signal</span></div>
+        <div class="tbl-row">
+          <div><div class="co-name">HDFC Bank</div><div class="co-sec">Private Banking</div></div>
+          <div class="td">₹1,642</div><div class="td pos">+18%</div><div class="td pos">+₹42,300</div>
+          <div><span class="badge badge-buy">BUY</span></div>
+        </div>
+        <div class="tbl-row">
+          <div><div class="co-name">Infosys</div><div class="co-sec">IT Services</div></div>
+          <div class="td">₹1,890</div><div class="td neg">−4%</div><div class="td neg">−₹8,200</div>
+          <div><span class="badge badge-hold">HOLD</span></div>
+        </div>
+        <div class="tbl-row">
+          <div><div class="co-name">Bajaj Finance</div><div class="co-sec">NBFC</div></div>
+          <div class="td">₹7,240</div><div class="td pos">+31%</div><div class="td pos">+₹1.2L</div>
+          <div><span class="badge badge-buy">BUY</span></div>
+        </div>
+        <div class="tbl-row">
+          <div><div class="co-name">Dixon Technologies</div><div class="co-sec">Electronics Mfg</div></div>
+          <div class="td">₹14,920</div><div class="td pos">+8%</div><div class="td pos">+₹68,400</div>
+          <div><span class="badge badge-buy">BUY</span></div>
+        </div>
+        <div class="tbl-row" style="border-bottom:none">
+          <div><div class="co-name">Zomato</div><div class="co-sec">QSR / Delivery</div></div>
+          <div class="td">₹224</div><div class="td neg">−22%</div><div class="td neg">−₹34,800</div>
+          <div><span class="badge badge-hold">HOLD</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MOBILE VIEW ===== -->
+  <div id="view-mobile-content" style="display:none" class="mobile-outer">
+    <!-- Mobile App -->
+    <div class="mobile-frame-wrap">
+      <div class="mobile-label">App — Dashboard</div>
+      <div class="phone-shell">
+        <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+        <div class="phone-screen">
+          <header class="mobile-header" style="background:var(--header-bg);border-bottom:1px solid var(--border)">
+            <div class="logo-mark" style="width:24px;height:24px;font-size:12px;border-radius:6px">S</div>
+            <span class="brand" style="font-size:12px">StockTracker</span>
+            <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+              <div class="avatar-sm" style="width:26px;height:26px;font-size:10px">RA</div>
+            </div>
+          </header>
+          <div class="mobile-body">
+            <div style="margin-bottom:10px">
+              <div class="eyebrow" style="font-size:9px">Portfolio</div>
+              <div class="page-title" style="font-size:17px">Flexicap</div>
+              <div class="page-sub" style="font-size:10px">31 companies · 3 accounts</div>
+            </div>
+            <div class="stats-row-2col">
+              <div class="stat-card"><div class="stat-label">Value</div><div class="stat-val" style="font-size:14px">₹24.7L</div><div class="stat-sub pos" style="font-size:9px">+₹3.2L</div></div>
+              <div class="stat-card"><div class="stat-label">Day P&L</div><div class="stat-val pos" style="font-size:14px">+₹18,240</div><div class="stat-sub pos" style="font-size:9px">+0.74%</div></div>
+            </div>
+            <div class="co-card">
+              <div class="co-card-top">
+                <div class="co-avatar">HB</div>
+                <div class="co-info">
+                  <div class="co-card-name">HDFC Bank</div>
+                  <div class="co-card-sec">Private Banking</div>
+                </div>
+                <span class="stars" style="font-size:12px">★★★★★</span>
+              </div>
+              <div class="co-card-metrics">
+                <div><div class="metric-label">CMP</div><div class="metric-val">₹1,642</div></div>
+                <div><div class="metric-label">MoS</div><div class="metric-val pos">+18%</div></div>
+                <div><div class="metric-label">P&L</div><div class="metric-val pos">+₹42k</div></div>
+              </div>
+              <div class="pill-row">
+                <span class="pill pill-buy">BUY</span>
+                <span class="pill pill-pnl-pos">+14.9% return</span>
+                <span class="pill pill-theme">Under-weight −₹28k</span>
+              </div>
+            </div>
+            <div class="co-card">
+              <div class="co-card-top">
+                <div class="co-avatar">BF</div>
+                <div class="co-info">
+                  <div class="co-card-name">Bajaj Finance</div>
+                  <div class="co-card-sec">NBFC</div>
+                </div>
+                <span class="stars" style="font-size:12px">★★★★★</span>
+              </div>
+              <div class="co-card-metrics">
+                <div><div class="metric-label">CMP</div><div class="metric-val">₹7,240</div></div>
+                <div><div class="metric-label">MoS</div><div class="metric-val pos">+31%</div></div>
+                <div><div class="metric-label">P&L</div><div class="metric-val pos">+₹1.2L</div></div>
+              </div>
+              <div class="pill-row">
+                <span class="pill pill-buy">BUY</span>
+                <span class="pill pill-pnl-pos">+22.1% return</span>
+              </div>
+            </div>
+            <div class="co-card">
+              <div class="co-card-top">
+                <div class="co-avatar">ZO</div>
+                <div class="co-info">
+                  <div class="co-card-name">Zomato</div>
+                  <div class="co-card-sec">QSR / Delivery</div>
+                </div>
+                <span class="stars" style="font-size:12px;color:var(--accent)">★★★</span><span style="font-size:12px;letter-spacing:-2px;color:var(--border)">☆☆</span>
+              </div>
+              <div class="co-card-metrics">
+                <div><div class="metric-label">CMP</div><div class="metric-val">₹224</div></div>
+                <div><div class="metric-label">MoS</div><div class="metric-val neg">−22%</div></div>
+                <div><div class="metric-label">P&L</div><div class="metric-val neg">−₹34.8k</div></div>
+              </div>
+              <div class="pill-row">
+                <span class="pill pill-hold">HOLD</span>
+                <span class="pill pill-pnl-neg">−12.3% return</span>
+              </div>
+            </div>
+          </div>
+          <!-- Bottom Nav -->
+          <nav class="bottom-nav">
+            <div class="bn-item active">
+              <span class="bn-icon">⊟</span>
+              <span class="bn-label" style="color:var(--primary)">Dashboard</span>
+            </div>
+            <div class="bn-item">
+              <span class="bn-icon">↑</span>
+              <span class="bn-label">Import</span>
+            </div>
+            <div class="bn-item">
+              <span class="bn-icon">+</span>
+              <span class="bn-label">Add</span>
+            </div>
+            <div class="bn-item">
+              <span class="bn-icon">⚙</span>
+              <span class="bn-label">Settings</span>
+            </div>
+          </nav>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Settings (theme picker) -->
+    <div class="mobile-frame-wrap">
+      <div class="mobile-label">App — Settings (theme picker)</div>
+      <div class="phone-shell">
+        <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+        <div class="phone-screen">
+          <header class="mobile-header" style="background:var(--header-bg);border-bottom:1px solid var(--border)">
+            <div class="logo-mark" style="width:24px;height:24px;font-size:12px;border-radius:6px">S</div>
+            <span class="brand" style="font-size:12px">Settings</span>
+          </header>
+          <div class="mobile-body" style="padding:16px">
+
+            <!-- Appearance section -->
+            <div style="margin-bottom:20px">
+              <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-muted);margin-bottom:12px">Appearance</div>
+
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:calc(var(--radius)+2px);overflow:hidden;box-shadow:var(--shadow-card)">
+
+                <!-- Color theme row -->
+                <div style="padding:14px;border-bottom:1px solid var(--border)">
+                  <div style="font-size:11px;font-weight:600;color:var(--fg);margin-bottom:10px">Colour theme</div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                    <!-- Swatch A -->
+                    <div id="swatch-a" onclick="setTheme('a')" style="cursor:pointer;border:2px solid var(--border);border-radius:9px;overflow:hidden;text-align:center">
+                      <div style="display:flex;height:28px">
+                        <div style="flex:1;background:#4338ca"></div>
+                        <div style="flex:1;background:#ede9f6"></div>
+                        <div style="flex:1;background:#d97706"></div>
+                      </div>
+                      <div style="padding:4px 2px;font-size:9px;font-weight:700;color:var(--fg)">Indigo</div>
+                    </div>
+                    <!-- Swatch B (active) -->
+                    <div id="swatch-b" onclick="setTheme('b')" style="cursor:pointer;border:2px solid var(--primary);border-radius:9px;overflow:hidden;text-align:center;box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 25%,transparent)">
+                      <div style="display:flex;height:28px">
+                        <div style="flex:1;background:#0369a1"></div>
+                        <div style="flex:1;background:#e0f2fe"></div>
+                        <div style="flex:1;background:#0e7490"></div>
+                      </div>
+                      <div style="padding:4px 2px;font-size:9px;font-weight:700;color:var(--primary)">Sapphire ✓</div>
+                    </div>
+                    <!-- Swatch C -->
+                    <div id="swatch-c" onclick="setTheme('c')" style="cursor:pointer;border:2px solid var(--border);border-radius:9px;overflow:hidden;text-align:center">
+                      <div style="display:flex;height:28px">
+                        <div style="flex:1;background:#7c3aed"></div>
+                        <div style="flex:1;background:#f5f3ff"></div>
+                        <div style="flex:1;background:#d97706"></div>
+                      </div>
+                      <div style="padding:4px 2px;font-size:9px;font-weight:700;color:var(--fg)">Violet</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Mode row -->
+                <div style="padding:14px">
+                  <div style="font-size:11px;font-weight:600;color:var(--fg);margin-bottom:10px">Mode</div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+                    <div id="mode-light-btn" onclick="setMode('light')" style="cursor:pointer;padding:8px 6px;border-radius:7px;border:2px solid var(--primary);background:var(--primary-dim);text-align:center">
+                      <div style="font-size:14px">☀</div>
+                      <div style="font-size:9px;font-weight:700;color:var(--primary);margin-top:2px">Light ✓</div>
+                    </div>
+                    <div id="mode-dark-btn" onclick="setMode('dark')" style="cursor:pointer;padding:8px 6px;border-radius:7px;border:2px solid var(--border);text-align:center">
+                      <div style="font-size:14px">🌙</div>
+                      <div style="font-size:9px;font-weight:600;color:var(--fg-muted);margin-top:2px">Dark</div>
+                    </div>
+                    <div style="cursor:pointer;padding:8px 6px;border-radius:7px;border:2px solid var(--border);text-align:center">
+                      <div style="font-size:14px">⊙</div>
+                      <div style="font-size:9px;font-weight:600;color:var(--fg-muted);margin-top:2px">System</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Account section -->
+            <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-muted);margin-bottom:12px">Account</div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:calc(var(--radius)+2px);box-shadow:var(--shadow-card)">
+              <div style="display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)">
+                <div style="width:32px;height:32px;border-radius:50%;background:var(--primary-dim);color:var(--primary);display:grid;place-items:center;font-weight:700;font-size:12px;border:1.5px solid var(--primary-mid)">RA</div>
+                <div style="margin-left:10px">
+                  <div style="font-size:12px;font-weight:600;color:var(--fg)">Ravindra Adireddy</div>
+                  <div style="font-size:10px;color:var(--fg-muted)">adireddyravindra@gmail.com</div>
+                </div>
+              </div>
+              <div style="padding:12px 14px;font-size:11px;color:var(--negative);font-weight:600;cursor:pointer">Sign out</div>
+            </div>
+
+          </div>
+          <nav class="bottom-nav">
+            <div class="bn-item"><span class="bn-icon">⊟</span><span class="bn-label">Dashboard</span></div>
+            <div class="bn-item"><span class="bn-icon">↑</span><span class="bn-label">Import</span></div>
+            <div class="bn-item"><span class="bn-icon">+</span><span class="bn-label">Add</span></div>
+            <div class="bn-item active"><span class="bn-icon">⚙</span><span class="bn-label" style="color:var(--primary)">Settings</span></div>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MARKETING VIEW ===== -->
+  <div id="view-marketing-content" style="display:none" class="desktop-frame">
+    <!-- Marketing header -->
+    <header class="app-header" style="background:var(--header-bg);border-bottom:1px solid var(--border)">
+      <span class="brand" style="font-size:15px">StockTracker</span>
+      <nav class="nav-links" style="margin-left:auto;">
+        <span class="nav-a">Features</span>
+        <span class="nav-a">Pricing</span>
+        <span class="nav-a">Blog</span>
+      </nav>
+      <div class="header-right">
+        <button class="btn-p" style="font-size:12px;padding:7px 16px">Sign in with Google</button>
+      </div>
+    </header>
+    <!-- Hero -->
+    <div class="mkt-hero">
+      <div class="mkt-eyebrow">For conviction investors</div>
+      <div class="mkt-title">Track your portfolio<br>with <span>thesis-level depth</span></div>
+      <div class="mkt-sub">StockTracker brings your Excel investing model online — multi-year DCF models, margin of safety, IRR, and conviction-weighted allocation. No broken formulas, no version chaos.</div>
+      <div class="mkt-cta-row">
+        <button class="mkt-cta">Get started free — Sign in with Google</button>
+        <button class="mkt-cta-ghost">See how it works ↓</button>
+      </div>
+      <div class="mkt-trust">
+        <div class="trust-item"><span class="trust-icon">🔒</span>Supabase RLS — your data is yours</div>
+        <div class="trust-item"><span class="trust-icon">✓</span>Works with Zerodha holdings</div>
+        <div class="trust-item"><span class="trust-icon">★</span>31 Indian companies tracked live</div>
+      </div>
+    </div>
+    <!-- Feature strip -->
+    <div class="mkt-features">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--primary);margin-bottom:4px">Features</div>
+      <div style="font-size:16px;font-weight:800;color:var(--fg);margin-bottom:12px">Everything your spreadsheet can't do</div>
+      <div class="feature-strip">
+        <div class="feature-item">
+          <div class="feature-icon">📊</div>
+          <div><div class="feature-name">Live valuation</div><div class="feature-desc">Bull / base / bear scenarios with real-time MoS and IRR.</div></div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">⚖️</div>
+          <div><div class="feature-name">Conviction allocation</div><div class="feature-desc">Star ratings → target weights → exact ₹ to add or trim.</div></div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">📋</div>
+          <div><div class="feature-name">Living timeline</div><div class="feature-desc">Log quarterly results, concall notes, and decisions.</div></div>
+        </div>
+      </div>
+    </div>
+    <!-- Demo preview card -->
+    <div style="background:var(--bg);border-top:1px solid var(--border);padding:20px 24px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--primary);margin-bottom:4px">Live, never stale</div>
+      <div style="font-size:16px;font-weight:800;color:var(--fg);margin-bottom:12px">Your assumptions. A buy price that moves with the market.</div>
+      <div style="display:grid;grid-template-columns:2fr 3fr;gap:20px;align-items:center">
+        <div style="font-size:12px;color:var(--fg-muted);line-height:1.7">Enter your bull, base and bear case. StockTracker back-solves the buy price for each scenario. As the market price moves, MoS, IRR and the BUY signal update in real time.</div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:var(--shadow-card)">
+          <div style="font-size:10px;font-weight:700;color:var(--fg-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">HDFC Bank — Valuation</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+            <div style="background:var(--secondary);border-radius:7px;padding:8px">
+              <div style="font-size:9px;font-weight:700;color:var(--fg-muted);text-transform:uppercase">Bear</div>
+              <div style="font-size:13px;font-weight:800;color:var(--fg);margin-top:3px">₹1,380</div>
+              <div style="font-size:10px;color:var(--fg-muted)">IRR 11%</div>
+            </div>
+            <div style="background:var(--primary-dim);border:1.5px solid var(--primary-mid);border-radius:7px;padding:8px">
+              <div style="font-size:9px;font-weight:700;color:var(--primary);text-transform:uppercase">Base ✓</div>
+              <div style="font-size:13px;font-weight:800;color:var(--fg);margin-top:3px">₹1,560</div>
+              <div style="font-size:10px;color:var(--positive-text)">IRR 18%</div>
+            </div>
+            <div style="background:var(--secondary);border-radius:7px;padding:8px">
+              <div style="font-size:9px;font-weight:700;color:var(--fg-muted);text-transform:uppercase">Bull</div>
+              <div style="font-size:13px;font-weight:800;color:var(--fg);margin-top:3px">₹1,840</div>
+              <div style="font-size:10px;color:var(--positive-text)">IRR 26%</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:var(--positive-dim);border-radius:7px">
+            <div style="font-size:11px;font-weight:600;color:var(--positive-text)">CMP ₹1,642 · MoS +18% · <strong>BUY</strong></div>
+            <span class="badge badge-buy">BUY</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function setTheme(t){
+  document.body.dataset.theme=t;
+  ['a','b','c'].forEach(x=>document.getElementById('btn-'+x).classList.toggle('active',x===t));
+}
+function setMode(m){
+  document.body.dataset.mode=m;
+  document.getElementById('btn-light').classList.toggle('active',m==='light');
+  document.getElementById('btn-dark').classList.toggle('active',m==='dark');
+}
+function setView(v){
+  ['desktop','mobile','marketing'].forEach(x=>{
+    document.getElementById('view-'+x+'-content').style.display = x===v ? (v==='mobile'?'flex':'block') : 'none';
+    document.getElementById('view-'+x).classList.toggle('active',x===v);
+  });
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='a'||e.key==='A') setTheme('a');
+  if(e.key==='b'||e.key==='B') setTheme('b');
+  if(e.key==='c'||e.key==='C') setTheme('c');
+  if(e.key==='d'||e.key==='D') setMode(document.body.dataset.mode==='light'?'dark':'light');
+  if(e.key==='1') setView('desktop');
+  if(e.key==='2') setView('mobile');
+  if(e.key==='3') setView('marketing');
+});
+</script>
+</body>
+</html>

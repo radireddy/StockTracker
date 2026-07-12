@@ -1,0 +1,334 @@
+<h2>Choose a colour direction</h2>
+<p class="subtitle">Green and red stay as semantic signals (profit/loss, buy/sell). The primary, secondary, and accent roles get a fresh identity. Here are three directions — each showing a mini app header + dashboard row so you see them in context.</p>
+
+<style>
+/* Mini UI preview styles */
+.palette-preview {
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  border: 1px solid rgba(0,0,0,0.1);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+/* ---- OPTION A: Slate Indigo + Amber ---- */
+.pa-bg    { background: #f5f4f8; }
+.pa-card  { background: #ffffff; }
+.pa-header{ background: rgba(245,244,248,0.92); border-bottom: 1px solid #e0dfe8; display:flex; align-items:center; padding: 10px 14px; gap: 10px; }
+.pa-logo  { background: linear-gradient(135deg,#4338ca,#6d28d9); color:#fff; border-radius:7px; width:22px;height:22px;display:grid;place-items:center;font-weight:800;font-size:13px;flex-shrink:0; box-shadow:0 2px 6px rgba(67,56,202,0.35); }
+.pa-brand { font-weight:700; color:#4338ca; letter-spacing:-0.3px; }
+.pa-nav   { display:flex;gap:14px;margin-left:14px; }
+.pa-nav-active { color:#1e1b4b; font-weight:600; }
+.pa-nav-item   { color:#6b7280; }
+.pa-pill  { background:#4338ca; color:#fff; border-radius:5px; padding:3px 10px; font-size:11px; font-weight:600; margin-left:auto; }
+.pa-pill2 { background:transparent; border:1px solid #e0dfe8; color:#4b5563; border-radius:5px; padding:3px 10px; font-size:11px; margin-left:6px; }
+.pa-table { padding: 10px 14px 14px; }
+.pa-thead { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr; gap:4px; color:#9ca3af; font-size:10px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; padding:0 6px; margin-bottom:6px; }
+.pa-row   { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr; gap:4px; background:#fff; border:1px solid #ede9f6; border-radius:8px; padding:8px 6px; margin-bottom:5px; align-items:center; }
+.pa-row:hover { border-color:#a5b4fc; box-shadow:0 2px 8px rgba(99,102,241,0.1); }
+.pa-sym   { font-weight:700; color:#1e1b4b; }
+.pa-name  { font-size:10px; color:#9ca3af; }
+.pa-positive { color:#16a34a; font-weight:600; }
+.pa-negative { color:#dc2626; font-weight:600; }
+.pa-buy   { background:#dcfce7; color:#15803d; border-radius:4px; padding:2px 7px; font-size:10px; font-weight:700; display:inline-block; }
+.pa-hold  { background:#f3f4f6; color:#6b7280; border-radius:4px; padding:2px 7px; font-size:10px; font-weight:600; display:inline-block; }
+.pa-stars { color:#d97706; font-size:11px; }
+.pa-badge { background:#ede9f6; color:#4338ca; border-radius:4px; padding:2px 7px; font-size:10px; font-weight:600; display:inline-block; }
+.pa-pnlbar{ height:3px; background:linear-gradient(90deg,#4338ca 0%,#7c3aed 50%,#d97706 100%); border-radius:2px; margin:8px 0 6px; }
+.pa-summary { display:flex; gap:14px; padding:8px 6px; background:#f9f8ff; border-radius:7px; margin-bottom:8px; }
+.pa-stat { flex:1; }
+.pa-stat-label { color:#9ca3af; font-size:9px; text-transform:uppercase; letter-spacing:.06em; }
+.pa-stat-val   { color:#1e1b4b; font-weight:700; font-size:13px; margin-top:1px; }
+.pa-stat-sub   { color:#16a34a; font-size:10px; font-weight:600; }
+
+/* ---- OPTION B: Sapphire Blue + Teal ---- */
+.pb-bg    { background: #f0f4f8; }
+.pb-header{ background: rgba(240,244,248,0.92); border-bottom: 1px solid #d1dde8; display:flex; align-items:center; padding: 10px 14px; gap: 10px; }
+.pb-logo  { background: linear-gradient(135deg,#0369a1,#0ea5e9); color:#fff; border-radius:7px; width:22px;height:22px;display:grid;place-items:center;font-weight:800;font-size:13px;flex-shrink:0; box-shadow:0 2px 6px rgba(3,105,161,0.35); }
+.pb-brand { font-weight:700; color:#0369a1; letter-spacing:-0.3px; }
+.pb-nav   { display:flex;gap:14px;margin-left:14px; }
+.pb-nav-active { color:#0c2340; font-weight:600; }
+.pb-nav-item   { color:#64748b; }
+.pb-pill  { background:#0369a1; color:#fff; border-radius:5px; padding:3px 10px; font-size:11px; font-weight:600; margin-left:auto; }
+.pb-pill2 { background:transparent; border:1px solid #d1dde8; color:#475569; border-radius:5px; padding:3px 10px; font-size:11px; margin-left:6px; }
+.pb-table { padding: 10px 14px 14px; background:#f0f4f8; }
+.pb-thead { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr; gap:4px; color:#94a3b8; font-size:10px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; padding:0 6px; margin-bottom:6px; }
+.pb-row   { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr; gap:4px; background:#fff; border:1px solid #e1ebf4; border-radius:8px; padding:8px 6px; margin-bottom:5px; align-items:center; }
+.pb-row:hover { border-color:#7dd3fc; box-shadow:0 2px 8px rgba(14,165,233,0.1); }
+.pb-sym   { font-weight:700; color:#0c2340; }
+.pb-name  { font-size:10px; color:#94a3b8; }
+.pb-buy   { background:#dcfce7; color:#15803d; border-radius:4px; padding:2px 7px; font-size:10px; font-weight:700; display:inline-block; }
+.pb-hold  { background:#f1f5f9; color:#64748b; border-radius:4px; padding:2px 7px; font-size:10px; font-weight:600; display:inline-block; }
+.pb-stars { color:#0e7490; font-size:11px; }
+.pb-badge { background:#e0f2fe; color:#0369a1; border-radius:4px; padding:2px 7px; font-size:10px; font-weight:600; display:inline-block; }
+.pb-summary { display:flex; gap:14px; padding:8px 6px; background:#e8f3fb; border-radius:7px; margin-bottom:8px; }
+.pb-stat  { flex:1; }
+.pb-stat-label { color:#94a3b8; font-size:9px; text-transform:uppercase; letter-spacing:.06em; }
+.pb-stat-val   { color:#0c2340; font-weight:700; font-size:13px; margin-top:1px; }
+.pb-stat-sub   { color:#16a34a; font-size:10px; font-weight:600; }
+.pb-pnlbar{ height:3px; background:linear-gradient(90deg,#0369a1 0%,#0ea5e9 40%,#0e7490 100%); border-radius:2px; margin:8px 0 6px; }
+
+/* ---- OPTION C: Deep Violet + Saffron Gold ---- */
+.pc-bg    { background: #faf9fc; }
+.pc-header{ background: rgba(250,249,252,0.92); border-bottom: 1px solid #e5e0f0; display:flex; align-items:center; padding: 10px 14px; gap: 10px; }
+.pc-logo  { background: linear-gradient(135deg,#7c3aed,#a855f7); color:#fff; border-radius:7px; width:22px;height:22px;display:grid;place-items:center;font-weight:800;font-size:13px;flex-shrink:0; box-shadow:0 2px 6px rgba(124,58,237,0.35); }
+.pc-brand { font-weight:700; color:#7c3aed; letter-spacing:-0.3px; }
+.pc-nav   { display:flex;gap:14px;margin-left:14px; }
+.pc-nav-active { color:#1e0a3c; font-weight:600; }
+.pc-nav-item   { color:#6b7280; }
+.pc-pill  { background:linear-gradient(135deg,#7c3aed,#9f1b9f); color:#fff; border-radius:5px; padding:3px 10px; font-size:11px; font-weight:600; margin-left:auto; }
+.pc-pill2 { background:transparent; border:1px solid #e5e0f0; color:#4b5563; border-radius:5px; padding:3px 10px; font-size:11px; margin-left:6px; }
+.pc-table { padding: 10px 14px 14px; background:#faf9fc; }
+.pc-thead { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr; gap:4px; color:#9ca3af; font-size:10px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; padding:0 6px; margin-bottom:6px; }
+.pc-row   { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr; gap:4px; background:#fff; border:1px solid #ede9f6; border-radius:8px; padding:8px 6px; margin-bottom:5px; align-items:center; }
+.pc-row:hover { border-color:#c4b5fd; box-shadow:0 2px 8px rgba(139,92,246,0.1); }
+.pc-sym   { font-weight:700; color:#1e0a3c; }
+.pc-name  { font-size:10px; color:#9ca3af; }
+.pc-buy   { background:#dcfce7; color:#15803d; border-radius:4px; padding:2px 7px; font-size:10px; font-weight:700; display:inline-block; }
+.pc-hold  { background:#f5f3ff; color:#7c3aed; border-radius:4px; padding:2px 7px; font-size:10px; font-weight:600; display:inline-block; }
+.pc-stars { color:#d97706; font-size:11px; }
+.pc-badge-gold { background:#fef3c7; color:#92400e; border-radius:4px; padding:2px 7px; font-size:10px; font-weight:600; display:inline-block; }
+.pc-summary { display:flex; gap:14px; padding:8px 6px; background:#f5f3ff; border-radius:7px; margin-bottom:8px; }
+.pc-stat  { flex:1; }
+.pc-stat-label { color:#9ca3af; font-size:9px; text-transform:uppercase; letter-spacing:.06em; }
+.pc-stat-val   { color:#1e0a3c; font-weight:700; font-size:13px; margin-top:1px; }
+.pc-stat-sub   { color:#16a34a; font-size:10px; font-weight:600; }
+.pc-pnlbar{ height:3px; background:linear-gradient(90deg,#7c3aed 0%,#a855f7 50%,#d97706 100%); border-radius:2px; margin:8px 0 6px; }
+
+/* Common positive/negative — same in all three */
+.pos { color:#16a34a; font-weight:600; }
+.neg { color:#dc2626; font-weight:600; }
+
+.cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 20px; }
+@media (max-width: 900px) { .cards { grid-template-columns: 1fr; } }
+
+.card { cursor:pointer; border:2px solid #e5e7eb; border-radius:14px; overflow:hidden; transition:all 0.18s ease; background:#fff; }
+.card:hover { border-color:#6366f1; box-shadow:0 4px 20px rgba(99,102,241,0.15); transform:translateY(-2px); }
+.card.selected { border-color:#4f46e5; box-shadow:0 4px 24px rgba(79,70,229,0.25); }
+
+.card-image { padding:14px 14px 0; }
+.card-body  { padding:14px; }
+.card-body h3 { font-size:14px; font-weight:700; margin:0 0 4px; }
+.card-body p  { font-size:12px; color:#6b7280; margin:0; line-height:1.5; }
+
+.swatch-row { display:flex; gap:5px; margin-top:10px; }
+.swatch     { height:18px; border-radius:4px; flex:1; }
+
+.tag { display:inline-block; font-size:10px; font-weight:600; padding:2px 7px; border-radius:4px; margin-bottom:8px; }
+.tag-pro { background:#dcfce7; color:#15803d; }
+.tag-unique { background:#f3e8ff; color:#7c3aed; }
+.tag-trust  { background:#dbeafe; color:#1d4ed8; }
+</style>
+
+<div class="cards">
+
+  <!-- OPTION A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="palette-preview">
+        <!-- Header -->
+        <div class="pa-header">
+          <div class="pa-logo">S</div>
+          <span class="pa-brand">StockTracker</span>
+          <div class="pa-nav">
+            <span class="pa-nav-active">Dashboard</span>
+            <span class="pa-nav-item">Import</span>
+            <span class="pa-nav-item">Settings</span>
+          </div>
+          <span class="pa-pill">+ Add company</span>
+          <span class="pa-pill2">Refresh</span>
+        </div>
+        <!-- Dashboard body -->
+        <div class="pa-table pa-bg">
+          <div class="pa-summary">
+            <div class="pa-stat"><div class="pa-stat-label">Portfolio value</div><div class="pa-stat-val">₹24.7L</div><div class="pa-stat-sub">+₹3.2L (+14.9%)</div></div>
+            <div class="pa-stat"><div class="pa-stat-label">Invested</div><div class="pa-stat-val">₹21.5L</div></div>
+            <div class="pa-stat"><div class="pa-stat-label">Day P&amp;L</div><div class="pa-stat-val pos">+₹18,240</div></div>
+            <div class="pa-stat"><div class="pa-stat-label">IRR</div><div class="pa-stat-val">22.4%</div></div>
+          </div>
+          <div class="pa-pnlbar"></div>
+          <div class="pa-thead"><span>Company</span><span>CMP</span><span>MoS</span><span>P&amp;L</span><span>Signal</span><span>Rating</span></div>
+          <div class="pa-row">
+            <div><div class="pa-sym">HDFC Bank</div><div class="pa-name">Private Banking</div></div>
+            <div>₹1,642</div>
+            <div class="pos">+18%</div>
+            <div class="pos">+₹42,300</div>
+            <div><span class="pa-buy">BUY</span></div>
+            <div class="pa-stars">★★★★★</div>
+          </div>
+          <div class="pa-row">
+            <div><div class="pa-sym">Infosys</div><div class="pa-name">IT Services</div></div>
+            <div>₹1,890</div>
+            <div class="neg">−4%</div>
+            <div class="neg">−₹8,200</div>
+            <div><span class="pa-hold">HOLD</span></div>
+            <div class="pa-stars">★★★★☆</div>
+          </div>
+          <div class="pa-row">
+            <div><div class="pa-sym">Bajaj Finance</div><div class="pa-name">NBFC</div></div>
+            <div>₹7,240</div>
+            <div class="pos">+31%</div>
+            <div class="pos">+₹1.2L</div>
+            <div><span class="pa-buy">BUY</span></div>
+            <div class="pa-stars">★★★★★</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <span class="tag tag-trust">Professional</span>
+      <h3>A — Slate Indigo + Amber</h3>
+      <p>Deep indigo primary. Warm amber accent for stars and signals. Neutral slate surfaces. Like Bloomberg meets Notion — trusted, data-dense, sophisticated.</p>
+      <div class="swatch-row">
+        <div class="swatch" style="background:#4338ca" title="Primary — Indigo"></div>
+        <div class="swatch" style="background:#ede9f6" title="Secondary — Soft violet-grey"></div>
+        <div class="swatch" style="background:#d97706" title="Accent — Amber gold"></div>
+        <div class="swatch" style="background:#16a34a" title="Positive (kept)"></div>
+        <div class="swatch" style="background:#dc2626" title="Negative (kept)"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="palette-preview">
+        <!-- Header -->
+        <div class="pb-header">
+          <div class="pb-logo">S</div>
+          <span class="pb-brand">StockTracker</span>
+          <div class="pb-nav">
+            <span class="pb-nav-active">Dashboard</span>
+            <span class="pb-nav-item">Import</span>
+            <span class="pb-nav-item">Settings</span>
+          </div>
+          <span class="pb-pill">+ Add company</span>
+          <span class="pb-pill2">Refresh</span>
+        </div>
+        <!-- Dashboard body -->
+        <div class="pb-table">
+          <div class="pb-summary">
+            <div class="pb-stat"><div class="pb-stat-label">Portfolio value</div><div class="pb-stat-val">₹24.7L</div><div class="pb-stat-sub pos">+₹3.2L (+14.9%)</div></div>
+            <div class="pb-stat"><div class="pb-stat-label">Invested</div><div class="pb-stat-val">₹21.5L</div></div>
+            <div class="pb-stat"><div class="pb-stat-label">Day P&amp;L</div><div class="pb-stat-val pos">+₹18,240</div></div>
+            <div class="pb-stat"><div class="pb-stat-label">IRR</div><div class="pb-stat-val">22.4%</div></div>
+          </div>
+          <div class="pb-pnlbar"></div>
+          <div class="pb-thead"><span>Company</span><span>CMP</span><span>MoS</span><span>P&amp;L</span><span>Signal</span><span>Rating</span></div>
+          <div class="pb-row">
+            <div><div class="pb-sym">HDFC Bank</div><div class="pb-name">Private Banking</div></div>
+            <div>₹1,642</div>
+            <div class="pos">+18%</div>
+            <div class="pos">+₹42,300</div>
+            <div><span class="pb-buy">BUY</span></div>
+            <div class="pb-stars">★★★★★</div>
+          </div>
+          <div class="pb-row">
+            <div><div class="pb-sym">Infosys</div><div class="pb-name">IT Services</div></div>
+            <div>₹1,890</div>
+            <div class="neg">−4%</div>
+            <div class="neg">−₹8,200</div>
+            <div><span class="pb-hold">HOLD</span></div>
+            <div class="pb-stars">★★★★☆</div>
+          </div>
+          <div class="pb-row">
+            <div><div class="pb-sym">Bajaj Finance</div><div class="pb-name">NBFC</div></div>
+            <div>₹7,240</div>
+            <div class="pos">+31%</div>
+            <div class="pos">+₹1.2L</div>
+            <div><span class="pb-buy">BUY</span></div>
+            <div class="pb-stars">★★★★★</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <span class="tag tag-trust">Confident</span>
+      <h3>B — Sapphire Blue + Cyan</h3>
+      <p>Clear, authoritative sky blue primary. Cyan teal accent for interactive highlights. Crisp cool-grey surfaces. Modern data dashboard feel — like a refined NSE terminal.</p>
+      <div class="swatch-row">
+        <div class="swatch" style="background:#0369a1" title="Primary — Sapphire Blue"></div>
+        <div class="swatch" style="background:#e0f2fe" title="Secondary — Ice blue"></div>
+        <div class="swatch" style="background:#0e7490" title="Accent — Cyan teal"></div>
+        <div class="swatch" style="background:#16a34a" title="Positive (kept)"></div>
+        <div class="swatch" style="background:#dc2626" title="Negative (kept)"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION C -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="palette-preview">
+        <!-- Header -->
+        <div class="pc-header">
+          <div class="pc-logo">S</div>
+          <span class="pc-brand">StockTracker</span>
+          <div class="pc-nav">
+            <span class="pc-nav-active">Dashboard</span>
+            <span class="pc-nav-item">Import</span>
+            <span class="pc-nav-item">Settings</span>
+          </div>
+          <span class="pc-pill">+ Add company</span>
+          <span class="pc-pill2">Refresh</span>
+        </div>
+        <!-- Dashboard body -->
+        <div class="pc-table">
+          <div class="pc-summary">
+            <div class="pc-stat"><div class="pc-stat-label">Portfolio value</div><div class="pc-stat-val">₹24.7L</div><div class="pc-stat-sub pos">+₹3.2L (+14.9%)</div></div>
+            <div class="pc-stat"><div class="pc-stat-label">Invested</div><div class="pc-stat-val">₹21.5L</div></div>
+            <div class="pc-stat"><div class="pc-stat-label">Day P&amp;L</div><div class="pc-stat-val pos">+₹18,240</div></div>
+            <div class="pc-stat"><div class="pc-stat-label">IRR</div><div class="pc-stat-val">22.4%</div></div>
+          </div>
+          <div class="pc-pnlbar"></div>
+          <div class="pc-thead"><span>Company</span><span>CMP</span><span>MoS</span><span>P&amp;L</span><span>Signal</span><span>Rating</span></div>
+          <div class="pc-row">
+            <div><div class="pc-sym">HDFC Bank</div><div class="pc-name">Private Banking</div></div>
+            <div>₹1,642</div>
+            <div class="pos">+18%</div>
+            <div class="pos">+₹42,300</div>
+            <div><span class="pc-buy">BUY</span></div>
+            <div class="pc-stars">★★★★★</div>
+          </div>
+          <div class="pc-row">
+            <div><div class="pc-sym">Infosys</div><div class="pc-name">IT Services</div></div>
+            <div>₹1,890</div>
+            <div class="neg">−4%</div>
+            <div class="neg">−₹8,200</div>
+            <div><span class="pc-hold">HOLD</span></div>
+            <div class="pc-stars">★★★★☆</div>
+          </div>
+          <div class="pc-row">
+            <div><div class="pc-sym">Bajaj Finance</div><div class="pc-name">NBFC</div></div>
+            <div>₹7,240</div>
+            <div class="pos">+31%</div>
+            <div class="pos">+₹1.2L</div>
+            <div><span class="pc-buy">BUY</span></div>
+            <div class="pc-stars">★★★★★</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <span class="tag tag-unique">Distinctive</span>
+      <h3>C — Deep Violet + Saffron Gold</h3>
+      <p>Rich violet primary — unique in Indian fintech (Groww uses purple but lighter). Saffron/amber-gold accent echoes the Indian market context. Premium, warm, unforgettable.</p>
+      <div class="swatch-row">
+        <div class="swatch" style="background:#7c3aed" title="Primary — Violet"></div>
+        <div class="swatch" style="background:#f5f3ff" title="Secondary — Lavender mist"></div>
+        <div class="swatch" style="background:#d97706" title="Accent — Saffron gold"></div>
+        <div class="swatch" style="background:#16a34a" title="Positive (kept)"></div>
+        <div class="swatch" style="background:#dc2626" title="Negative (kept)"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:20px; padding:14px; background:#f9fafb; border-radius:10px; border:1px solid #e5e7eb;">
+  <p style="margin:0; font-size:12px; color:#6b7280;">
+    <strong style="color:#374151;">Note:</strong> In all three options — green stays for +P&L, BUY signals, and positive MoS. Red stays for losses, SELL signals, and negative values. Stars keep their amber/gold colour. The primary colour is only used for brand, navigation, buttons, focus rings, and interactive highlights.
+  </p>
+</div>

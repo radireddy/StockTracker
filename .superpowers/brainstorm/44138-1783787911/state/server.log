@@ -1,0 +1,5 @@
+{"type":"server-started","port":61331,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:61331/?key=333a3898d04633e3b746c4e6e4ffe2c30dd4c5b45d87ef5fba824bf816992b12","screen_dir":"/Users/ravindraadireddy/StockTracker/.superpowers/brainstorm/44138-1783787911/content","state_dir":"/Users/ravindraadireddy/StockTracker/.superpowers/brainstorm/44138-1783787911/state","idle_timeout_ms":14400000}
+{"type":"screen-added","file":"/Users/ravindraadireddy/StockTracker/.superpowers/brainstorm/44138-1783787911/content/palette-directions.html"}
+{"type":"screen-added","file":"/Users/ravindraadireddy/StockTracker/.superpowers/brainstorm/44138-1783787911/content/theme-switcher.html"}
+{"type":"screen-added","file":"/Users/ravindraadireddy/StockTracker/.superpowers/brainstorm/44138-1783787911/content/mobile-and-marketing.html"}
+{"type":"server-stopped","reason":"idle timeout"}

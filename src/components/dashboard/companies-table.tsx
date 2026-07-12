@@ -121,7 +121,7 @@ function mosClass(mos: number | null): string {
 /** Company avatar tile with initials. */
 function Fav({ name }: { name: string }) {
   return (
-    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent text-[0.72rem] font-bold text-primary">
+    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent text-[0.72rem] font-bold text-accent-foreground">
       {initials(name)}
     </span>
   );
@@ -161,7 +161,7 @@ function EmptyState({
     <tr>
       <td colSpan={99} className="px-4 py-14">
         <div className="mx-auto flex max-w-sm flex-col items-center text-center">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-[16px] bg-accent text-primary shadow-soft">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-[16px] bg-accent text-accent-foreground shadow-soft">
             {isHoldings ? <UploadIcon /> : <PlusIcon />}
           </div>
           <p className="text-base font-bold text-foreground">

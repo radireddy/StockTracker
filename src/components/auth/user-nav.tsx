@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { ColorThemeToggle } from "@/components/theme/color-theme-toggle";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { LayoutDashboard, Upload, Settings, LogOut, Trash2 } from "lucide-react";
@@ -32,13 +33,13 @@ export function UserNav({ profile }: { profile: Profile }) {
       <DropdownMenu>
         <DropdownMenuTrigger
           aria-label="Account menu"
-          className="relative inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/15 bg-accent text-sm font-semibold text-primary shadow-sm ring-offset-background transition-all hover:brightness-95 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="relative inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/15 bg-accent text-sm font-semibold text-accent-foreground shadow-sm ring-offset-background transition-all hover:brightness-95 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           {initial}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" sideOffset={8} className="w-64 p-1.5">
           <div className="flex items-center gap-3 p-2">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-primary/15 bg-accent text-base font-semibold text-primary">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-primary/15 bg-accent text-base font-semibold text-accent-foreground">
               {initial}
             </div>
             <div className="flex min-w-0 flex-col">
@@ -74,6 +75,10 @@ export function UserNav({ profile }: { profile: Profile }) {
             <Settings className="text-muted-foreground" aria-hidden="true" />
             Settings
           </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          <ColorThemeToggle />
 
           <DropdownMenuSeparator />
 
