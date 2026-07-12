@@ -46,6 +46,11 @@ function fmtRange(min: number, max: number, isAbsolute: boolean): string {
   return `${fmt(min)} – ${fmt(max)}`;
 }
 
+function fmtMinMax(min: number, max: number, isAbsolute: boolean): string {
+  if (isAbsolute) return fmt(min);
+  return `min ${fmt(min)} – max ${fmt(max)}`;
+}
+
 function fmtPctRange(min: number, max: number, total: number): string {
   const lo = Math.round((min / total) * 100);
   const hi = Math.round((max / total) * 100);
@@ -306,9 +311,9 @@ function Results({
                       "—"
                     ) : isBudgetConstrained && b.suggestedAmount !== null ? (
                       <>
-                        <span>{fmt(b.suggestedAmount)}</span>
+                        <span>{fmt(b.suggestedAmount)} ({b.suggestedPct?.toFixed(1)}%)</span>
                         <span className="block text-xs font-normal text-muted-foreground">
-                          {b.suggestedPct?.toFixed(1)}% · range {fmtRange(b.perStockMin, b.perStockMax, b.isAbsolute)}
+                          {fmtMinMax(b.perStockMin, b.perStockMax, b.isAbsolute)}
                         </span>
                       </>
                     ) : (
@@ -322,7 +327,7 @@ function Results({
                       <>
                         <span>{fmt(b.suggestedAmount * b.count)}</span>
                         <span className="block text-xs font-normal text-muted-foreground">
-                          range {fmtRange(b.bucketMin, b.bucketMax, b.isAbsolute)}
+                          {fmtMinMax(b.bucketMin, b.bucketMax, b.isAbsolute)}
                         </span>
                       </>
                     ) : (
