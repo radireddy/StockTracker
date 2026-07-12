@@ -14,14 +14,14 @@ function GuideRow({
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent text-primary">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent text-accent-foreground">
         {icon}
       </span>
       <div className="min-w-0">
         <div className="text-[0.82rem] font-semibold leading-tight">{title}</div>
         <div className="text-[0.72rem] text-muted-foreground">{detail}</div>
       </div>
-      <span className="ml-auto shrink-0 rounded-full bg-accent px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-wide text-primary">
+      <span className="ml-auto shrink-0 rounded-full bg-accent px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-wide text-accent-foreground">
         {unlocks}
       </span>
     </div>

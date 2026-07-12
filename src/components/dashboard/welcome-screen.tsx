@@ -12,7 +12,7 @@ function SignalCard({
 }) {
   return (
     <div className="rounded-xl border border-border bg-card p-5">
-      <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent text-primary">
+      <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent text-accent-foreground">
         {icon}
       </span>
       <p className="mt-3 text-[0.82rem] font-medium text-muted-foreground">

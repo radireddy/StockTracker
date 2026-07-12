@@ -25,7 +25,7 @@ function edgeClass(mos: number | null): string {
 /** Company avatar tile. */
 function Fav({ name }: { name: string }) {
   return (
-    <span className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-[11px] bg-accent text-[0.78rem] font-bold text-primary">
+    <span className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-[11px] bg-accent text-[0.78rem] font-bold text-accent-foreground">
       {initials(name)}
     </span>
   );

@@ -13,7 +13,6 @@ import { PortfolioManager } from "@/components/settings/portfolio-manager";
 import { AllocationRangesEditor } from "@/components/settings/allocation-ranges-editor";
 import { AccountsManager } from "@/components/account/accounts-manager";
 import { DeleteAccountDialog } from "@/components/settings/delete-account-dialog";
-import { ColorThemeSelector } from "@/components/theme/color-theme-selector";
 import { getPortfolios } from "@/app/(authenticated)/actions/portfolio-actions";
 import type { AllocationRanges } from "@/types/database";
 import type { Metadata } from "next";
@@ -39,14 +38,6 @@ export default async function SettingsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader eyebrow="Account" title="Settings" />
-      <Card className="shadow-soft">
-        <CardHeader>
-          <CardTitle>Appearance</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ColorThemeSelector />
-        </CardContent>
-      </Card>
       <Card className="shadow-soft">
         <CardHeader>
           <CardTitle>Profile</CardTitle>

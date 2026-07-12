@@ -70,7 +70,7 @@ export default async function RootLayout({
           nonce={nonce}
           suppressHydrationWarning
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('color-theme');if(t&&t!=='b')document.documentElement.setAttribute('data-color-theme',t);}catch(e){}})()`,
+            __html: `(function(){try{var t=localStorage.getItem('color-theme');if(t&&t!=='c')document.documentElement.setAttribute('data-color-theme',t);}catch(e){}})()`,
           }}
         />
       </head>

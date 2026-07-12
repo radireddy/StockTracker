@@ -27,7 +27,7 @@ const ColorThemeContext = createContext<ColorThemeContextValue>({
 
 function applyColorTheme(id: ColorThemeId) {
   const el = document.documentElement;
-  if (id === "b") {
+  if (id === "c") {
     el.removeAttribute("data-color-theme");
   } else {
     el.setAttribute("data-color-theme", id);

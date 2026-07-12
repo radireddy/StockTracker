@@ -29,7 +29,7 @@ export function EmptyState({
         className
       )}
     >
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[18px] bg-accent text-primary shadow-soft">
+      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[18px] bg-accent text-accent-foreground shadow-soft">
         <Icon size={24} aria-hidden="true" />
       </div>
       <h3 className="text-lg font-bold tracking-tight text-foreground">{title}</h3>

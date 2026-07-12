@@ -40,7 +40,7 @@ export const COLOR_THEMES: ColorTheme[] = [
   },
 ];
 
-export const DEFAULT_COLOR_THEME: ColorThemeId = "b";
+export const DEFAULT_COLOR_THEME: ColorThemeId = "c";
 
 export const VALID_COLOR_THEME_IDS: ColorThemeId[] = ["a", "b", "c"];
 
