@@ -39,7 +39,7 @@ test.describe("homepage / hero carousel", () => {
   test("valuation scenarios slide content exists in the DOM", async ({ page }) => {
     // The slide is rendered but may be opacity-0 until activated
     await expect(
-      page.getByText("Set your expected return. Get your buy price range."),
+      page.getByText("your assumptions, your buy price range", { exact: false }),
     ).toBeAttached();
   });
 
@@ -48,7 +48,7 @@ test.describe("homepage / hero carousel", () => {
     // Dot index 1 → ValuationScenariosDemo slide
     await dots.nth(1).click();
     await expect(
-      page.getByText("Set your expected return. Get your buy price range."),
+      page.getByText("your assumptions, your buy price range", { exact: false }),
     ).toBeVisible({ timeout: 2_000 });
   });
 
@@ -59,7 +59,9 @@ test.describe("homepage / hero carousel", () => {
   });
 
   test("homepage does not crash (no 500 in body)", async ({ page }) => {
-    await expect(page.locator("body")).not.toContainText("500");
+    // Check for actual Next.js/server error markers, not the number 500 which appears in product data (e.g. ₹2,500)
+    await expect(page.locator("body")).not.toContainText("Internal Server Error");
+    await expect(page.locator("body")).not.toContainText("Application error:");
   });
 });
 
