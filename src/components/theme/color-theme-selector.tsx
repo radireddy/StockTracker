@@ -19,7 +19,7 @@ export function ColorThemeSelector() {
     <div className="space-y-5">
       {/* Colour theme picker */}
       <div>
-        <p className="mb-3 text-sm font-medium">Colour theme</p>
+        <p className="mb-3 text-sm font-medium">Theme</p>
         <div
           role="radiogroup"
           aria-label="Colour theme"

@@ -31,8 +31,11 @@ test.describe("onboarding / empty holdings state", () => {
 
   test("signal card labels describe live data", async ({ page }) => {
     await expect(page.getByText("Margin of safety", { exact: false })).toBeVisible();
-    await expect(page.getByText("Allocation gap", { exact: false })).toBeVisible();
-    await expect(page.getByText(/bull.*base.*bear/i)).toBeVisible();
+    // "Allocation gap" also appears in the volatility paragraph as "allocation gaps" — use a
+    // prefix regex so we don't hit the strict-mode violation from multiple matching elements.
+    await expect(page.getByText(/^Allocation gap/)).toBeVisible();
+    // The SignalCard uses " / " as separator; step 3 uses ", ... and" — use the more specific pattern.
+    await expect(page.getByText(/Bull \/ base \/ bear/)).toBeVisible();
   });
 
   test("shows 3-step setup instructions", async ({ page }) => {
@@ -55,14 +58,16 @@ test.describe("onboarding / empty holdings state", () => {
   });
 
   test("RA service contextual link points to the RA marketing sub-page", async ({ page }) => {
-    const link = page.getByRole("link", { name: /research advisory/i });
+    // The link text is "See how StockTracker makes static RA reports live →", not "research advisory"
+    const link = page.getByRole("link", { name: /RA reports live/i });
     await expect(link).toBeVisible();
     await expect(link).toHaveAttribute("href", "/research-advisory-portfolio-tracker");
   });
 
   test("shows the volatility promise card", async ({ page }) => {
     await expect(page.getByText(/When volatility hits/i)).toBeVisible();
-    await expect(page.getByText(/Data, not panic/i)).toBeVisible();
+    // Actual text is "The data decides — not the panic."
+    await expect(page.getByText(/The data decides/i)).toBeVisible();
   });
 
   test("Import CTA navigates to /import", async ({ page }) => {
