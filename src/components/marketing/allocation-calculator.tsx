@@ -262,7 +262,7 @@ function Results({
 
       {result.isOverAllocated && (
         <div className="rounded-lg border border-chart-4/40 bg-chart-4/10 px-4 py-2.5 text-sm text-chart-4">
-          Targets exceed your total — reduce stock counts or percentages.
+          Your targets exceed your total — reduce stock counts or percentages.
         </div>
       )}
 

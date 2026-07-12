@@ -15,7 +15,7 @@ import { AllocationCalculator } from "@/components/marketing/allocation-calculat
 const PATH = "/allocation-calculator";
 const TITLE = "Stock Allocation Calculator — Size Positions by Conviction";
 const DESCRIPTION =
-  "Free stock allocation calculator for Indian investors. Enter your total amount, number of stocks per conviction tier, and target weight bands — get exact allocations per bucket instantly. No sign-up needed.";
+  "Free stock allocation calculator for Indian investors. Enter your total amount, number of stocks per conviction tier, and target weight bands — get exact rupee allocations per bucket instantly. No sign-up needed.";
 
 export const metadata: Metadata = {
   title: TITLE,
