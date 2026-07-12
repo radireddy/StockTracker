@@ -70,6 +70,7 @@ export async function updateSession(request: NextRequest) {
   // Public, unauthenticated-reachable routes. Everything else is app-gated.
   // "/" and the marketing SEO pages must be crawlable.
   const MARKETING_PATHS = [
+    "/allocation-calculator",
     "/research-advisory-portfolio-tracker",
     "/zerodha-portfolio-tracker",
     "/intrinsic-value-margin-of-safety",

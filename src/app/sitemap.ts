@@ -3,6 +3,7 @@ import { SITE_URL } from "@/lib/seo";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const pages = [
+    "/allocation-calculator",
     "/zerodha-portfolio-tracker",
     "/intrinsic-value-margin-of-safety",
     "/portfolio-allocation",
