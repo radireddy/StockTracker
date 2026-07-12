@@ -9,6 +9,7 @@ import {
   SITE_KEYWORDS,
 } from "@/lib/seo";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { ColorThemeProvider } from "@/components/theme/color-theme-provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -63,8 +64,20 @@ export default async function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        {/* Runs before paint — prevents flash of wrong colour theme on reload */}
+        <script
+          nonce={nonce}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('color-theme');if(t&&t!=='b')document.documentElement.setAttribute('data-color-theme',t);}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ColorThemeProvider>
+          <ThemeProvider>{children}</ThemeProvider>
+        </ColorThemeProvider>
         {/*
           Browsers hide the `nonce` content attribute after parsing a script
           under an active CSP (it survives only on the `.nonce` DOM property),
