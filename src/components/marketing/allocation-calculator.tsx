@@ -46,11 +46,6 @@ function fmtRange(min: number, max: number, isAbsolute: boolean): string {
   return `${fmt(min)} – ${fmt(max)}`;
 }
 
-function fmtMinMax(min: number, max: number, isAbsolute: boolean): string {
-  if (isAbsolute) return fmt(min);
-  return `min ${fmt(min)} – max ${fmt(max)}`;
-}
-
 function fmtPctRange(min: number, max: number, total: number): string {
   const lo = Math.round((min / total) * 100);
   const hi = Math.round((max / total) * 100);
@@ -121,6 +116,9 @@ export function AllocationCalculator() {
             }}
             className="text-base max-w-xs"
           />
+          {amount !== "" && totalAmount <= 0 && (
+            <p className="text-xs text-destructive mt-1">Enter a positive amount to calculate.</p>
+          )}
         </div>
 
         {/* Stock counts */}
