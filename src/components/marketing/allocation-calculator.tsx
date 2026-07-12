@@ -323,9 +323,9 @@ function Results({
                   <td className="py-2.5 text-right tabular-nums font-medium text-foreground">
                     {b.hasRangeError ? (
                       "—"
-                    ) : isBudgetConstrained && b.suggestedAmount !== null ? (
+                    ) : isBudgetConstrained && b.suggestedAmount !== null && b.suggestedPct !== null ? (
                       <>
-                        <span>{fmt(b.suggestedAmount * b.count)}</span>
+                        <span>{fmt(b.suggestedAmount * b.count)} ({(b.suggestedPct * b.count).toFixed(1)}%)</span>
                         <span className="block text-xs font-normal text-muted-foreground">
                           {fmtMinMax(b.bucketMin, b.bucketMax, b.isAbsolute)}
                         </span>
