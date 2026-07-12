@@ -24,8 +24,14 @@ describe("computePortfolioPnl", () => {
     expect(computePortfolioPnl([makeCompany({ avg_buy_price: null })])).toBeNull();
   });
 
-  it("returns null when no company has a current price", () => {
-    expect(computePortfolioPnl([makeCompany({ price: null })])).toBeNull();
+  it("returns a result with zero P&L when no company has a current price", () => {
+    const result = computePortfolioPnl([makeCompany({ quantity: 10, avg_buy_price: 80, price: null })]);
+    expect(result).not.toBeNull();
+    expect(result!.heldCount).toBe(1);
+    expect(result!.totalInvested).toBe(800);
+    expect(result!.totalCurrent).toBe(0);
+    expect(result!.pnl).toBe(0);
+    expect(result!.pnlPct).toBe(0);
   });
 
   it("computes correct totals for a single profitable position", () => {
@@ -67,14 +73,17 @@ describe("computePortfolioPnl", () => {
     expect(result.totalInvested).toBe(1000);
   });
 
-  it("skips companies without a live price", () => {
+  it("includes unpriced companies in heldCount and totalInvested, excludes from P&L", () => {
     const companies = [
       makeCompany({ quantity: 10, avg_buy_price: 100, price: 120 }),
       makeCompany({ quantity: 5, avg_buy_price: 100, price: null }),
     ];
     const result = computePortfolioPnl(companies)!;
-    expect(result.heldCount).toBe(1);
-    expect(result.totalInvested).toBe(1000);
+    expect(result.heldCount).toBe(2);
+    expect(result.totalInvested).toBe(1500);
+    expect(result.totalCurrent).toBe(1200);
+    expect(result.pnl).toBe(200); // only priced: 1200 - 1000
+    expect(result.pnlPct).toBeCloseTo(20); // 200 / 1000 (priced invested)
   });
 
   it("returns pnl of 0 when bought at exactly current price", () => {

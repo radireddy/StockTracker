@@ -15,23 +15,27 @@ export type PortfolioPnl = {
 export function computePortfolioPnl(companies: CompanyForPnl[]): PortfolioPnl | null {
   let totalInvested = 0;
   let totalCurrent = 0;
+  let pricedInvested = 0;
   let held = 0;
 
   for (const c of companies) {
     const qty = c.quantity;
     const avgBuy = c.avg_buy_price;
     if (!qty || !avgBuy) continue;
-    const currentPrice = c.indian_stocks?.price ?? null;
-    if (currentPrice == null) continue;
     totalInvested += qty * avgBuy;
-    totalCurrent += qty * currentPrice;
     held += 1;
+    const currentPrice = c.indian_stocks?.price ?? null;
+    if (currentPrice != null) {
+      totalCurrent += qty * currentPrice;
+      pricedInvested += qty * avgBuy;
+    }
   }
 
   if (totalInvested === 0) return null;
 
-  const pnl = totalCurrent - totalInvested;
-  const pnlPct = (pnl / totalInvested) * 100;
+  // P&L is computed only over priced holdings so the comparison is apples-to-apples.
+  const pnl = totalCurrent - pricedInvested;
+  const pnlPct = pricedInvested > 0 ? (pnl / pricedInvested) * 100 : 0;
 
   return { totalCurrent, totalInvested, pnl, pnlPct, heldCount: held };
 }
