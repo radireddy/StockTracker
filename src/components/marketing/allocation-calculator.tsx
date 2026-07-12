@@ -277,8 +277,7 @@ function Results({
       {/* Soft suggestion: min fits but max doesn't */}
       {isBudgetConstrained && (
         <div className="rounded-lg border border-primary/30 bg-primary/[0.05] px-4 py-2.5 text-sm text-foreground">
-          <span className="font-medium text-primary">Suggested allocation</span>
-          {" "}— your budget covers the minimum but not the maximum targets. The table shows the optimal percentage within each range that deploys your full amount.
+          Full amount deployed — each bucket&apos;s suggested % falls within your target range.
         </div>
       )}
 
@@ -310,12 +309,7 @@ function Results({
                     {b.hasRangeError ? (
                       "—"
                     ) : isBudgetConstrained && b.suggestedAmount !== null && b.suggestedPct !== null ? (
-                      <>
-                        <span>{fmt(b.suggestedAmount)} ({b.suggestedPct.toFixed(1)}%)</span>
-                        <span className="block text-xs font-normal text-muted-foreground">
-                          range: {b.range.min}–{b.range.max}%
-                        </span>
-                      </>
+                      `${fmt(b.suggestedAmount)} (${b.suggestedPct.toFixed(1)}%)`
                     ) : (
                       fmtRange(b.perStockMin, b.perStockMax, b.isAbsolute)
                     )}
@@ -324,12 +318,7 @@ function Results({
                     {b.hasRangeError ? (
                       "—"
                     ) : isBudgetConstrained && b.suggestedAmount !== null && b.suggestedPct !== null ? (
-                      <>
-                        <span>{fmt(b.suggestedAmount * b.count)} ({(b.suggestedPct * b.count).toFixed(1)}%)</span>
-                        <span className="block text-xs font-normal text-muted-foreground">
-                          range: {b.range.min * b.count}–{b.range.max * b.count}%
-                        </span>
-                      </>
+                      `${fmt(b.suggestedAmount * b.count)} (${(b.suggestedPct * b.count).toFixed(1)}%)`
                     ) : (
                       fmtRange(b.bucketMin, b.bucketMax, b.isAbsolute)
                     )}
