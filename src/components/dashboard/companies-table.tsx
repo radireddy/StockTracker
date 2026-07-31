@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { marginOfSafety, isBuySignal, effectiveBuyPrice, computeLiveIrr, fmtPriceShort, fmtAmountShort, fmtPctShort, fmtIrr, fmtNum, getEffectiveRanges, getRangeForStar, getAllocationStatus, getAllocationDelta } from "@/lib/utils/calculations";
 import type { AllocationStatus } from "@/lib/utils/calculations";
 import { FileText, X, Loader2, ArrowRightLeft, Trash2, MoreVertical } from "lucide-react";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { getCompanyHighlights, deleteCompany } from "@/app/(authenticated)/actions/company-actions";
 import { useInvalidateDashboard, type DashboardAccount } from "@/hooks/use-dashboard-data";
@@ -96,6 +97,7 @@ function getScenarioReturn(
 }
 
 type ViewMode = "portfolio" | "allocation";
+type GroupBy = "none" | "star" | "strategy" | "alloc_status";
 
 function fmtRupee(n: number): string {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Math.abs(n));
@@ -253,6 +255,7 @@ export function CompaniesTable({
   const [viewMode, setViewMode] = useState<ViewMode>("portfolio");
   const [allocationBasis, setAllocationBasis] = useState<"invested" | "current">("invested");
   const [allocationStatusFilter, setAllocationStatusFilter] = useState<string>("all");
+  const [groupBy, setGroupBy] = useState<GroupBy>("none");
 
   const ranges = getEffectiveRanges(allocationRanges ?? null);
 
@@ -413,9 +416,24 @@ export function CompaniesTable({
       return 0;
     });
 
+    // When groupBy is active, stable-sort by group key so items are contiguous within groups
+    if (groupBy !== "none") {
+      const groupSortVal = (c: CompanyWithProjections): number => {
+        if (groupBy === "star") return -(c.star_rating ?? 0);
+        if (groupBy === "strategy") return c.strategy === "core" ? 0 : c.strategy === "satellite" ? 1 : 2;
+        if (groupBy === "alloc_status") {
+          const ad = getAllocationData(c);
+          const s = allocationBasis === "invested" ? ad.costStatus : ad.valueStatus;
+          return s === "over" ? 0 : s === "in_range" ? 1 : 2;
+        }
+        return 0;
+      };
+      result = [...result].sort((a, b) => groupSortVal(a) - groupSortVal(b));
+    }
+
     return result;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companies, search, starFilter, strategyFilter, buyOnlyFilter, sortField, sortDir, viewMode, allocationBasis, allocationStatusFilter, totalCost, totalValue, ranges]);
+  }, [companies, search, starFilter, strategyFilter, buyOnlyFilter, sortField, sortDir, viewMode, allocationBasis, allocationStatusFilter, totalCost, totalValue, ranges, groupBy]);
 
   const toggleSort = (field: string) => {
     if (sortField === field) {
@@ -540,12 +558,12 @@ export function CompaniesTable({
           <SelectTrigger className="h-8 w-28 rounded-lg text-sm">
             <SelectValue placeholder="Stars">
               {(value) =>
-                value === "all" ? "All Stars" : `${value} Star${value === "1" ? "" : "s"}`
+                value === "all" ? "All stars" : `${value} Star${value === "1" ? "" : "s"}`
               }
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Stars</SelectItem>
+            <SelectItem value="all">All stars</SelectItem>
             {[1, 2, 3, 4].map((s) => (
               <SelectItem key={s} value={String(s)}>
                 {s} Star{s > 1 ? "s" : ""}
@@ -603,6 +621,26 @@ export function CompaniesTable({
             Buy signals only
           </label>
         )}
+        {showResearch && (
+          <Select value={groupBy} onValueChange={(v) => setGroupBy((v ?? "none") as GroupBy)}>
+            <SelectTrigger className={cn("h-8 w-36 rounded-lg text-sm", groupBy !== "none" && "border-primary bg-primary/5 text-primary")}>
+              <SelectValue placeholder="No grouping">
+                {(value) =>
+                  value === "star" ? "Group: Stars" :
+                  value === "strategy" ? "Group: Strategy" :
+                  value === "alloc_status" ? "Group: Allocation" :
+                  "No grouping"
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No grouping</SelectItem>
+              <SelectItem value="star">Stars</SelectItem>
+              <SelectItem value="strategy">Strategy</SelectItem>
+              {isHoldings && <SelectItem value="alloc_status">Allocation status</SelectItem>}
+            </SelectContent>
+          </Select>
+        )}
         <span className="ml-auto text-xs text-muted-foreground">
           {filtered.length} companies
         </span>
@@ -610,7 +648,7 @@ export function CompaniesTable({
 
       {showAllocationView && (
         <p className="text-xs text-muted-foreground">
-          Grouped by conviction. Hover over %, Status, or Delta for target range and rupee actions.
+          Hover over %, Status, or Delta for target range and rupee actions.
         </p>
       )}
 
@@ -633,6 +671,7 @@ export function CompaniesTable({
               router={router}
               hasCompanies={companies.length > 0}
               colHidden={colHidden}
+              groupBy={groupBy}
             />
           ) : (
             <table className="w-full border-collapse text-sm" role="table" aria-label="Companies portfolio table">
@@ -719,7 +758,7 @@ export function CompaniesTable({
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((company) => {
+                {filtered.map((company, idx) => {
                   const name = company.indian_stocks?.name ?? company.isin;
                   const currentPrice = getPrice(company);
                   const buyPrice = effectiveBuyPrice(company.buy_price, getDefaultScenarios(company));
@@ -739,8 +778,77 @@ export function CompaniesTable({
                     ? allocationBasis === "invested" ? allocData.costStatus : allocData.valueStatus
                     : null;
 
+                  // Group header for portfolio view
+                  const _pgk = (c: CompanyWithProjections): string => {
+                    if (groupBy === "star") return String(c.star_rating ?? 0);
+                    if (groupBy === "strategy") return c.strategy ?? "__none__";
+                    if (groupBy === "alloc_status") {
+                      const ad = getAllocationData(c);
+                      return allocationBasis === "invested" ? ad.costStatus : ad.valueStatus;
+                    }
+                    return "";
+                  };
+                  const currGroupKey = groupBy !== "none" ? _pgk(company) : "";
+                  const prevGroupKey = groupBy !== "none" && idx > 0 ? _pgk(filtered[idx - 1]) : null;
+                  const isFirstInGroup = groupBy !== "none" && currGroupKey !== prevGroupKey;
+
+                  const groupHeaderLabel: React.ReactNode = isFirstInGroup ? (() => {
+                    if (groupBy === "star") {
+                      const star = company.star_rating ?? 0;
+                      return star === 0
+                        ? <span className="text-xs font-semibold text-muted-foreground">Not rated</span>
+                        : <Stars rating={star} className="text-[0.85rem]" />;
+                    }
+                    if (groupBy === "strategy") {
+                      return <span className="text-xs font-semibold text-muted-foreground capitalize">{company.strategy ?? "No strategy"}</span>;
+                    }
+                    if (groupBy === "alloc_status" && allocData) {
+                      const st = allocationBasis === "invested" ? allocData.costStatus : allocData.valueStatus;
+                      return <StatusTag status={st} />;
+                    }
+                    return null;
+                  })() : null;
+
+                  const groupPnlStats: { pct: number; amt: number } | null = isFirstInGroup && isHoldings ? (() => {
+                    const members = filtered.filter((c) => _pgk(c) === currGroupKey);
+                    let totalCostG = 0, totalValueG = 0;
+                    for (const c of members) {
+                      const ab = c.avg_buy_price;
+                      const pr = c.indian_stocks?.price ?? null;
+                      const q = c.quantity;
+                      if (!ab || !pr || !q) continue;
+                      totalCostG += ab * q;
+                      totalValueG += pr * q;
+                    }
+                    if (totalCostG === 0) return null;
+                    return {
+                      pct: ((totalValueG - totalCostG) / totalCostG) * 100,
+                      amt: totalValueG - totalCostG,
+                    };
+                  })() : null;
+
                   return (
                     <Fragment key={company.id}>
+                      {isFirstInGroup && groupHeaderLabel !== null && (
+                        <tr className="border-y border-border bg-muted/40">
+                          <td colSpan={99} className="px-2.5 py-2.5">
+                            <div className="flex items-center gap-2">
+                              {groupHeaderLabel}
+                              {groupPnlStats !== null && (
+                                <div className="ml-auto flex items-center gap-1.5 text-xs tabular-nums">
+                                  <span className="text-muted-foreground font-medium">P&L</span>
+                                  <span className={cn("font-mono font-semibold", pnlClass(groupPnlStats.amt >= 0))}>
+                                    {groupPnlStats.amt >= 0 ? "+" : "−"}{fmtAmountShort(Math.abs(groupPnlStats.amt))}
+                                  </span>
+                                  <span className={cn("font-mono", pnlClass(groupPnlStats.pct >= 0))}>
+                                    ({groupPnlStats.pct >= 0 ? "+" : ""}{groupPnlStats.pct.toFixed(1)}%)
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                       <tr
                         className="cursor-pointer border-b border-border/50 transition-colors hover:bg-muted/40"
                         onClick={() => router.push(`/company/${company.id}`)}
@@ -1080,6 +1188,7 @@ function AllocationTable({
   router,
   hasCompanies,
   colHidden,
+  groupBy,
 }: {
   filtered: CompanyWithProjections[];
   getAllocationData: (c: CompanyWithProjections) => AllocData;
@@ -1095,21 +1204,81 @@ function AllocationTable({
   router: ReturnType<typeof useRouter>;
   hasCompanies: boolean;
   colHidden: (key: string) => string;
+  groupBy: GroupBy;
 }) {
   const basisLabel = allocationBasis === "invested" ? "Invested" : "Current";
   const activeTotal = allocationBasis === "invested" ? totalCost : totalValue;
 
-  // Group the filtered rows by conviction (4★ → 1★ → 0★ un-rated), preserving sort order.
-  const groups = [4, 3, 2, 1, 0]
-    .map((star) => {
-      const members = filtered.filter((c) => {
-        const s = c.star_rating ?? 0;
-        const bucket = s >= 0 && s <= 4 ? s : 0;
-        return bucket === star;
-      });
-      return { star, members };
-    })
-    .filter((g) => g.members.length > 0);
+  // Build groups dynamically based on groupBy setting
+  const groups: { key: string; headerNode: React.ReactNode; members: CompanyWithProjections[] }[] = (() => {
+    if (groupBy === "star") {
+      return [4, 3, 2, 1, 0].map((star) => {
+        const members = filtered.filter((c) => {
+          const s = c.star_rating ?? 0;
+          return (s >= 0 && s <= 4 ? s : 0) === star;
+        });
+        if (members.length === 0) return null;
+        const range = getAllocationData(members[0]).range;
+        const groupMin = range.min * members.length;
+        const groupMax = range.max * members.length;
+        const groupPct = members.reduce((sum, c) => {
+          const ad = getAllocationData(c);
+          return sum + (allocationBasis === "invested" ? ad.costPct : ad.valuePct);
+        }, 0);
+        const groupStatus = getAllocationStatus(groupPct, { min: groupMin, max: groupMax });
+        let action: React.ReactNode = "balanced";
+        if (groupStatus === "under") {
+          const amt = ((groupMin - groupPct) / 100) * activeTotal;
+          action = <>add <b className="font-mono text-foreground">{fmtRupee(amt)}</b> to reach {groupMin.toFixed(0)}%</>;
+        } else if (groupStatus === "over") {
+          const amt = ((groupPct - groupMax) / 100) * activeTotal;
+          action = <>trim <b className="font-mono text-foreground">{fmtRupee(amt)}</b> to reach {groupMax.toFixed(0)}%</>;
+        }
+        const headerNode = (
+          <div className="flex items-center gap-3.5">
+            {star === 0 ? (
+              <span className="w-[70px] shrink-0 text-[0.8rem] text-muted-foreground">Not rated</span>
+            ) : (
+              <Stars rating={star} className="w-[70px] shrink-0 text-[0.85rem]" />
+            )}
+            <GroupBar pct={groupPct} min={groupMin} max={groupMax} status={groupStatus} />
+            <span className="font-mono text-[0.95rem] font-bold tabular-nums">{groupPct.toFixed(1)}%</span>
+            <StatusTag status={groupStatus} />
+            <span className="text-xs text-muted-foreground">target {groupMin.toFixed(0)}–{groupMax.toFixed(0)}%</span>
+            <span className="ml-auto text-xs text-muted-foreground">{action}</span>
+          </div>
+        );
+        return { key: String(star), headerNode, members };
+      }).filter((g): g is NonNullable<typeof g> => g !== null);
+    }
+    if (groupBy === "strategy") {
+      return [
+        { strat: "core" as string | null, key: "core", label: "Core" },
+        { strat: "satellite" as string | null, key: "satellite", label: "Satellite" },
+        { strat: null, key: "none", label: "No strategy" },
+      ].map(({ strat, key, label }) => {
+        const members = filtered.filter((c) => (c.strategy ?? null) === strat);
+        if (members.length === 0) return null;
+        return {
+          key,
+          headerNode: <span className="text-[0.8rem] font-semibold text-muted-foreground">{label}</span>,
+          members,
+        };
+      }).filter((g): g is NonNullable<typeof g> => g !== null);
+    }
+    if (groupBy === "alloc_status") {
+      return (["over", "in_range", "under"] as AllocationStatus[]).map((status) => {
+        const members = filtered.filter((c) => {
+          const ad = getAllocationData(c);
+          return (allocationBasis === "invested" ? ad.costStatus : ad.valueStatus) === status;
+        });
+        if (members.length === 0) return null;
+        return { key: status, headerNode: <StatusTag status={status} />, members };
+      }).filter((g): g is NonNullable<typeof g> => g !== null);
+    }
+    // groupBy === "none": flat list, no header
+    return [{ key: "all", headerNode: null, members: filtered }];
+  })();
 
   return (
     <table className="w-full border-collapse text-sm" role="table" aria-label="Allocation analysis table">
@@ -1147,47 +1316,16 @@ function AllocationTable({
         </tr>
       </thead>
       <tbody>
-        {groups.map(({ star, members }) => {
-          const count = members.length;
-          const range = getAllocationData(members[0]).range;
-          const groupMin = range.min * count;
-          const groupMax = range.max * count;
-          const groupPct = members.reduce((sum, c) => {
-            const ad = getAllocationData(c);
-            return sum + (allocationBasis === "invested" ? ad.costPct : ad.valuePct);
-          }, 0);
-          const groupStatus = getAllocationStatus(groupPct, { min: groupMin, max: groupMax });
-
-          let action: React.ReactNode = "balanced";
-          if (groupStatus === "under") {
-            const amt = ((groupMin - groupPct) / 100) * activeTotal;
-            action = <>add <b className="font-mono text-foreground">{fmtRupee(amt)}</b> to reach {groupMin.toFixed(0)}%</>;
-          } else if (groupStatus === "over") {
-            const amt = ((groupPct - groupMax) / 100) * activeTotal;
-            action = <>trim <b className="font-mono text-foreground">{fmtRupee(amt)}</b> to reach {groupMax.toFixed(0)}%</>;
-          }
-
-          return (
-            <Fragment key={star}>
+        {groups.map(({ key, headerNode, members }) => (
+          <Fragment key={key}>
+            {headerNode !== null && (
               <tr className="border-y border-border bg-muted/40">
                 <td colSpan={11} className="px-2.5 py-2.5">
-                  <div className="flex items-center gap-3.5">
-                    {star === 0 ? (
-                      <span className="w-[70px] shrink-0 text-[0.8rem] text-muted-foreground">
-                        Not rated
-                      </span>
-                    ) : (
-                      <Stars rating={star} className="w-[70px] shrink-0 text-[0.85rem]" />
-                    )}
-                    <GroupBar pct={groupPct} min={groupMin} max={groupMax} status={groupStatus} />
-                    <span className="font-mono text-[0.95rem] font-bold tabular-nums">{groupPct.toFixed(1)}%</span>
-                    <StatusTag status={groupStatus} />
-                    <span className="text-xs text-muted-foreground">target {groupMin.toFixed(0)}–{groupMax.toFixed(0)}%</span>
-                    <span className="ml-auto text-xs text-muted-foreground">{action}</span>
-                  </div>
+                  {headerNode}
                 </td>
               </tr>
-              {members.map((company) => {
+            )}
+            {members.map((company) => {
                 const name = company.indian_stocks?.name ?? company.isin;
                 const alloc = getAllocationData(company);
                 const activeStatus = allocationBasis === "invested" ? alloc.costStatus : alloc.valueStatus;
@@ -1286,8 +1424,7 @@ function AllocationTable({
                 );
               })}
             </Fragment>
-          );
-        })}
+          ))}
         {filtered.length === 0 && <EmptyState hasCompanies={hasCompanies} isHoldings={true} />}
       </tbody>
     </table>

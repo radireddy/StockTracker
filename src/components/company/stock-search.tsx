@@ -159,7 +159,7 @@ export function StockSearch({
 
     return (
       <div className="flex h-10 items-center gap-2 rounded-md border border-primary bg-primary/5 px-3">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-600 text-white">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-positive/15 text-positive">
           <Check className="h-3 w-3" strokeWidth={3} />
         </span>
         <span className="min-w-0 flex-1 truncate text-sm font-semibold">
