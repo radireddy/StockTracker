@@ -26,7 +26,6 @@ import {
   ChevronDown,
   Search,
   Sparkles,
-  TrendingUp,
   Wallet,
 } from "lucide-react";
 
@@ -217,15 +216,6 @@ export function CompanyForm() {
               selected={selectedStock}
               onClear={() => setSelectedStock(null)}
             />
-            {selectedStock && (
-              <div className="flex items-center gap-2 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2 text-sm">
-                <TrendingUp className="h-4 w-4 shrink-0 text-primary" />
-                <span className="font-medium">{selectedStock.name}</span>
-                {selectedStock.nse_symbol && (
-                  <span className="text-muted-foreground">({selectedStock.nse_symbol})</span>
-                )}
-              </div>
-            )}
           </CardContent>
         </Card>
 

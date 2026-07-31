@@ -168,7 +168,7 @@ export function HoldingsTab({
       ) : (
         <>
           {holdings.length > 0 && (
-            <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-sm border rounded-lg px-4 py-2.5 bg-muted/20">
+            <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-sm border rounded-lg px-4 py-2.5 bg-card shadow-sm">
               <div>
                 <span className="text-muted-foreground">Total Qty:</span>{" "}
                 <span className="font-medium tabular-nums">{fmt(totalQty)}</span>
@@ -204,7 +204,7 @@ export function HoldingsTab({
             </p>
           ) : (
             holdings.length > 0 && (
-              <div className="border rounded-lg overflow-x-auto">
+              <div className="border rounded-lg overflow-x-auto bg-card shadow-sm">
                 <table className="w-full text-sm min-w-[480px]">
                   <thead>
                     <tr className="border-b bg-muted/30">
@@ -329,7 +329,7 @@ export function HoldingsTab({
           )}
 
           {showAdd && (
-            <div className="border rounded-lg p-4 space-y-3 bg-muted/20">
+            <div className="border rounded-lg p-4 space-y-3 bg-card shadow-sm">
               <fieldset className="space-y-3">
                 <legend className="text-sm font-medium">Add holding to an account</legend>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">

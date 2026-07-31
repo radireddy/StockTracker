@@ -143,9 +143,9 @@ export function TimelineTab({ companyId }: { companyId: string }) {
       </div>
 
       {/* Entries list */}
-      <div className="divide-y divide-border/30">
+      <div className="space-y-3">
         {visible.map((entry) => (
-          <div key={entry.id} className="py-3">
+          <div key={entry.id} className="rounded-xl border bg-card p-4 shadow-sm">
             {editingId === entry.id ? (
               <div className="space-y-3">
                 <Input
@@ -173,13 +173,15 @@ export function TimelineTab({ companyId }: { companyId: string }) {
               </div>
             ) : (
               <>
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
                     {entry.quarter && (
-                      <span className="font-semibold">{entry.quarter}</span>
+                      <span className="rounded px-1.5 py-0.5 text-xs font-bold bg-primary/10 text-primary">
+                        {entry.quarter}
+                      </span>
                     )}
                     {entry.entry_date && (
-                      <span className="text-muted-foreground text-xs">{entry.entry_date}</span>
+                      <span className="text-xs text-muted-foreground">{entry.entry_date}</span>
                     )}
                   </div>
                   <div className="flex gap-1">
