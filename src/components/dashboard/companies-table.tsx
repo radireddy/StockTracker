@@ -213,6 +213,16 @@ function PlusIcon() {
   );
 }
 
+function getSavedFilters(key: string): Record<string, unknown> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = sessionStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
 export function CompaniesTable({
   companies,
   portfolioType = "holdings",
@@ -243,19 +253,20 @@ export function CompaniesTable({
   const [moveTarget, setMoveTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [search, setSearch] = useState("");
-  const [starFilter, setStarFilter] = useState<string>("all");
-  const [strategyFilter, setStrategyFilter] = useState<string>("all");
-  const [buyOnlyFilter, setBuyOnlyFilter] = useState(false);
-  const [sortField, setSortField] = useState<string>("star_rating");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const filterKey = `dashboard-filters-v1-${portfolioType}`;
+  const [search, setSearch] = useState<string>(() => { const v = getSavedFilters(filterKey).search; return typeof v === "string" ? v : ""; });
+  const [starFilter, setStarFilter] = useState<string>(() => { const v = getSavedFilters(filterKey).starFilter; return typeof v === "string" ? v : "all"; });
+  const [strategyFilter, setStrategyFilter] = useState<string>(() => { const v = getSavedFilters(filterKey).strategyFilter; return typeof v === "string" ? v : "all"; });
+  const [buyOnlyFilter, setBuyOnlyFilter] = useState<boolean>(() => getSavedFilters(filterKey).buyOnlyFilter === true);
+  const [sortField, setSortField] = useState<string>(() => { const v = getSavedFilters(filterKey).sortField; return typeof v === "string" ? v : "star_rating"; });
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(() => getSavedFilters(filterKey).sortDir === "asc" ? "asc" : "desc");
   const [expandedHighlights, setExpandedHighlights] = useState<string | null>(null);
   const [highlightsCache, setHighlightsCache] = useState<Record<string, string | null>>({});
   const [highlightsLoading, setHighlightsLoading] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("portfolio");
-  const [allocationBasis, setAllocationBasis] = useState<"invested" | "current">("invested");
-  const [allocationStatusFilter, setAllocationStatusFilter] = useState<string>("all");
-  const [groupBy, setGroupBy] = useState<GroupBy>("none");
+  const [viewMode, setViewMode] = useState<ViewMode>(() => getSavedFilters(filterKey).viewMode === "allocation" && portfolioType === "holdings" ? "allocation" : "portfolio");
+  const [allocationBasis, setAllocationBasis] = useState<"invested" | "current">(() => getSavedFilters(filterKey).allocationBasis === "current" ? "current" : "invested");
+  const [allocationStatusFilter, setAllocationStatusFilter] = useState<string>(() => { const v = getSavedFilters(filterKey).allocationStatusFilter; return typeof v === "string" ? v : "all"; });
+  const [groupBy, setGroupBy] = useState<GroupBy>(() => { const v = getSavedFilters(filterKey).groupBy; return (["none", "star", "strategy", "alloc_status"] as const).includes(v as GroupBy) ? v as GroupBy : "none"; });
 
   const ranges = getEffectiveRanges(allocationRanges ?? null);
 
@@ -443,6 +454,16 @@ export function CompaniesTable({
       setSortDir("asc");
     }
   };
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(filterKey, JSON.stringify({
+        search, starFilter, strategyFilter, buyOnlyFilter,
+        sortField, sortDir, viewMode, allocationBasis,
+        allocationStatusFilter, groupBy,
+      }));
+    } catch {}
+  }, [filterKey, search, starFilter, strategyFilter, buyOnlyFilter, sortField, sortDir, viewMode, allocationBasis, allocationStatusFilter, groupBy]);
 
   const thBase = "sticky top-0 z-10 bg-muted/40 px-2.5 py-2.5 text-[0.68rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground cursor-pointer hover:text-foreground";
   const thRight = `${thBase} text-right`;
