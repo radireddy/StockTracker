@@ -87,11 +87,12 @@ export async function updateSession(request: NextRequest) {
     pathname === "/" ||
     MARKETING_PATHS.includes(pathname) ||
     pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/api/cron");
 
   // Signed-in users shouldn't linger on the marketing or login pages.
-  if (user && (pathname === "/" || pathname.startsWith("/login"))) {
+  if (user && (pathname === "/" || pathname.startsWith("/login") || pathname.startsWith("/signup"))) {
     return redirectTo("/dashboard");
   }
 
