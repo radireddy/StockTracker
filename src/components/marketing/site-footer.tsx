@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { SITE_NAME, SITE_TAGLINE } from "@/lib/seo";
-import { GoogleCta } from "@/components/marketing/google-cta";
 
 const LINKS = [
   { href: "/zerodha-portfolio-tracker", label: "Zerodha portfolio tracker" },
@@ -56,7 +55,7 @@ export function SiteFooter() {
         </div>
         <div className="mt-8 flex items-center justify-between border-t pt-6 text-sm text-muted-foreground">
           <span>{SITE_TAGLINE}</span>
-          <GoogleCta className="hover:text-foreground">Sign in</GoogleCta>
+          <Link href="/login" className="hover:text-foreground">Sign in</Link>
         </div>
       </div>
     </footer>
