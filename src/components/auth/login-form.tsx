@@ -43,7 +43,7 @@ export function LoginForm({ initialError, initialMessage }: LoginFormProps) {
     setLoading(true);
     try {
       const supabase = createClient();
-      const { error: authError } = await supabase.auth.signInWithPassword({
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -55,6 +55,15 @@ export function LoginForm({ initialError, initialMessage }: LoginFormProps) {
         } else {
           setError("Invalid email or password.");
         }
+        return;
+      }
+      // Defense-in-depth: reject unconfirmed accounts even if Supabase's
+      // "Confirm email" toggle is off in the dashboard.
+      if (!data.user?.email_confirmed_at) {
+        await supabase.auth.signOut();
+        setError(
+          "Please verify your email before signing in. Check your inbox."
+        );
         return;
       }
       router.push("/dashboard");
