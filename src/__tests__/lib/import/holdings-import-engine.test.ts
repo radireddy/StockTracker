@@ -102,6 +102,7 @@ function setup(opts: {
   existingCompanies?: Array<{ id: string; isin: string }>;
   aliasStocks?: Array<{ isin: string; nse_symbol: string | null }>;
   priorCompanies?: Array<{ id: string; isin: string }>;
+  migrateError?: string;
   rpcError?: string;
   stockUpsertError?: string;
   companyInsertError?: string;
@@ -156,7 +157,7 @@ function setup(opts: {
         if (op.update) {
           // ISIN migration (best-effort) during ISIN-change reconciliation.
           captured.companyUpdates.push({ update: op.update, eq: op.eq });
-          return { data: null, error: null };
+          return { data: null, error: opts.migrateError ? { message: opts.migrateError } : null };
         }
         if (op.single) {
           // race re-read after an insert conflict
@@ -493,6 +494,76 @@ describe("executeHoldingsImport", () => {
     expect(captured.companyUpdates).toHaveLength(0);
     expect(result.new_companies_created).toEqual(["TDPOWERSYS"]);
     expect(result.migrated_companies).toEqual([]);
+  });
+
+  it("still reuses the company when the best-effort ISIN re-key update fails", async () => {
+    // The migrate UPDATE is best-effort: even if it errors, the holding must
+    // still attach to the existing company (via companyMap), not a duplicate.
+    const { userSupabase, captured } = setup({
+      existingStockIsins: ["INE419M01035"],
+      existingCompanies: [],
+      aliasStocks: [{ isin: "INE419M01027", nse_symbol: "TDPOWERSYS" }],
+      priorCompanies: [{ id: "td-company", isin: "INE419M01027" }],
+      migrateError: "row is being updated by another transaction",
+    });
+
+    const result = await run(
+      makeParseResult([makeHolding({ symbol: "TDPOWERSYS", isin: "INE419M01035" })]),
+      userSupabase
+    );
+
+    expect(captured.companyInserts).toHaveLength(0);
+    expect(captured.companyUpdates).toHaveLength(1); // attempted the re-key
+    expect(result.migrated_companies).toEqual(["TDPOWERSYS"]);
+    expect(captured.insertedHoldings[0]).toMatchObject({ company_id: "td-company" });
+  });
+
+  it("ignores alias stocks with a null NSE symbol and dedups multiple prior ISINs", async () => {
+    // The new ISIN's own stock row carries a null nse_symbol (partial unique
+    // index) and must be skipped; multiple prior ISINs for one symbol accumulate.
+    const { userSupabase, captured } = setup({
+      existingStockIsins: ["INE419M01035"],
+      existingCompanies: [],
+      aliasStocks: [
+        { isin: "INE419M01035", nse_symbol: null }, // the new ISIN itself → skip
+        { isin: "INE419M01027", nse_symbol: "TDPOWERSYS" }, // prior ISIN
+        { isin: "INE419M01019", nse_symbol: "TDPOWERSYS" }, // an even older ISIN
+      ],
+      priorCompanies: [{ id: "td-company", isin: "INE419M01027" }],
+    });
+
+    const result = await run(
+      makeParseResult([makeHolding({ symbol: "TDPOWERSYS", isin: "INE419M01035" })]),
+      userSupabase
+    );
+
+    expect(captured.companyInserts).toHaveLength(0);
+    expect(result.migrated_companies).toEqual(["TDPOWERSYS"]);
+    expect(captured.insertedHoldings[0]).toMatchObject({ company_id: "td-company" });
+  });
+
+  it("matches only the changed stock and still creates genuinely new ones in the same batch", async () => {
+    // One row is a post-split ISIN of a held stock (reuse); another is brand new
+    // (create). Exercises the per-row match/no-match branches together.
+    const { userSupabase, captured } = setup({
+      existingStockIsins: ["INE419M01035", "INE009A01021"],
+      existingCompanies: [],
+      aliasStocks: [{ isin: "INE419M01027", nse_symbol: "TDPOWERSYS" }],
+      priorCompanies: [{ id: "td-company", isin: "INE419M01027" }],
+    });
+
+    const result = await run(
+      makeParseResult([
+        makeHolding({ symbol: "TDPOWERSYS", isin: "INE419M01035" }),
+        makeHolding({ symbol: "INFY", isin: "INE009A01021" }),
+      ]),
+      userSupabase
+    );
+
+    expect(result.migrated_companies).toEqual(["TDPOWERSYS"]);
+    expect(result.new_companies_created).toEqual(["INFY"]);
+    expect(captured.companyInserts).toHaveLength(1); // only INFY created
+    expect(result.imported_count).toBe(2);
   });
 
   it("creates a new company when the symbol is known but not held in this portfolio", async () => {
