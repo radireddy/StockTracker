@@ -42,6 +42,8 @@ export interface Portfolio {
 }
 
 export interface IndianStock {
+  /** Stable surrogate identity (added by migration 002). */
+  id: string;
   isin: string;
   name: string;
   nse_symbol: string | null;
@@ -63,6 +65,8 @@ export interface Company {
   id: string;
   portfolio_id: string;
   user_id: string;
+  /** FK to indian_stocks.id — the stable stock identity (added by migration 002). */
+  stock_id: string;
   isin: string;
   buy_price: number | null;
   star_rating: number | null;
@@ -214,6 +218,8 @@ export interface Holding {
   portfolio_id: string;
   account_id: string;
   company_id: string;
+  /** FK to indian_stocks.id — the stable stock identity (added by migration 002). */
+  stock_id: string;
   isin: string;
   quantity: number;
   avg_buy_price: number;

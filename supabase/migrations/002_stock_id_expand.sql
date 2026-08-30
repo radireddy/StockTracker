@@ -34,20 +34,16 @@ UPDATE companies c SET stock_id = s.id FROM indian_stocks s
 UPDATE holdings h SET stock_id = s.id FROM indian_stocks s
  WHERE h.stock_id IS NULL AND h.isin = s.isin;
 
--- 4. Foreign keys (guarded so re-running is safe).
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'companies_stock_id_fkey') THEN
-    ALTER TABLE companies ADD CONSTRAINT companies_stock_id_fkey
-      FOREIGN KEY (stock_id) REFERENCES indian_stocks(id) NOT VALID;
-    ALTER TABLE companies VALIDATE CONSTRAINT companies_stock_id_fkey;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'holdings_stock_id_fkey') THEN
-    ALTER TABLE holdings ADD CONSTRAINT holdings_stock_id_fkey
-      FOREIGN KEY (stock_id) REFERENCES indian_stocks(id) NOT VALID;
-    ALTER TABLE holdings VALIDATE CONSTRAINT holdings_stock_id_fkey;
-  END IF;
-END $$;
-
+-- 4. Indexes on the new columns.
+--    IMPORTANT: we deliberately do NOT add a FOREIGN KEY on stock_id here.
+--    `companies`/`holdings` already have a FK to `indian_stocks` via `isin`;
+--    adding a second FK to the same table makes PostgREST's implicit
+--    `indian_stocks(...)` embeds AMBIGUOUS (PGRST201, HTTP 300), which would
+--    break the deployed app's dashboard/company/P&L reads. The stock_id FK is
+--    added in Phase D (004) in the SAME transaction that drops the isin FK, so
+--    there is never a two-FK window and plain embeds keep resolving. Referential
+--    integrity for stock_id in the meantime is guaranteed by the backfill above
+--    plus the sync trigger below.
 CREATE INDEX IF NOT EXISTS idx_companies_stock_id ON companies (stock_id);
 CREATE INDEX IF NOT EXISTS idx_holdings_stock_id  ON holdings (stock_id);
 
