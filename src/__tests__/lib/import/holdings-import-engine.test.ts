@@ -100,6 +100,9 @@ function makeParseResult(
 function setup(opts: {
   existingStockIsins?: string[];
   existingCompanies?: Array<{ id: string; isin: string }>;
+  aliasStocks?: Array<{ isin: string; nse_symbol: string | null }>;
+  priorCompanies?: Array<{ id: string; isin: string }>;
+  migrateError?: string;
   rpcError?: string;
   stockUpsertError?: string;
   companyInsertError?: string;
@@ -110,9 +113,10 @@ function setup(opts: {
     insertedHoldings: unknown[];
     importUpdate: Record<string, unknown> | null;
     companyInserts: unknown[];
+    companyUpdates: Array<{ update: unknown; eq?: Array<[string, unknown]> }>;
     stockUpserts: unknown[];
     rpcCalls: Array<{ fn: string; args: Record<string, unknown> }>;
-  } = { insertedHoldings: [], importUpdate: null, companyInserts: [], stockUpserts: [], rpcCalls: [] };
+  } = { insertedHoldings: [], importUpdate: null, companyInserts: [], companyUpdates: [], stockUpserts: [], rpcCalls: [] };
 
   const knownStocks = new Set(opts.existingStockIsins ?? []);
   let companySeq = 0;
@@ -122,6 +126,11 @@ function setup(opts: {
       if (op.upsert) {
         captured.stockUpserts.push(op.upsert);
         return { error: opts.stockUpsertError ? { message: opts.stockUpsertError } : null };
+      }
+      // ISIN-change reconciliation: select .in("nse_symbol", symbols) → prior stocks.
+      if (op.in?.[0] === "nse_symbol") {
+        const syms = (op.in[1] as string[]) ?? [];
+        return { data: (opts.aliasStocks ?? []).filter((s) => s.nse_symbol && syms.includes(s.nse_symbol)) };
       }
       // select .in("isin", isins)
       const requested = (op.in?.[1] as string[]) ?? [];
@@ -145,12 +154,21 @@ function setup(opts: {
           });
           return { data: Array.isArray(op.insert) ? created : created[0], error: null };
         }
+        if (op.update) {
+          // ISIN migration (best-effort) during ISIN-change reconciliation.
+          captured.companyUpdates.push({ update: op.update, eq: op.eq });
+          return { data: null, error: opts.migrateError ? { message: opts.migrateError } : null };
+        }
         if (op.single) {
           // race re-read after an insert conflict
           return { data: opts.raceExisting ?? null, error: null };
         }
-        // initial listing: select("id, isin").eq(...).in("isin", ...)
-        return { data: opts.existingCompanies ?? [] };
+        // Listing: select("id, isin").eq(...).in("isin", ...). The initial pass
+        // requests the statement's ISINs; the reconciliation pass requests prior
+        // (alias) ISINs. Filter a combined pool by exactly what was asked for.
+        const requested = (op.in?.[1] as string[]) ?? [];
+        const pool = [...(opts.existingCompanies ?? []), ...(opts.priorCompanies ?? [])];
+        return { data: pool.filter((c) => requested.includes(c.isin)) };
       },
       import_holdings: (op) => {
         if (op.update) captured.importUpdate = op.update as Record<string, unknown>;
@@ -423,6 +441,150 @@ describe("executeHoldingsImport", () => {
 
     expect(captured.stockUpserts).toHaveLength(1); // one bulk upsert, not one per stock
     expect(captured.stockUpserts[0]).toHaveLength(2); // both stocks in the single call
+  });
+
+  it("reuses the existing company when a stock's ISIN changed (split/corporate action) instead of forking it", async () => {
+    // Statement reports TD Power under its post-split ISIN. The existing company
+    // (research + holdings) lives under the prior ISIN; matched by NSE symbol it
+    // must be reused and migrated, NOT duplicated.
+    const { userSupabase, captured } = setup({
+      existingStockIsins: ["INE419M01035"], // new ISIN already registered
+      existingCompanies: [], // no company under the NEW ISIN
+      aliasStocks: [{ isin: "INE419M01027", nse_symbol: "TDPOWERSYS" }], // prior ISIN, same symbol
+      priorCompanies: [{ id: "td-company", isin: "INE419M01027" }], // existing company on prior ISIN
+    });
+
+    const result = await run(
+      makeParseResult([
+        makeHolding({ symbol: "TDPOWERSYS", isin: "INE419M01035", quantity: 2800, avg_price: 264.5 }),
+      ]),
+      userSupabase,
+      true
+    );
+
+    expect(captured.companyInserts).toHaveLength(0); // did NOT create a duplicate stub
+    expect(result.new_companies_created).toEqual([]);
+    expect(result.migrated_companies).toEqual(["TDPOWERSYS"]);
+    expect(result.imported_count).toBe(1);
+    expect(captured.insertedHoldings).toHaveLength(1);
+    expect(captured.insertedHoldings[0]).toMatchObject({
+      company_id: "td-company",
+      isin: "INE419M01035",
+      quantity: 2800,
+    });
+    // The company row is migrated to the current ISIN so later imports match directly.
+    expect(captured.companyUpdates).toEqual([
+      expect.objectContaining({ update: { isin: "INE419M01035" } }),
+    ]);
+  });
+
+  it("creates a new company when no prior ISIN matches by symbol (no over-matching)", async () => {
+    const { userSupabase, captured } = setup({
+      existingStockIsins: ["INE419M01035"],
+      existingCompanies: [],
+      aliasStocks: [], // symbol is not registered under any prior ISIN
+    });
+
+    const result = await run(
+      makeParseResult([makeHolding({ symbol: "TDPOWERSYS", isin: "INE419M01035" })]),
+      userSupabase
+    );
+
+    expect(captured.companyInserts).toHaveLength(1);
+    expect(captured.companyUpdates).toHaveLength(0);
+    expect(result.new_companies_created).toEqual(["TDPOWERSYS"]);
+    expect(result.migrated_companies).toEqual([]);
+  });
+
+  it("still reuses the company when the best-effort ISIN re-key update fails", async () => {
+    // The migrate UPDATE is best-effort: even if it errors, the holding must
+    // still attach to the existing company (via companyMap), not a duplicate.
+    const { userSupabase, captured } = setup({
+      existingStockIsins: ["INE419M01035"],
+      existingCompanies: [],
+      aliasStocks: [{ isin: "INE419M01027", nse_symbol: "TDPOWERSYS" }],
+      priorCompanies: [{ id: "td-company", isin: "INE419M01027" }],
+      migrateError: "row is being updated by another transaction",
+    });
+
+    const result = await run(
+      makeParseResult([makeHolding({ symbol: "TDPOWERSYS", isin: "INE419M01035" })]),
+      userSupabase
+    );
+
+    expect(captured.companyInserts).toHaveLength(0);
+    expect(captured.companyUpdates).toHaveLength(1); // attempted the re-key
+    expect(result.migrated_companies).toEqual(["TDPOWERSYS"]);
+    expect(captured.insertedHoldings[0]).toMatchObject({ company_id: "td-company" });
+  });
+
+  it("ignores alias stocks with a null NSE symbol and dedups multiple prior ISINs", async () => {
+    // The new ISIN's own stock row carries a null nse_symbol (partial unique
+    // index) and must be skipped; multiple prior ISINs for one symbol accumulate.
+    const { userSupabase, captured } = setup({
+      existingStockIsins: ["INE419M01035"],
+      existingCompanies: [],
+      aliasStocks: [
+        { isin: "INE419M01035", nse_symbol: null }, // the new ISIN itself → skip
+        { isin: "INE419M01027", nse_symbol: "TDPOWERSYS" }, // prior ISIN
+        { isin: "INE419M01019", nse_symbol: "TDPOWERSYS" }, // an even older ISIN
+      ],
+      priorCompanies: [{ id: "td-company", isin: "INE419M01027" }],
+    });
+
+    const result = await run(
+      makeParseResult([makeHolding({ symbol: "TDPOWERSYS", isin: "INE419M01035" })]),
+      userSupabase
+    );
+
+    expect(captured.companyInserts).toHaveLength(0);
+    expect(result.migrated_companies).toEqual(["TDPOWERSYS"]);
+    expect(captured.insertedHoldings[0]).toMatchObject({ company_id: "td-company" });
+  });
+
+  it("matches only the changed stock and still creates genuinely new ones in the same batch", async () => {
+    // One row is a post-split ISIN of a held stock (reuse); another is brand new
+    // (create). Exercises the per-row match/no-match branches together.
+    const { userSupabase, captured } = setup({
+      existingStockIsins: ["INE419M01035", "INE009A01021"],
+      existingCompanies: [],
+      aliasStocks: [{ isin: "INE419M01027", nse_symbol: "TDPOWERSYS" }],
+      priorCompanies: [{ id: "td-company", isin: "INE419M01027" }],
+    });
+
+    const result = await run(
+      makeParseResult([
+        makeHolding({ symbol: "TDPOWERSYS", isin: "INE419M01035" }),
+        makeHolding({ symbol: "INFY", isin: "INE009A01021" }),
+      ]),
+      userSupabase
+    );
+
+    expect(result.migrated_companies).toEqual(["TDPOWERSYS"]);
+    expect(result.new_companies_created).toEqual(["INFY"]);
+    expect(captured.companyInserts).toHaveLength(1); // only INFY created
+    expect(result.imported_count).toBe(2);
+  });
+
+  it("creates a new company when the symbol is known but not held in this portfolio", async () => {
+    // A prior ISIN exists for the symbol, but the user has no company for it in
+    // this portfolio → there is nothing to reuse, so create fresh (don't migrate).
+    const { userSupabase, captured } = setup({
+      existingStockIsins: ["INE419M01035"],
+      existingCompanies: [],
+      aliasStocks: [{ isin: "INE419M01027", nse_symbol: "TDPOWERSYS" }],
+      priorCompanies: [], // no company under the prior ISIN in this portfolio
+    });
+
+    const result = await run(
+      makeParseResult([makeHolding({ symbol: "TDPOWERSYS", isin: "INE419M01035" })]),
+      userSupabase
+    );
+
+    expect(captured.companyInserts).toHaveLength(1);
+    expect(captured.companyUpdates).toHaveLength(0);
+    expect(result.new_companies_created).toEqual(["TDPOWERSYS"]);
+    expect(result.migrated_companies).toEqual([]);
   });
 
   it("consolidates unique ISINs across duplicate rows", async () => {

@@ -252,6 +252,7 @@ export type ImportHoldingSummary = {
   symbols_imported?: string[];
   symbols_skipped?: string[];
   new_companies_created?: string[];
+  migrated_companies?: string[];
   statement_date?: string;
   client_id?: string;
   account_label?: string;

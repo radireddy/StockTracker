@@ -96,6 +96,69 @@ export async function executeHoldingsImport(
     (existingCompanies ?? []).map((c: { id: string; isin: string }) => [c.isin, c.id] as [string, string])
   );
 
+  // 2b. Reconcile ISIN changes (splits / corporate actions) --------------------
+  // A statement can report a stock under a NEW ISIN after a corporate action.
+  // Matching companies purely by ISIN would spawn a duplicate stub, orphaning the
+  // existing company's research and forking its position. For each statement ISIN
+  // with no company yet, look for an existing company for the SAME stock under a
+  // prior ISIN (matched by NSE symbol) and reuse it — migrating that company to
+  // the new ISIN so subsequent imports match it directly.
+  const migratedSymbols: string[] = [];
+  const unmatchedIsins = uniqueIsins.filter((isin) => !companyMap.has(isin) && knownIsins.has(isin));
+  if (unmatchedIsins.length > 0) {
+    const symbolByIsin = new Map<string, string>(
+      unmatchedIsins.map((isin) => [isin, holdings.find((h) => h.isin === isin)!.symbol])
+    );
+    const symbols = [...new Set(symbolByIsin.values())];
+    // Prior ISINs registered under these symbols. (The new ISIN's own stock row
+    // carries a null nse_symbol — the partial unique index forces it — so this
+    // returns the pre-action ISIN, not the one we're importing.)
+    const { data: aliasStocks } = await adminClient
+      .from("indian_stocks")
+      .select("isin, nse_symbol")
+      .in("nse_symbol", symbols);
+    const isinsBySymbol = new Map<string, string[]>();
+    for (const s of (aliasStocks ?? []) as Array<{ isin: string; nse_symbol: string | null }>) {
+      if (!s.nse_symbol) continue;
+      const list = isinsBySymbol.get(s.nse_symbol) ?? [];
+      list.push(s.isin);
+      isinsBySymbol.set(s.nse_symbol, list);
+    }
+    const aliasIsins = [...new Set([...isinsBySymbol.values()].flat())].filter(
+      (isin) => !companyMap.has(isin)
+    );
+    if (aliasIsins.length > 0) {
+      const { data: priorCompanies } = await userSupabase
+        .from("companies")
+        .select("id, isin")
+        .eq("portfolio_id", portfolioId)
+        .in("isin", aliasIsins);
+      const companyByIsin = new Map<string, string>(
+        (priorCompanies ?? []).map((c: { id: string; isin: string }) => [c.isin, c.id] as [string, string])
+      );
+      for (const newIsin of unmatchedIsins) {
+        const symbol = symbolByIsin.get(newIsin)!;
+        const priorIsin = (isinsBySymbol.get(symbol) ?? []).find((i) => companyByIsin.has(i));
+        if (!priorIsin) continue;
+        const companyId = companyByIsin.get(priorIsin)!;
+        companyMap.set(newIsin, companyId);
+        // Migrate the company row to the current ISIN. Best-effort: even if this
+        // fails, the holding still attaches to the right company via companyMap.
+        const { error: migrateErr } = await userSupabase
+          .from("companies")
+          .update({ isin: newIsin })
+          .eq("id", companyId);
+        if (migrateErr) {
+          log.warn("ISIN migration update failed; company reused without re-keying", {
+            error: migrateErr.message, companyId, priorIsin, newIsin,
+          });
+        }
+        migratedSymbols.push(symbol);
+        log.info("Reconciled ISIN change to an existing company", { symbol, priorIsin, newIsin, companyId });
+      }
+    }
+  }
+
   const missingCompanyIsins = uniqueIsins.filter(
     (isin) => !companyMap.has(isin) && knownIsins.has(isin)
   );
@@ -206,6 +269,7 @@ export async function executeHoldingsImport(
     skipped_count: symbolsSkipped.length,
     companies_count: rows.length,
     new_companies_created: newCompaniesCreated,
+    migrated_companies: migratedSymbols,
     symbols_imported: symbolsImported,
     symbols_skipped: symbolsSkipped,
     statement_date: parseResult.metadata.statement_date,
@@ -230,6 +294,7 @@ export async function executeHoldingsImport(
         symbols_imported: result.symbols_imported,
         symbols_skipped: result.symbols_skipped,
         new_companies_created: result.new_companies_created,
+        migrated_companies: result.migrated_companies,
         statement_date: result.statement_date,
         client_id: result.client_id,
         account_label: accountLabel,
