@@ -50,6 +50,7 @@ describe("import types", () => {
       skipped_count: 2,
       companies_count: 5,
       new_companies_created: ["RELIANCE"],
+      migrated_companies: [],
       symbols_imported: ["RELIANCE"],
       symbols_skipped: ["INFY"],
       statement_date: "2025-03-31",

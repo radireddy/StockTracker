@@ -45,6 +45,7 @@ type ImportResponse = {
   skipped_count: number;
   companies_count: number;
   new_companies_created: string[];
+  migrated_companies: string[];
   symbols_imported: string[];
   symbols_skipped: string[];
   statement_date: string | null;
@@ -736,6 +737,15 @@ function ResultList({ results, onReset }: { results: FileResult[]; onReset: () =
                     <span className="font-medium">New stocks added: </span>
                     <span className="text-muted-foreground">
                       {r.result.new_companies_created.join(", ")}
+                    </span>
+                  </div>
+                )}
+
+                {r.result.migrated_companies?.length > 0 && (
+                  <div className="text-xs">
+                    <span className="font-medium">Matched to existing (ISIN changed): </span>
+                    <span className="text-muted-foreground">
+                      {r.result.migrated_companies.join(", ")}
                     </span>
                   </div>
                 )}

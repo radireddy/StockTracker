@@ -68,6 +68,8 @@ export interface ImportResult {
   skipped_count: number;
   companies_count: number;
   new_companies_created: string[];
+  /** Symbols whose existing company was reused after an ISIN change (split/corporate action). */
+  migrated_companies: string[];
   symbols_imported: string[];
   symbols_skipped: string[];
   statement_date: string | null;
