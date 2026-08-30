@@ -293,7 +293,7 @@ When an account filter is active, `AND account_id = ANY($2)` is added to **both*
 | File | Functions |
 |------|-----------|
 | `src/app/(authenticated)/actions/tradebook-actions.ts` | `importTradebook(formData)`, `getTradeImportHistory()`, `deleteTradeImport(id)` |
-| `src/app/(authenticated)/actions/trades-actions.ts` | `getOpenPositions(accountIds?)`, `getTradesForStock(isin)` |
+| `src/app/(authenticated)/actions/trades-actions.ts` | `getOpenPositions(accountIds?)`, `getOpenLotsForStock(isin, accountIds?)`, `getTradesForStock(isin)` |
 
 `importTradebook` is the primary entry point:
 - Reads `user_id` from `auth.uid()` — never from form data
@@ -315,10 +315,14 @@ When an account filter is active, `AND account_id = ANY($2)` is added to **both*
 
 `src/app/(authenticated)/trades/page.tsx`
 
+### Default View: Consolidated Across All Accounts
+
+The dashboard consolidates positions across **all** broker accounts by default — same as how the holdings dashboard shows all accounts unless filtered. Account filter chips (same `AccountFilter` component) let the user narrow to one or more accounts. Positions from different accounts in the same stock are summed together in the consolidated view.
+
 ### Data Hook
 
 `src/hooks/use-trades-data.ts`  
-- Calls `getOpenPositions(accountIds?)`  
+- Calls `getOpenPositions(accountIds?)` — `accountIds` is `undefined` (all) or a non-empty array (filtered)  
 - Returns positions joined with `indian_stocks` (name, sector) and current price from `indian_stocks.price`  
 - Same SWR/React Query caching pattern as `use-dashboard-data.ts`
 
@@ -326,13 +330,71 @@ When an account filter is active, `AND account_id = ANY($2)` is added to **both*
 
 | Component | Notes |
 |-----------|-------|
-| `src/components/trades/trades-table.tsx` | Mirror of `companies-table.tsx` — same columns (symbol, name, qty, avg cost, current price, P&L, P&L %) |
+| `src/components/trades/trades-table.tsx` | Expandable rows — see §7.1 |
 | `src/components/trades/trades-pnl-bar.tsx` | Mirror of `portfolio-pnl-bar.tsx` — total invested, current value, unrealized P&L |
+| `src/components/trades/open-lots-panel.tsx` | Expanded detail panel — see §7.1 |
 | `src/components/trades/trade-import-button.tsx` | Upload button + import history drawer |
 
 **No research data shown** (no star ratings, thesis, strategy). The table shows broker-derived position data only.
 
 **Account filter:** Reuses existing `AccountFilter` component. Filters positions by `account_id`.
+
+### 7.1 Expandable Company Row — Open Lots Detail
+
+Each company row in the table is expandable. Clicking it reveals all open buy lots for that stock, with per-lot analytics and a cumulative summary row.
+
+**Open lots query** — `getOpenLotsForStock(userId, isin, accountIds?)`:
+
+```sql
+SELECT
+  t.id,
+  t.account_id,
+  t.trade_date,
+  t.quantity                                          AS original_qty,
+  t.quantity - COALESCE(SUM(tlm.matched_quantity), 0) AS remaining_qty,
+  t.price                                             AS buy_price,
+  t.broker_trade_id,
+  t.executed_at
+FROM trades t
+LEFT JOIN trade_lot_matches tlm ON t.id = tlm.buy_trade_id
+WHERE t.user_id    = $1
+  AND t.isin       = $2
+  AND t.trade_type = 'buy'
+  -- optional: AND t.account_id = ANY($3)
+GROUP BY t.id
+HAVING t.quantity > COALESCE(SUM(tlm.matched_quantity), 0)
+ORDER BY t.trade_date ASC, t.executed_at ASC
+```
+
+**Columns shown per lot:**
+
+| Column | Formula |
+|--------|---------|
+| Buy date | `trade_date` |
+| Account | `accounts.label` (broker name + client_id) |
+| Qty (remaining / original) | `remaining_qty / original_qty` |
+| Buy price | `buy_price` |
+| Current price | `indian_stocks.price` |
+| Unrealized P&L | `(current_price − buy_price) × remaining_qty` |
+| P&L % | `(current_price − buy_price) / buy_price × 100` |
+| Holding days | `TODAY − trade_date` |
+| CAGR | `((current_price / buy_price) ^ (365 / holding_days) − 1) × 100` — shown only when `holding_days >= 7` to avoid extreme short-period distortion |
+
+**Cumulative summary row** (pinned at bottom of the expanded panel):
+
+| Column | Formula |
+|--------|---------|
+| Total remaining qty | `SUM(remaining_qty)` across all lots |
+| Avg buy price (FIFO-weighted) | `SUM(remaining_qty × buy_price) / SUM(remaining_qty)` |
+| Current price | same |
+| Total unrealized P&L | `SUM((current_price − buy_price) × remaining_qty)` |
+| Overall P&L % | `(current_price − avg_buy_price) / avg_buy_price × 100` |
+| Avg holding days | `SUM(remaining_qty × holding_days) / SUM(remaining_qty)` (quantity-weighted) |
+| Cumulative CAGR | `((current_price / avg_buy_price) ^ (365 / avg_holding_days) − 1) × 100` |
+
+> **Note:** Cumulative CAGR uses the quantity-weighted average cost and holding period. This is an approximation — true time-weighted return (XIRR) accounts for the exact timing of each cash flow and will be added in a later phase.
+
+**Server action:** `getOpenLotsForStock(isin: string, accountIds?: string[]): Promise<OpenLot[]>` — called lazily when the user first expands a row (not on page load).
 
 ### Navigation
 
@@ -392,6 +454,7 @@ src/hooks/
 src/components/trades/
   trades-table.tsx              (new)
   trades-pnl-bar.tsx            (new)
+  open-lots-panel.tsx           (new)
   trade-import-button.tsx       (new)
 
 src/__tests__/
@@ -407,6 +470,7 @@ src/__tests__/
 - **`fifo-engine.test.ts`:** Pure function unit tests. Scenarios: simple FIFO order, intraday detection, partial lot match, sell exceeds buy (error), multiple ISINs independent, re-import idempotency (0 new trades → lot matches unchanged).  
 - **`zerodha-tradebook-parser.test.ts`:** Parses real file structure. Client ID extraction, date range extraction, buy/sell rows, skipped rows (zero qty, non-EQ segment), `canParse` detection.  
 - **`tradebook-import-engine.test.ts`:** Integration with Supabase mock. First import, re-import same file (skipped_count = total, no FIFO recompute), second file with new trades.  
+- **`fifo-engine.test.ts` (open lots):** `getOpenLotsForStock` returns correct remaining quantities, CAGR ≥ 7-day guard, cumulative CAGR formula, partial lot (buy 900 → sell 400 → 500 remaining).  
 - Coverage gate: same 95% threshold as rest of codebase.
 
 ---
