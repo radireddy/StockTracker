@@ -10,6 +10,7 @@ export function AppHeader({ profile }: { profile: Profile }) {
 
   const navLinks = [
     { href: "/dashboard", label: "Dashboard", active: pathname === "/dashboard" },
+    { href: "/trades", label: "Trades", active: pathname.startsWith("/trades") },
     { href: "/import", label: "Import", active: pathname.startsWith("/import") },
     { href: "/settings", label: "Settings", active: pathname.startsWith("/settings") },
   ];
