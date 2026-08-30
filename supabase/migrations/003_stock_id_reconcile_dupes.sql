@@ -12,6 +12,12 @@
 -- ISIN). Canonical adopts the current ISIN; everything repoints to it; the stub
 -- is deleted.
 --
+-- NOTE on the ISIN FK: `companies.isin -> indian_stocks(isin)` is ON UPDATE
+-- NO ACTION, so we cannot delete/re-key a referenced catalog row while any
+-- company points at it by isin. We therefore lift that FK for the duration of
+-- the merge and restore it at the end (Phase D drops it permanently). This all
+-- runs in ONE transaction, so external readers never see the FK missing.
+--
 -- Apply ONCE, after 002. Safe to re-run (no-op if the stub is already gone).
 -- ============================================================================
 
@@ -32,6 +38,9 @@ BEGIN
     RETURN;
   END IF;
 
+  -- 0. Lift the isin FK so the catalog row can be re-keyed / the stub deleted.
+  ALTER TABLE companies DROP CONSTRAINT IF EXISTS companies_isin_fkey;
+
   -- 1. Repoint every company/holding that sits on the stub onto the canonical stock.
   UPDATE companies SET stock_id = v_canon WHERE stock_id = v_stub;
   UPDATE holdings  SET stock_id = v_canon WHERE stock_id = v_stub;
@@ -42,10 +51,15 @@ BEGIN
   -- 3. Canonical adopts the current (post-split) ISIN; its symbol + price stay.
   UPDATE indian_stocks SET isin = v_new_isin WHERE id = v_canon;
 
-  -- 4. Keep the denormalized isin cache on all referencing rows consistent with
-  --    the canonical stock's current ISIN.
+  -- 4. Keep the denormalized isin cache on ALL referencing rows consistent with
+  --    the canonical stock's current ISIN (also required so the restored FK is
+  --    satisfied — the old isin no longer exists in indian_stocks).
   UPDATE companies SET isin = v_new_isin WHERE stock_id = v_canon AND isin IS DISTINCT FROM v_new_isin;
   UPDATE holdings  SET isin = v_new_isin WHERE stock_id = v_canon AND isin IS DISTINCT FROM v_new_isin;
+
+  -- 5. Restore the isin FK (every company now references a valid catalog row).
+  ALTER TABLE companies ADD CONSTRAINT companies_isin_fkey
+    FOREIGN KEY (isin) REFERENCES indian_stocks(isin);
 
   RAISE NOTICE 'TD Power reconciled onto stock_id %', v_canon;
 END $$;
@@ -56,8 +70,8 @@ COMMIT;
 -- POST-APPLY VERIFICATION:
 --   -- Exactly ONE catalog row for the symbol, carrying the price:
 --   SELECT id, isin, nse_symbol, price, market_cap FROM indian_stocks WHERE nse_symbol = 'TDPOWERSYS';
---   -- All TD Power companies share that one stock_id:
---   SELECT c.id, c.isin, c.stock_id FROM companies c
+--   -- All TD Power companies share that one stock_id (and current isin):
+--   SELECT c.id, c.portfolio_id, c.isin, c.stock_id FROM companies c
 --     JOIN indian_stocks s ON s.id = c.stock_id WHERE s.nse_symbol = 'TDPOWERSYS';
 --
 -- Detect any OTHER split-duplicated stocks to review (a symbol on 2+ ISINs):
