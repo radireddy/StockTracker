@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createLogger } from "@/lib/logger";
+import { resolveStocks } from "@/lib/stocks/resolve-stock";
 import type { HoldingsParseResult, ImportResult } from "./types";
 
 const log = createLogger({ service: "holdings-import-engine" });
@@ -42,193 +43,123 @@ export async function executeHoldingsImport(
 
   const uniqueIsins = [...new Set(holdings.map((h) => h.isin))];
 
-  // 1. Ensure stocks exist ------------------------------------------------------
-  const { data: stocks } = await adminClient
-    .from("indian_stocks")
-    .select("isin")
-    .in("isin", uniqueIsins);
-  const knownIsins = new Set<string>((stocks ?? []).map((s: { isin: string }) => s.isin));
+  // 1. Resolve every statement stock to a stable stock_id ----------------------
+  // resolveStocks matches by current ISIN, then by NSE symbol (a split/face-value
+  // change re-uses the SAME stock under its new ISIN), then by BSE code, and only
+  // creates a fresh stock as a last resort. This is what prevents a corporate
+  // action from ever forking a stock into a duplicate catalog row.
+  const refs = uniqueIsins.map((isin) => {
+    const h = holdings.find((x) => x.isin === isin)!;
+    return { isin, symbol: h.symbol, sector: h.sector };
+  });
+  const resolved = await resolveStocks(adminClient, refs);
 
-  const missingIsins = uniqueIsins.filter((isin) => !knownIsins.has(isin));
-  if (missingIsins.length > 0) {
-    const stockRows = missingIsins.map((isin) => {
-      const h = holdings.find((x) => x.isin === isin)!;
-      return { isin, name: h.symbol, nse_symbol: h.symbol, exchange: "NSE" as const };
-    });
-    // Fast path: register every missing stock in one round-trip.
-    const { error: bulkErr } = await adminClient
-      .from("indian_stocks")
-      .upsert(stockRows, { onConflict: "isin", ignoreDuplicates: true });
-    if (bulkErr) {
-      // Fallback: one bad row shouldn't block the rest, and older schemas may
-      // lack `nse_symbol` (retry without it). Handle each ISIN on its own.
-      for (const isin of missingIsins) {
-        const h = holdings.find((x) => x.isin === isin)!;
-        const { error: insertErr } = await adminClient
-          .from("indian_stocks")
-          .upsert(
-            { isin, name: h.symbol, nse_symbol: h.symbol, exchange: "NSE" as const },
-            { onConflict: "isin", ignoreDuplicates: true }
-          );
-        if (insertErr) {
-          const { error: retryErr } = await adminClient
-            .from("indian_stocks")
-            .upsert({ isin, name: h.symbol, exchange: "NSE" as const }, { onConflict: "isin", ignoreDuplicates: true });
-          if (retryErr) {
-            errors.push({ symbol: h.symbol, message: `Could not register stock (ISIN ${isin}): ${retryErr.message}` });
-            continue;
-          }
-        }
-        knownIsins.add(isin);
-      }
-    } else {
-      for (const isin of missingIsins) knownIsins.add(isin);
+  const migratedSymbols: string[] = [];
+  for (const isin of uniqueIsins) {
+    const r = resolved.get(isin);
+    const h = holdings.find((x) => x.isin === isin)!;
+    if (!r) {
+      errors.push({ symbol: h.symbol, message: `Could not register stock (ISIN ${isin})` });
+    } else if (r.reIsinedFrom) {
+      migratedSymbols.push(h.symbol); // reused an existing stock across an ISIN change
     }
   }
 
-  // 2. Ensure companies exist (research stubs) ---------------------------------
+  // 2. Find or create the company for each resolved stock, keyed by stock_id ----
+  const stockIds = [...new Set([...resolved.values()].map((r) => r.stockId))];
+  const isinByStockId = new Map<string, string>();
+  const symbolByStockId = new Map<string, string>();
+  for (const isin of uniqueIsins) {
+    const r = resolved.get(isin);
+    if (!r) continue;
+    isinByStockId.set(r.stockId, r.currentIsin);
+    symbolByStockId.set(r.stockId, holdings.find((x) => x.isin === isin)!.symbol);
+  }
+
   const { data: existingCompanies } = await userSupabase
     .from("companies")
-    .select("id, isin")
+    .select("id, stock_id")
     .eq("portfolio_id", portfolioId)
-    .in("isin", uniqueIsins);
-  const companyMap = new Map<string, string>(
-    (existingCompanies ?? []).map((c: { id: string; isin: string }) => [c.isin, c.id] as [string, string])
+    .in("stock_id", stockIds);
+  const companyByStockId = new Map<string, string>(
+    (existingCompanies ?? []).map((c: { id: string; stock_id: string }) => [c.stock_id, c.id] as [string, string])
   );
 
-  // 2b. Reconcile ISIN changes (splits / corporate actions) --------------------
-  // A statement can report a stock under a NEW ISIN after a corporate action.
-  // Matching companies purely by ISIN would spawn a duplicate stub, orphaning the
-  // existing company's research and forking its position. For each statement ISIN
-  // with no company yet, look for an existing company for the SAME stock under a
-  // prior ISIN (matched by NSE symbol) and reuse it — migrating that company to
-  // the new ISIN so subsequent imports match it directly.
-  const migratedSymbols: string[] = [];
-  const unmatchedIsins = uniqueIsins.filter((isin) => !companyMap.has(isin) && knownIsins.has(isin));
-  if (unmatchedIsins.length > 0) {
-    const symbolByIsin = new Map<string, string>(
-      unmatchedIsins.map((isin) => [isin, holdings.find((h) => h.isin === isin)!.symbol])
-    );
-    const symbols = [...new Set(symbolByIsin.values())];
-    // Prior ISINs registered under these symbols. (The new ISIN's own stock row
-    // carries a null nse_symbol — the partial unique index forces it — so this
-    // returns the pre-action ISIN, not the one we're importing.)
-    const { data: aliasStocks } = await adminClient
-      .from("indian_stocks")
-      .select("isin, nse_symbol")
-      .in("nse_symbol", symbols);
-    const isinsBySymbol = new Map<string, string[]>();
-    for (const s of (aliasStocks ?? []) as Array<{ isin: string; nse_symbol: string | null }>) {
-      if (!s.nse_symbol) continue;
-      const list = isinsBySymbol.get(s.nse_symbol) ?? [];
-      list.push(s.isin);
-      isinsBySymbol.set(s.nse_symbol, list);
-    }
-    const aliasIsins = [...new Set([...isinsBySymbol.values()].flat())].filter(
-      (isin) => !companyMap.has(isin)
-    );
-    if (aliasIsins.length > 0) {
-      const { data: priorCompanies } = await userSupabase
-        .from("companies")
-        .select("id, isin")
-        .eq("portfolio_id", portfolioId)
-        .in("isin", aliasIsins);
-      const companyByIsin = new Map<string, string>(
-        (priorCompanies ?? []).map((c: { id: string; isin: string }) => [c.isin, c.id] as [string, string])
-      );
-      for (const newIsin of unmatchedIsins) {
-        const symbol = symbolByIsin.get(newIsin)!;
-        const priorIsin = (isinsBySymbol.get(symbol) ?? []).find((i) => companyByIsin.has(i));
-        if (!priorIsin) continue;
-        const companyId = companyByIsin.get(priorIsin)!;
-        companyMap.set(newIsin, companyId);
-        // Migrate the company row to the current ISIN. Best-effort: even if this
-        // fails, the holding still attaches to the right company via companyMap.
-        const { error: migrateErr } = await userSupabase
-          .from("companies")
-          .update({ isin: newIsin })
-          .eq("id", companyId);
-        if (migrateErr) {
-          log.warn("ISIN migration update failed; company reused without re-keying", {
-            error: migrateErr.message, companyId, priorIsin, newIsin,
-          });
-        }
-        migratedSymbols.push(symbol);
-        log.info("Reconciled ISIN change to an existing company", { symbol, priorIsin, newIsin, companyId });
-      }
-    }
-  }
-
-  const missingCompanyIsins = uniqueIsins.filter(
-    (isin) => !companyMap.has(isin) && knownIsins.has(isin)
-  );
-  if (missingCompanyIsins.length > 0) {
-    const companyRows = missingCompanyIsins.map((isin) => ({
+  const missingStockIds = stockIds.filter((sid) => !companyByStockId.has(sid));
+  if (missingStockIds.length > 0) {
+    const companyRows = missingStockIds.map((sid) => ({
       user_id: userId,
       portfolio_id: portfolioId,
-      isin,
+      stock_id: sid,
+      isin: isinByStockId.get(sid)!, // the stock's CURRENT isin (a valid catalog value)
     }));
     // Fast path: create every missing company stub in one round-trip.
     const { data: createdRows, error: bulkErr } = await userSupabase
       .from("companies")
       .insert(companyRows)
-      .select("id, isin");
+      .select("id, stock_id");
     if (!bulkErr && createdRows) {
-      for (const row of createdRows as Array<{ id: string; isin: string }>) {
-        companyMap.set(row.isin, row.id);
-        const h = holdings.find((x) => x.isin === row.isin);
-        if (h) newCompaniesCreated.push(h.symbol);
+      for (const row of createdRows as Array<{ id: string; stock_id: string }>) {
+        companyByStockId.set(row.stock_id, row.id);
+        const sym = symbolByStockId.get(row.stock_id);
+        if (sym) newCompaniesCreated.push(sym);
       }
     } else {
       // Fallback: a bulk insert aborts wholesale if any single row conflicts, so
-      // re-attempt each ISIN individually — inserting the genuinely new ones and
+      // re-attempt each stock individually — inserting the genuinely new ones and
       // recovering the id of any that lost a create race.
-      for (const isin of missingCompanyIsins) {
-        if (companyMap.has(isin)) continue;
-        const h = holdings.find((x) => x.isin === isin)!;
+      for (const sid of missingStockIds) {
+        if (companyByStockId.has(sid)) continue;
         const { data: created, error: createErr } = await userSupabase
           .from("companies")
-          .insert({ user_id: userId, portfolio_id: portfolioId, isin })
+          .insert({ user_id: userId, portfolio_id: portfolioId, stock_id: sid, isin: isinByStockId.get(sid)! })
           .select("id")
           .single();
         if (createErr) {
-          // Race: someone created it — re-read.
+          // Race: someone created it — re-read by (portfolio, stock_id).
           const { data: existing } = await userSupabase
             .from("companies")
             .select("id")
             .eq("portfolio_id", portfolioId)
-            .eq("isin", isin)
+            .eq("stock_id", sid)
             .single();
           if (existing) {
-            companyMap.set(isin, existing.id as string);
+            companyByStockId.set(sid, existing.id as string);
           } else {
-            errors.push({ symbol: h.symbol, message: `Could not create company: ${createErr.message}` });
+            errors.push({ symbol: symbolByStockId.get(sid), message: `Could not create company: ${createErr.message}` });
           }
         } else {
-          companyMap.set(isin, created.id as string);
-          newCompaniesCreated.push(h.symbol);
+          companyByStockId.set(sid, created.id as string);
+          const sym = symbolByStockId.get(sid);
+          if (sym) newCompaniesCreated.push(sym);
         }
       }
     }
   }
 
   // 3. Build the fresh snapshot rows -------------------------------------------
+  // Each row carries stock_id AND the stock's current isin. (The current
+  // replace_account_holdings RPC inserts isin; the sync trigger derives stock_id
+  // from it. Passing stock_id too is forward-compatible for Phase D.)
   const symbolsImported: string[] = [];
   const symbolsSkipped: string[] = [];
   const rows = holdings
     .filter((h) => {
-      const ok = companyMap.has(h.isin);
+      const r = resolved.get(h.isin);
+      const ok = !!r && companyByStockId.has(r.stockId);
       if (!ok) symbolsSkipped.push(h.symbol);
       return ok;
     })
     .map((h) => {
+      const r = resolved.get(h.isin)!;
       symbolsImported.push(h.symbol);
       return {
         user_id: userId,
         portfolio_id: portfolioId,
         account_id: accountId,
-        company_id: companyMap.get(h.isin)!,
-        isin: h.isin,
+        company_id: companyByStockId.get(r.stockId)!,
+        stock_id: r.stockId,
+        isin: r.currentIsin,
         quantity: h.quantity,
         avg_buy_price: h.avg_price,
         sector: h.sector,
