@@ -294,3 +294,31 @@ export async function deleteTradeImport(importId: string): Promise<ActionResult>
     if (error) throw new Error(error.message);
   });
 }
+
+export async function applyCorporateAction(input: {
+  stock_id: string; action_type: "split" | "bonus"; ex_date: string; factor: number; matched_stock_ids?: string[];
+}): Promise<ActionResult> {
+  return action(async () => {
+    const { user, supabase } = await getAuthUser();
+    if (!(input.factor > 0)) throw new AppError("Invalid corporate-action factor.");
+    const admin = createAdminClient();
+
+    if (input.matched_stock_ids?.length) {
+      for (const old of input.matched_stock_ids) {
+        if (old !== input.stock_id) {
+          await admin.from("indian_stocks").update({ canonical_stock_id: input.stock_id }).eq("id", old);
+        }
+      }
+    }
+    const { error } = await admin.from("corporate_actions").upsert(
+      { stock_id: input.stock_id, action_type: input.action_type, ex_date: input.ex_date, factor: input.factor, source: "inferred" },
+      { onConflict: "stock_id,action_type,ex_date" });
+    if (error) throw new AppError(error.message);
+
+    // Recompute the caller's accounts that trade this canonical security.
+    const { data: accts } = await supabase.from("accounts").select("id");
+    for (const a of (accts ?? []) as Array<{ id: string }>) {
+      await recomputeFifoForAccount(admin, user.id, a.id);
+    }
+  });
+}
