@@ -1,4 +1,5 @@
 import type { BrokerType, ParseError } from "./types";
+import type { CorporateActionCandidate } from "./corporate-action-detect";
 
 export type { ParseError };
 
@@ -75,6 +76,43 @@ export interface LotMatch {
   holding_days: number;
   is_intraday: boolean;
   is_long_term: boolean;
+}
+
+/** One file's outcome within a multi-file batch import. */
+export interface BatchFileResult {
+  file_name: string;
+  status: "imported" | "failed";
+  imported_count: number;
+  skipped_count: number;
+  account_label: string | null;
+  /** Present only when status is "failed". */
+  error: string | null;
+}
+
+/** A corporate action that was auto-applied during import (verified against NSE reference). */
+export interface AppliedCorporateAction {
+  symbol: string;
+  action_type: "split" | "bonus";
+  factor: number;
+  ex_date: string;
+  source: "nse";
+}
+
+/** A candidate corporate action that could not be auto-applied (inferred or unexplained). */
+export type PendingCorporateAction = CorporateActionCandidate & {
+  status: "inferred" | "unexplained";
+};
+
+/** Aggregate result of a multi-file batch import. */
+export interface BatchImportResult {
+  files: BatchFileResult[];
+  total_imported: number;
+  total_skipped: number;
+  accounts_recomputed: number;
+  corporate_actions: {
+    applied: AppliedCorporateAction[];
+    pending: PendingCorporateAction[];
+  };
 }
 
 /** Returned by the import engine after processing one file. */
