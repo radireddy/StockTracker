@@ -270,6 +270,40 @@ export async function recomputeTradebookAccounts(
   });
 }
 
+/**
+ * After a batch of file imports (and FIFO recompute), detect and auto-apply
+ * verified corporate actions for the affected accounts, and return any pending
+ * candidates for user review.
+ */
+export async function detectCorporateActionsAfterImport(
+  accountIds: string[]
+): Promise<ActionResult<{ applied: AppliedCorporateAction[]; pending: PendingCorporateAction[] }>> {
+  return action(async () => {
+    const { user, supabase } = await getAuthUser();
+    const unique = [...new Set(accountIds)];
+    if (unique.length === 0) return { applied: [], pending: [] };
+
+    // RLS — verify all accounts belong to the caller.
+    const { data: owned } = await supabase
+      .from("accounts")
+      .select("id")
+      .in("id", unique);
+    const ownedIds = new Set((owned ?? []).map((a) => a.id));
+
+    const allApplied: AppliedCorporateAction[] = [];
+    const allPending: PendingCorporateAction[] = [];
+    const admin = createAdminClient();
+    for (const accountId of unique) {
+      if (!ownedIds.has(accountId)) continue;
+      const { applied, pending } = await detectAndApplyForAccount(admin, user.id, accountId);
+      allApplied.push(...applied);
+      allPending.push(...pending);
+    }
+
+    return { applied: allApplied, pending: allPending };
+  });
+}
+
 export async function getTradeImportHistory() {
   const { supabase } = await getAuthUser();
   const { data, error } = await supabase
