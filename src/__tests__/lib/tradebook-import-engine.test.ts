@@ -410,17 +410,25 @@ describe("executeTradebookImport", () => {
   });
 
   it("auto-applies a verified split and returns inferred ones", async () => {
-    // Seed: trades that oversell (100 buy, 200 sell) + a matching ref row.
+    // Seed: trades that oversell (100 buy, 200 sell) + a matching ref row (SYM = verified).
     _db.trades.push(
       { id: "b", user_id: "u", account_id: "acc-mock", symbol: "SYM", isin: "INE1", stock_id: "s1", trade_date: "2024-01-01", trade_type: "buy", quantity: 100, price: 1000, executed_at: null, broker_trade_id: "b" },
       { id: "s", user_id: "u", account_id: "acc-mock", symbol: "SYM", isin: "INE1", stock_id: "s1", trade_date: "2024-09-01", trade_type: "sell", quantity: 200, price: 600, executed_at: null, broker_trade_id: "s" },
+      // SYM2: trades that oversell (100 buy, 200 sell) but NO matching ref row (inferred).
+      { id: "b2", user_id: "u", account_id: "acc-mock", symbol: "SYM2", isin: "INE2", stock_id: "s2", trade_date: "2024-01-01", trade_type: "buy", quantity: 100, price: 1000, executed_at: null, broker_trade_id: "b2" },
+      { id: "s2", user_id: "u", account_id: "acc-mock", symbol: "SYM2", isin: "INE2", stock_id: "s2", trade_date: "2024-09-01", trade_type: "sell", quantity: 200, price: 600, executed_at: null, broker_trade_id: "s2" },
     );
     _db.corporate_action_ref = [
       { symbol: "SYM", isin: "INE1", action_type: "split", ex_date: "2024-05-01", factor: 2 },
+      // NOTE: NO ref row for SYM2 — it will be detected as inferred, not verified.
     ];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin = makeAdminMock() as any;
     const res = await recomputeAndDetect(admin, "u", "acc-mock"); // helper: recompute then detectAndApplyForAccount
+    // ── Assert verified auto-applies ──
     expect(res.applied.some((a) => a.symbol === "SYM" && a.factor === 2)).toBe(true);
+    // ── Assert inferred candidate is returned in pending but NOT written to corporate_actions ──
+    expect(res.pending.some((p) => p.symbol === "SYM2")).toBe(true);
+    expect((_inserted["corporate_actions"] ?? []).every((r) => (r as any).stock_id !== "s2")).toBe(true);
   });
 });
