@@ -11,6 +11,13 @@ import {
 import { clientIdFromFileName } from "@/lib/import/tradebook-filename";
 import { action, AppError, type ActionResult } from "@/lib/action-result";
 import { createLogger } from "@/lib/logger";
+import { fetchAllRows } from "@/lib/supabase/paginate";
+import {
+  detectCorporateActions,
+  type SecurityTrades,
+} from "@/lib/import/corporate-action-detect";
+import { loadCorporateActionContext } from "@/lib/import/corporate-actions-data";
+import type { TradeForOpenPositions } from "@/lib/import/open-positions";
 import type {
   TradebookImportResult,
   BatchImportResult,
@@ -336,6 +343,81 @@ export async function applyCorporateAction(input: {
     const { user, supabase } = await getAuthUser();
     if (!(input.factor > 0)) throw new AppError("Invalid corporate-action factor.");
     const admin = createAdminClient();
+
+    // ── Ownership gate ────────────────────────────────────────────────────────
+    // Load the caller's own trades for this security using the RLS-scoped
+    // client. RLS guarantees only their rows come back, so zero rows means
+    // they have no stake in this security.
+    const ids = [input.stock_id, ...(input.matched_stock_ids ?? [])];
+    const tradeRows = await fetchAllRows<{
+      id: string;
+      user_id: string;
+      account_id: string;
+      symbol: string;
+      isin: string;
+      stock_id: string | null;
+      trade_date: string;
+      trade_type: string;
+      quantity: number;
+      price: number;
+      executed_at: string | null;
+      broker_trade_id: string;
+    }>((from, to) =>
+      supabase
+        .from("trades")
+        .select("id, user_id, account_id, symbol, isin, stock_id, trade_date, trade_type, quantity, price, executed_at, broker_trade_id")
+        .in("stock_id", ids)
+        .range(from, to)
+    );
+
+    if (tradeRows.length === 0) {
+      throw new AppError("You don't have trades for this security.");
+    }
+
+    // ── Reconciliation gate ───────────────────────────────────────────────────
+    // Re-derive the corporate action from the caller's own trade data and
+    // confirm the posted factor is consistent (within 2%). Do NOT trust
+    // input.factor — the client must prove the action is observable in their
+    // trades.
+    const trades: TradeForOpenPositions[] = tradeRows.map((r) => ({
+      id: r.id,
+      user_id: r.user_id,
+      account_id: r.account_id,
+      symbol: r.symbol,
+      isin: r.isin,
+      stock_id: r.stock_id,
+      trade_date: r.trade_date,
+      trade_type: r.trade_type as "buy" | "sell",
+      quantity: Number(r.quantity),
+      price: Number(r.price),
+      executed_at: r.executed_at,
+      broker_trade_id: r.broker_trade_id,
+    }));
+
+    // Group trades by symbol into a single SecurityTrades entry.
+    const symbol = trades[0].symbol;
+    const isin = trades[0].isin;
+    const account_id = trades[0].account_id;
+    const securityTrades: SecurityTrades = {
+      symbol,
+      stock_id: input.stock_id,
+      isin,
+      account_id,
+      trades,
+      holdingsQty: null,
+    };
+
+    const ca = await loadCorporateActionContext(admin);
+    const candidates = detectCorporateActions([securityTrades], ca);
+    const ok = candidates.some(
+      (c) =>
+        c.action_type === input.action_type &&
+        Math.abs(c.factor - input.factor) / input.factor <= 0.02
+    );
+    if (!ok) {
+      throw new AppError("This corporate action doesn't reconcile with your trades.");
+    }
+    // ── End gates ─────────────────────────────────────────────────────────────
 
     if (input.matched_stock_ids?.length) {
       for (const old of input.matched_stock_ids) {
