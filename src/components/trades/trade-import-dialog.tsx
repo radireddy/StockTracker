@@ -60,6 +60,7 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
     applied: AppliedCorporateAction[];
     pending: PendingCorporateAction[];
   } | null>(null);
+  const [confirmingKey, setConfirmingKey] = useState<string | null>(null);
 
   const busy = phase === "uploading" || phase === "finalizing";
 
@@ -78,6 +79,7 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
     setDragActive(false);
     setElapsed(0);
     setCorporateActions(null);
+    setConfirmingKey(null);
   };
 
   const handleOpenChange = (next: boolean) => {
@@ -154,29 +156,35 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
   };
 
   const confirmAction = async (p: PendingCorporateAction) => {
-    if (busy) return;
-    const result = await applyCorporateAction({
-      stock_id: p.stock_id!,
-      action_type: p.action_type,
-      ex_date: p.ex_date_window.from,
-      factor: p.factor,
-      matched_stock_ids: p.matched_stock_ids,
-    });
-    if (result.ok) {
-      await invalidate();
-      setCorporateActions((prev) =>
-        prev
-          ? {
-              ...prev,
-              pending: prev.pending.filter(
-                (q) =>
-                  !(q.stock_id === p.stock_id && q.action_type === p.action_type && q.ex_date_window.from === p.ex_date_window.from)
-              ),
-            }
-          : prev
-      );
-    } else {
-      toastError(result);
+    const key = `${p.stock_id}|${p.action_type}|${p.ex_date_window.from}`;
+    if (confirmingKey !== null) return;
+    setConfirmingKey(key);
+    try {
+      const result = await applyCorporateAction({
+        stock_id: p.stock_id!,
+        action_type: p.action_type,
+        ex_date: p.ex_date_window.from,
+        factor: p.factor,
+        matched_stock_ids: p.matched_stock_ids,
+      });
+      if (result.ok) {
+        await invalidate();
+        setCorporateActions((prev) =>
+          prev
+            ? {
+                ...prev,
+                pending: prev.pending.filter(
+                  (q) =>
+                    !(q.stock_id === p.stock_id && q.action_type === p.action_type && q.ex_date_window.from === p.ex_date_window.from)
+                ),
+              }
+            : prev
+        );
+      } else {
+        toastError(result);
+      }
+    } finally {
+      setConfirmingKey(null);
     }
   };
 
@@ -336,19 +344,24 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
 
               {corporateActions.pending
                 .filter((p) => p.status === "inferred")
-                .map((p, i) => (
-                  <div key={`pd-${i}`} className="rounded-md border bg-muted/30 p-2 text-xs">
-                    <p>
-                      <span className="font-medium">{p.symbol}</span>: sold {p.observed.sells} but bought{" "}
-                      {p.observed.buys}. A ×{p.factor} {p.action_type} (~{p.ex_date_window.from}…{p.ex_date_window.to}) explains it.
-                    </p>
-                    <div className="mt-1.5 flex gap-2">
-                      <Button size="sm" onClick={() => confirmAction(p)} disabled={busy}>
-                        Apply
-                      </Button>
+                .map((p, i) => {
+                  const cardKey = `${p.stock_id}|${p.action_type}|${p.ex_date_window.from}`;
+                  const isConfirming = confirmingKey === cardKey;
+                  return (
+                    <div key={`pd-${i}`} className="rounded-md border bg-muted/30 p-2 text-xs">
+                      <p>
+                        <span className="font-medium">{p.symbol}</span>: sold {p.observed.sells} but bought{" "}
+                        {p.observed.buys}. A ×{p.factor} {p.action_type} (~{p.ex_date_window.from}…{p.ex_date_window.to}) explains it.
+                      </p>
+                      <div className="mt-1.5 flex gap-2">
+                        <Button size="sm" onClick={() => confirmAction(p)} disabled={confirmingKey !== null}>
+                          {isConfirming && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                          {isConfirming ? "Applying…" : "Apply"}
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
               {corporateActions.pending
                 .filter((p) => p.status === "unexplained")
