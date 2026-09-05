@@ -1,4 +1,3 @@
-import { computeFifoMatches } from "./fifo-engine";
 import { securityKey, adjustQtyPrice, type CorporateActionContext } from "./corporate-actions";
 import type { TradeForOpenPositions } from "./open-positions";
 
@@ -58,6 +57,7 @@ export function detectCorporateActions(
   for (const sec of securities) {
     const { buys, sells } = totals(sec, ca);
     const fifoOpen = Math.max(0, buys - sells);
+    const distinctStockIds = [...new Set(sec.trades.map((tt) => tt.stock_id).filter((v): v is string => v != null))];
 
     // Signal A — oversold: sold more than bought ⇒ a multiplier is missing.
     if (sells > buys + 1e-6 && buys > 0) {
@@ -69,8 +69,25 @@ export function detectCorporateActions(
         ex_date_window: { from: dates[0], to: dates[dates.length - 1] },
         observed: { buys, sells, fifoOpen, holdings: sec.holdingsQty },
         status: snapped != null && Math.abs(buys * snapped - sells) < Math.max(1, buys * 0.01) ? "inferred" : "unexplained",
+        matched_stock_ids: distinctStockIds.length > 1 ? distinctStockIds : undefined,
       };
       out.push(candidate);
+    }
+    // Signal B — holdings mismatch (still-held): FIFO-open != holdings by a clean ratio.
+    else if (sec.holdingsQty != null && sec.holdingsQty > 0 && fifoOpen > 0) {
+      const ratio = sec.holdingsQty / fifoOpen;
+      const snapped = snapFactor(ratio);
+      if (snapped != null && Math.abs(fifoOpen * snapped - sec.holdingsQty) < Math.max(1, fifoOpen * 0.01)) {
+        const dates = sec.trades.map((tt) => tt.trade_date).sort();
+        out.push({
+          stock_id: sec.stock_id, symbol: sec.symbol, isin: sec.isin, account_id: sec.account_id,
+          action_type: "split", factor: snapped,
+          ex_date_window: { from: dates[0], to: dates[dates.length - 1] },
+          observed: { buys, sells, fifoOpen, holdings: sec.holdingsQty },
+          status: "inferred",
+          matched_stock_ids: distinctStockIds.length > 1 ? distinctStockIds : undefined,
+        });
+      }
     }
   }
   return out;

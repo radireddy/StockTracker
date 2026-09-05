@@ -38,4 +38,45 @@ describe("detectCorporateActions — Signal A (oversold)", () => {
     };
     expect(detectCorporateActions([sec], EMPTY_CA)).toHaveLength(0);
   });
+
+  it("flags unexplained status when ratio is implausible (bought 100, sold 730 → 7.3)", () => {
+    const sec: SecurityTrades = {
+      symbol: "SYM", stock_id: "s1", isin: "INE1", account_id: "a", holdingsQty: 0,
+      trades: [
+        t({ id: "b", trade_type: "buy", quantity: 100, price: 1000, trade_date: "2024-01-01" }),
+        t({ id: "s", trade_type: "sell", quantity: 730, price: 600, trade_date: "2024-09-01" }),
+      ],
+    };
+    const [c] = detectCorporateActions([sec], EMPTY_CA);
+    expect(c.status).toBe("unexplained");
+    expect(c.factor).toBe(7.3);
+    expect(c.observed).toMatchObject({ buys: 100, sells: 730 });
+  });
+});
+
+describe("detectCorporateActions — Signal B (holdings mismatch)", () => {
+  it("flags factor 2 when FIFO-open is half the broker holdings", () => {
+    const sec: SecurityTrades = {
+      symbol: "SYM", stock_id: "s1", isin: "INE1", account_id: "a", holdingsQty: 200,
+      trades: [ t({ id: "b", trade_type: "buy", quantity: 100, price: 1000, trade_date: "2024-01-01" }) ],
+    };
+    const [c] = detectCorporateActions([sec], EMPTY_CA);
+    expect(c.factor).toBe(2);
+    expect(c.status).toBe("inferred");
+  });
+});
+
+describe("detectCorporateActions — Signal C (cross-ISIN, same symbol)", () => {
+  it("links old→new stock_ids and proposes the factor (270 old, 1350 sold new)", () => {
+    const sec: SecurityTrades = {
+      symbol: "SYM", stock_id: "new", isin: "NEW", account_id: "a", holdingsQty: 0,
+      trades: [
+        t({ id: "b", stock_id: "old", isin: "OLD", trade_type: "buy", quantity: 270, price: 100, trade_date: "2025-01-01" }),
+        t({ id: "s", stock_id: "new", isin: "NEW", trade_type: "sell", quantity: 1350, price: 30, trade_date: "2025-08-01" }),
+      ],
+    };
+    const [c] = detectCorporateActions([sec], EMPTY_CA);
+    expect(c.factor).toBe(5);
+    expect(c.matched_stock_ids?.sort()).toEqual(["new", "old"]);
+  });
 });
