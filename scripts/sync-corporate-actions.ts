@@ -52,7 +52,7 @@ async function main() {
       }
       await admin.from("corporate_action_sync_state")
         .upsert({ source: source.name, last_synced_at: now.toISOString() }, { onConflict: "source" });
-      console.log(`${source.name}: upserted ${total} split/bonus rows; watermark → ${now.toISOString()}`);
+      console.log(`${source.name}: upserted ${total} rows (split/bonus/merger); watermark → ${now.toISOString()}`);
     } catch (e) {
       console.error(`${source.name}: FAILED, watermark not advanced —`, e instanceof Error ? e.message : e);
     }
