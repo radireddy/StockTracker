@@ -1,32 +1,49 @@
 import { describe, it, expect } from "vitest";
-import { loadRefBySymbols } from "@/lib/import/corporate-actions-data";
+import { loadRefForSecurities } from "@/lib/import/corporate-actions-data";
 
-function clientReturning(rows: unknown[]) {
+// Mock returns rows for whichever column is queried (.in(col, vals)).
+function clientReturning(bySymbol: unknown[], byIsin: unknown[]) {
   return {
     from: () => ({
       select: () => ({
-        in: () => ({
-          // fetchAllRows calls .order().range()
-          order: () => ({ range: () => Promise.resolve({ data: rows, error: null }) }),
+        in: (col: string) => ({
+          order: () => ({
+            range: () =>
+              Promise.resolve({ data: col === "symbol" ? bySymbol : byIsin, error: null }),
+          }),
         }),
       }),
     }),
   };
 }
 
-describe("loadRefBySymbols", () => {
-  it("groups feed rows by symbol", async () => {
-    const client = clientReturning([
-      { symbol: "TDPOWERSYS", isin: "INE419M01019", action_type: "split", ex_date: "2026-08-24", factor: 2 },
-    ]);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const map = await loadRefBySymbols(client as any, ["TDPOWERSYS"]);
+describe("loadRefForSecurities", () => {
+  it("groups feed rows matched by symbol", async () => {
+    const client = clientReturning(
+      [{ symbol: "TDPOWERSYS", isin: "INE419M01019", action_type: "split", ex_date: "2026-08-24", factor: "2" }],
+      []
+    );
+     
+    const map = await loadRefForSecurities(client as any, [{ symbol: "TDPOWERSYS", isin: "INE419M01027" }]);
     expect(map.get("TDPOWERSYS")).toHaveLength(1);
     expect(map.get("TDPOWERSYS")![0].factor).toBe(2);
   });
 
-  it("returns an empty map for no symbols", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect((await loadRefBySymbols({} as any, [])).size).toBe(0);
+  it("finds an action by ISIN even when the symbol changed", async () => {
+    // Feed lists the split under the OLD symbol; the account trades the NEW symbol,
+    // but the ISIN is unchanged.
+    const client = clientReturning(
+      [],
+      [{ symbol: "HBLPOWER", isin: "INE292B01021", action_type: "split", ex_date: "2025-06-01", factor: "2" }]
+    );
+     
+    const map = await loadRefForSecurities(client as any, [{ symbol: "HBLENGINE", isin: "INE292B01021" }]);
+    expect(map.get("HBLENGINE")).toHaveLength(1);
+    expect(map.get("HBLENGINE")![0].action_type).toBe("split");
+  });
+
+  it("returns an empty map for no securities", async () => {
+     
+    expect((await loadRefForSecurities({} as any, [])).size).toBe(0);
   });
 });
