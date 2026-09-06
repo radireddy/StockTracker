@@ -1,10 +1,21 @@
 import type { RawTradeForFifo, LotMatch } from "./tradebook-types";
+import {
+  securityKey,
+  adjustQtyPrice,
+  type CorporateActionContext,
+} from "./corporate-actions";
 
 export interface FifoInput {
   userId: string;
   accountId: string;
-  /** All trades for this account (any ISINs). Engine groups by ISIN internally. */
+  /** All trades for this account (any ISINs). Grouped by canonical security. */
   trades: RawTradeForFifo[];
+  /**
+   * Optional corporate-action context. When present, trades are grouped by
+   * canonical security (unifying ISIN changes) and pre-action quantities/prices
+   * are normalized to current units before matching.
+   */
+  ca?: CorporateActionContext;
 }
 
 /**
@@ -20,20 +31,32 @@ export interface FifoInput {
  *
  * Returns only matched pairs; open buy lots are NOT returned.
  */
-export function computeFifoMatches({ userId, accountId, trades }: FifoInput): LotMatch[] {
+export function computeFifoMatches({ userId, accountId, trades, ca }: FifoInput): LotMatch[] {
   if (trades.length === 0) return [];
 
   const matches: LotMatch[] = [];
 
-  // Group by ISIN
-  const byIsin = new Map<string, RawTradeForFifo[]>();
+  const canonicalMap = ca?.canonicalMap ?? new Map<string, string>();
+  const actionsBySecurity = ca?.actionsBySecurity ?? new Map();
+
+  // Group by canonical security (unifies ISIN changes). Normalize each trade's
+  // quantity/price to current units so pre/post-action legs reconcile.
+  const bySecurity = new Map<string, RawTradeForFifo[]>();
   for (const t of trades) {
-    const list = byIsin.get(t.isin);
-    if (list) list.push(t);
-    else byIsin.set(t.isin, [t]);
+    const key = securityKey(t.stock_id, t.isin, canonicalMap);
+    const { qty, price } = adjustQtyPrice(
+      t.quantity,
+      t.price,
+      t.trade_date,
+      actionsBySecurity.get(key) ?? []
+    );
+    const adjusted: RawTradeForFifo = { ...t, quantity: qty, price };
+    const list = bySecurity.get(key);
+    if (list) list.push(adjusted);
+    else bySecurity.set(key, [adjusted]);
   }
 
-  for (const [isin, isinTrades] of byIsin) {
+  for (const [, isinTrades] of bySecurity) {
     // Sort by execution time; fall back to trade_date start-of-day
     const sorted = [...isinTrades].sort((a, b) => {
       const ta = a.executed_at ?? `${a.trade_date}T00:00:00Z`;
@@ -72,12 +95,12 @@ export function computeFifoMatches({ userId, accountId, trades }: FifoInput): Lo
             const matched = Math.min(lot.remaining, sellLeft);
             lot.remaining -= matched;
             sellLeft -= matched;
-            matches.push(buildMatch(userId, accountId, isin, lot.trade, sell, matched, true));
+            matches.push(buildMatch(userId, accountId, lot.trade, sell, matched, true));
           }
 
           // 2. Overflow: drain the delivery queue
           if (sellLeft > 0) {
-            sellLeft = drainQueue(queue, sell, sellLeft, userId, accountId, isin, matches);
+            sellLeft = drainQueue(queue, sell, sellLeft, userId, accountId, matches);
           }
         }
 
@@ -91,7 +114,7 @@ export function computeFifoMatches({ userId, accountId, trades }: FifoInput): Lo
       } else {
         // Pure sell day — drain queue
         for (const sell of sells) {
-          drainQueue(queue, sell, sell.quantity, userId, accountId, isin, matches);
+          drainQueue(queue, sell, sell.quantity, userId, accountId, matches);
         }
       }
     }
@@ -106,7 +129,6 @@ function drainQueue(
   sellLeft: number,
   userId: string,
   accountId: string,
-  isin: string,
   matches: LotMatch[]
 ): number {
   for (const lot of queue) {
@@ -114,7 +136,7 @@ function drainQueue(
     const matched = Math.min(lot.remaining, sellLeft);
     lot.remaining -= matched;
     sellLeft -= matched;
-    matches.push(buildMatch(userId, accountId, isin, lot.trade, sell, matched, false));
+    matches.push(buildMatch(userId, accountId, lot.trade, sell, matched, false));
   }
   return sellLeft;
 }
@@ -122,7 +144,6 @@ function drainQueue(
 function buildMatch(
   userId: string,
   accountId: string,
-  isin: string,
   buy: RawTradeForFifo,
   sell: RawTradeForFifo,
   matchedQty: number,
@@ -135,7 +156,7 @@ function buildMatch(
     user_id: userId,
     account_id: accountId,
     stock_id: buy.stock_id,
-    isin,
+    isin: buy.isin,
     buy_trade_id: buy.id,
     sell_trade_id: sell.id,
     matched_quantity: matchedQty,
