@@ -5,10 +5,12 @@ export interface RefRow {
   source: string;
   symbol: string;
   isin: string | null;
-  action_type: "split" | "bonus";
+  action_type: "split" | "bonus" | "merger";
   ex_date: string;
-  factor: number;
+  factor: number | null;        // null only for mergers where ratio is unknown
   raw_subject: string;
+  acquirer_symbol: string | null;
+  acquirer_isin: string | null;
 }
 
 export function chunkWindows(from: Date, to: Date, days: number): Array<{ from: Date; to: Date }> {
@@ -37,6 +39,8 @@ export function toRefRows(raw: RawCorporateAction[], source: string): RefRow[] {
       ex_date: r.ex_date,
       factor: parsed.factor,
       raw_subject: r.subject,
+      acquirer_symbol: null,   // reserved for future subject parsing
+      acquirer_isin: null,
     });
   }
   return out;
