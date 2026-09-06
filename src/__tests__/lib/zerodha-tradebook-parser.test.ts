@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
 import { zerodhaTradebookAdapter } from "@/lib/import/zerodha-tradebook-parser";
+import { zerodhaCsvTradebookAdapter } from "@/lib/import/zerodha-csv-tradebook-parser";
 
 type TradeRow = [string, string, string, string, string, string, string, boolean, number, number, string, string, string];
 
@@ -176,6 +177,28 @@ describe("zerodhaTradebookAdapter.parse — trades", () => {
   });
 });
 
+describe("zerodhaTradebookAdapter.parse — blank ISIN backfill", () => {
+  it("fills a blank ISIN from another row with the same symbol", () => {
+    // Zerodha leaves ISIN blank on some BSE/Series-A rows; recover it from a
+    // populated row for the same symbol so FIFO can still match buy↔sell.
+    const buf = buildZerodhaTradebook([
+      ["CHOLAFIN","INE121A01024","2025-04-07","NSE","EQ","EQ","buy",false,100,1500,"T1","O1","2025-04-07T10:00:00"],
+      ["CHOLAFIN","","2025-07-23","BSE","EQ","A","sell",false,100,1600,"T2","O2","2025-07-23T10:00:00"],
+    ]);
+    const res = zerodhaTradebookAdapter.parse(buf);
+    const sell = res.trades.find((t) => t.broker_trade_id === "T2")!;
+    expect(sell.isin).toBe("INE121A01024");
+  });
+
+  it("leaves ISIN blank when no same-symbol row carries one", () => {
+    const buf = buildZerodhaTradebook([
+      ["XYZ","","2025-04-07","BSE","EQ","A","sell",false,100,1600,"T3","O3","2025-04-07T10:00:00"],
+    ]);
+    const res = zerodhaTradebookAdapter.parse(buf);
+    expect(res.trades[0].isin).toBe("");
+  });
+});
+
 describe("zerodhaTradebookAdapter — broker registry", () => {
   it("detectTradebookBroker returns the zerodha adapter for a valid tradebook", async () => {
     const { detectTradebookBroker } = await import("@/lib/import/tradebook-broker-registry");
@@ -196,5 +219,58 @@ describe("zerodhaTradebookAdapter — broker registry", () => {
   it("getAllTradebookAdapters returns at least one adapter", async () => {
     const { getAllTradebookAdapters } = await import("@/lib/import/tradebook-broker-registry");
     expect(getAllTradebookAdapters().length).toBeGreaterThan(0);
+  });
+});
+
+/** Build a Zerodha CSV tradebook (header row + data, snake_case, no metadata). */
+function buildCsvTradebook(dataLines: string[]): ArrayBuffer {
+  const header =
+    "symbol,isin,trade_date,exchange,segment,series,trade_type,auction,quantity,price,trade_id,order_id,order_execution_time";
+  const text = [header, ...dataLines].join("\n");
+  const bytes = new TextEncoder().encode(text);
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+describe("zerodhaCsvTradebookAdapter — CSV strategy", () => {
+  const rows = [
+    "GRAVITA,INE024L01027,2026-04-09,NSE,EQ,EQ,buy,false,100,1500,208304355,1100000077517972,2026-04-09T13:31:41",
+    "GRAVITA,INE024L01027,2026-05-10,NSE,EQ,EQ,sell,false,40,1600,208304999,1100000077517999,2026-05-10T10:15:00",
+  ];
+
+  it("canParse recognises a Zerodha CSV tradebook", () => {
+    expect(zerodhaCsvTradebookAdapter.canParse(buildCsvTradebook(rows))).toBe(true);
+  });
+
+  it("the XLSX strategy does NOT claim a CSV file", () => {
+    expect(zerodhaTradebookAdapter.canParse(buildCsvTradebook(rows))).toBe(false);
+  });
+
+  it("the CSV strategy does NOT claim an XLSX file", () => {
+    expect(zerodhaCsvTradebookAdapter.canParse(buildZerodhaTradebook(rows.map(() => ["X","INE0","2026-04-01","NSE","EQ","EQ","buy",false,1,1,"t","o","2026-04-01T09:00:00"]) as any))).toBe(false);
+  });
+
+  it("parses CSV trades with snake_case headers", () => {
+    const { trades } = zerodhaCsvTradebookAdapter.parse(buildCsvTradebook(rows));
+    expect(trades).toHaveLength(2);
+    const buy = trades.find((t) => t.broker_trade_id === "208304355")!;
+    expect(buy.symbol).toBe("GRAVITA");
+    expect(buy.isin).toBe("INE024L01027");
+    expect(buy.trade_type).toBe("buy");
+    expect(buy.quantity).toBe(100);
+    expect(buy.price).toBe(1500);
+    expect(buy.trade_date).toBe("2026-04-09");
+  });
+
+  it("derives date_from/date_to from trades when the CSV has no metadata", () => {
+    const { metadata } = zerodhaCsvTradebookAdapter.parse(buildCsvTradebook(rows));
+    expect(metadata.date_from).toBe("2026-04-09");
+    expect(metadata.date_to).toBe("2026-05-10");
+    expect(metadata.client_id).toBeNull(); // recovered from filename by the caller
+  });
+
+  it("detectTradebookBroker routes a CSV to the CSV strategy", async () => {
+    const { detectTradebookBroker } = await import("@/lib/import/tradebook-broker-registry");
+    const adapter = detectTradebookBroker(buildCsvTradebook(rows));
+    expect(adapter?.displayName).toBe("Zerodha (CSV)");
   });
 });

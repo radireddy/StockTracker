@@ -105,8 +105,7 @@ CREATE INDEX idx_lot_matches_account   ON trade_lot_matches(account_id);
 CREATE INDEX idx_lot_matches_user_isin ON trade_lot_matches(user_id, isin);
 CREATE INDEX idx_lot_matches_sell_date ON trade_lot_matches(account_id, sell_date);
 CREATE INDEX idx_lot_matches_buy_trade ON trade_lot_matches(buy_trade_id);
-CREATE INDEX idx_lot_matches_sell_year
-  ON trade_lot_matches(user_id, date_trunc('year', sell_date));
+CREATE INDEX idx_lot_matches_user_sell_date ON trade_lot_matches(user_id, sell_date);
 
 -- ============================================================================
 -- get_open_positions(p_account_ids uuid[])
