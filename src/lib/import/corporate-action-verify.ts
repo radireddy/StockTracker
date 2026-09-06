@@ -72,6 +72,7 @@ export function reconcileWithFeed(
   );
   const relevant = feedActions.filter(
     (a) =>
+      a.action_type !== "merger" &&   // mergers handled separately; skip here
       a.ex_date > earliest &&
       (!isOversold || a.ex_date <= latest) &&
       !alreadyApplied.has(`${a.action_type}|${a.ex_date}`)
@@ -82,7 +83,7 @@ export function reconcileWithFeed(
     stock_id: sec.stock_id as string,
     action_type: a.action_type,
     ex_date: a.ex_date,
-    factor: num(a.factor),
+    factor: num(a.factor!),  // mergers (null factor) filtered out above
   }));
   const trial = [...(ca.actionsBySecurity.get(key) ?? []), ...newActions];
 
@@ -133,6 +134,7 @@ export function feedActionsToApply(
 
   const out: CorporateAction[] = [];
   for (const a of feedActions) {
+    if (a.action_type === "merger") continue;  // mergers handled separately; skip here
     if (a.ex_date > today) continue;
     if (applied.has(`${a.action_type}|${a.ex_date}`)) continue;
     let net = 0;
@@ -145,7 +147,7 @@ export function feedActionsToApply(
         stock_id: sec.stock_id,
         action_type: a.action_type,
         ex_date: a.ex_date,
-        factor: num(a.factor),
+        factor: num(a.factor!),  // mergers (null factor) skipped above
       });
     }
   }

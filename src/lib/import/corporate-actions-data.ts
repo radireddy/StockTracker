@@ -12,9 +12,10 @@ const EMPTY: CorporateActionContext = {
 export interface RefAction {
   symbol: string;
   isin: string | null;
-  action_type: "split" | "bonus";
+  action_type: "split" | "bonus" | "merger";
   ex_date: string;
-  factor: number;
+  factor: number | null;       // null for mergers where ratio not in feed
+  acquirer_symbol: string | null;
 }
 
 /**
@@ -38,7 +39,7 @@ export async function loadRefForSecurities(
       fetchAllRows<RefAction>((from, to) =>
         client
           .from("corporate_action_ref")
-          .select("symbol, isin, action_type, ex_date, factor")
+          .select("symbol, isin, action_type, ex_date, factor, acquirer_symbol")
           .in(col, vals)
           .order("ex_date", { ascending: true })
           .range(from, to)
@@ -49,7 +50,7 @@ export async function loadRefForSecurities(
     // Dedup (a row can match both a symbol and an ISIN query).
     const seen = new Set<string>();
     const uniq = rows.filter((r) => {
-      const k = `${r.symbol}|${r.isin ?? ""}|${r.action_type}|${r.ex_date}|${r.factor}`;
+      const k = `${r.symbol}|${r.isin ?? ""}|${r.action_type}|${r.ex_date}|${r.factor ?? "null"}`;
       if (seen.has(k)) return false;
       seen.add(k);
       return true;
@@ -58,7 +59,7 @@ export async function loadRefForSecurities(
     for (const s of securities) {
       const list = uniq
         .filter((r) => r.symbol === s.symbol || (r.isin != null && r.isin === s.isin))
-        .map((r) => ({ ...r, factor: Number(r.factor) }));
+        .map((r) => ({ ...r, factor: r.factor != null ? Number(r.factor) : null, acquirer_symbol: r.acquirer_symbol ?? null }));
       if (list.length) out.set(s.symbol, list);
     }
   } catch {
