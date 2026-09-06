@@ -25,4 +25,20 @@ describe("parseCorporateAction", () => {
     expect(parseCorporateAction("Rights 1:5")).toBeNull();
     expect(parseCorporateAction("Buy Back of Shares")).toBeNull();
   });
+
+  it("detects merger/amalgamation subjects", () => {
+    // Subject without a ratio → factor null
+    expect(parseCorporateAction("Merger")).toEqual({ action_type: "merger", factor: null });
+    expect(parseCorporateAction("Amalgamation")).toEqual({ action_type: "merger", factor: null });
+    expect(parseCorporateAction("Scheme of Arrangement - Amalgamation")).toEqual({ action_type: "merger", factor: null });
+    expect(parseCorporateAction("Scheme Of Arrangement- Merger with HDFC Bank Ltd")).toEqual({ action_type: "merger", factor: null });
+
+    // Subject with an explicit ratio
+    expect(parseCorporateAction("Merger in ratio 42:25")).toEqual({ action_type: "merger", factor: 42 / 25 });
+  });
+
+  it("still rejects non-equity Scheme of Arrangement (NCRPS bonus)", () => {
+    // The existing test case — must stay null, not a merger.
+    expect(parseCorporateAction("Scheme Of Arrangement - Bonus Ncrps 4:1")).toBeNull();
+  });
 });
