@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { OpenPosition } from "@/lib/import/tradebook-types";
+import type { DashboardAccount } from "@/hooks/use-dashboard-data";
 import { OpenLotsPanel } from "./open-lots-panel";
 
 interface TradesTableProps {
   positions: OpenPosition[];
   accountFilter: string;
+  accounts: DashboardAccount[];
+  onChanged: () => void;
 }
 
-export function TradesTable({ positions, accountFilter }: TradesTableProps) {
+export function TradesTable({ positions, accountFilter, accounts, onChanged }: TradesTableProps) {
   const [expandedIsin, setExpandedIsin] = useState<string | null>(null);
 
   const toggle = (isin: string) =>
@@ -55,9 +58,8 @@ export function TradesTable({ positions, accountFilter }: TradesTableProps) {
             const isExpanded = expandedIsin === pos.isin;
             const pnlPos = (pos.unrealized_pnl ?? 0) >= 0;
             return (
-              <>
+              <React.Fragment key={pos.isin}>
                 <tr
-                  key={pos.isin}
                   className="cursor-pointer border-b last:border-0 hover:bg-muted/30"
                   onClick={() => toggle(pos.isin)}
                 >
@@ -107,16 +109,20 @@ export function TradesTable({ positions, accountFilter }: TradesTableProps) {
                   </td>
                 </tr>
                 {isExpanded && (
-                  <tr key={`${pos.isin}-lots`}>
+                  <tr>
                     <td colSpan={7} className="bg-muted/20 px-6 py-4">
                       <OpenLotsPanel
                         isin={pos.isin}
+                        symbol={pos.symbol}
+                        stockId={pos.stock_id}
                         accountFilter={accountFilter}
+                        accounts={accounts}
+                        onChanged={onChanged}
                       />
                     </td>
                   </tr>
                 )}
-              </>
+              </React.Fragment>
             );
           })}
         </tbody>

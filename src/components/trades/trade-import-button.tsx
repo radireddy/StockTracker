@@ -1,14 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Upload, Loader2, X, Clock } from "lucide-react";
+import { useState } from "react";
+import { Upload, X, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  importTradebook,
   getTradeImportHistory,
   deleteTradeImport,
 } from "@/app/(authenticated)/actions/tradebook-actions";
-import { useInvalidateTrades } from "@/hooks/use-trades-data";
+import { TradeImportDialog } from "@/components/trades/trade-import-dialog";
 import { toastError } from "@/lib/toast-error";
 import { toast } from "sonner";
 
@@ -26,33 +25,9 @@ interface ImportRecord {
 }
 
 export function TradeImportButton() {
-  const inputRef   = useRef<HTMLInputElement>(null);
-  const [loading, setLoading]         = useState(false);
+  const [importOpen, setImportOpen]   = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory]         = useState<ImportRecord[] | null>(null);
-  const invalidate = useInvalidateTrades();
-
-  const handleFile = async (file: File) => {
-    setLoading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const result = await importTradebook(fd);
-      if (!result.ok) {
-        toastError(result);
-        return;
-      }
-      const r = result.data;
-      toast.success(
-        `Imported ${r.imported_count} trade${r.imported_count !== 1 ? "s" : ""}` +
-          (r.skipped_count > 0 ? ` · ${r.skipped_count} already existed` : ""),
-        { description: r.account_label }
-      );
-      await invalidate();
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const openHistory = async () => {
     const h = await getTradeImportHistory();
@@ -69,29 +44,15 @@ export function TradeImportButton() {
 
   return (
     <>
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".xlsx,.xls"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) handleFile(f);
-          e.target.value = "";
-        }}
-      />
+      <TradeImportDialog open={importOpen} onOpenChange={setImportOpen} />
+
       <div className="flex gap-2">
         <Button
           size="sm"
           variant="outline"
-          disabled={loading}
-          onClick={() => inputRef.current?.click()}
+          onClick={() => setImportOpen(true)}
         >
-          {loading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Upload className="mr-2 h-4 w-4" />
-          )}
+          <Upload className="mr-2 h-4 w-4" />
           Import Tradebook
         </Button>
         <Button size="sm" variant="ghost" onClick={openHistory} title="Import history">

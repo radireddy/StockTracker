@@ -1,5 +1,6 @@
 "use client";
 
+import { summarizeOpenPositions } from "@/lib/import/position-summary";
 import type { OpenPosition } from "@/lib/import/tradebook-types";
 
 interface TradesPnlBarProps {
@@ -7,16 +8,7 @@ interface TradesPnlBarProps {
 }
 
 export function TradesPnlBar({ positions }: TradesPnlBarProps) {
-  const invested = positions.reduce(
-    (sum, p) => sum + p.quantity * p.avg_buy_price,
-    0
-  );
-  const current = positions.reduce((sum, p) => {
-    const price = p.current_price ?? p.avg_buy_price;
-    return sum + p.quantity * price;
-  }, 0);
-  const pnl = current - invested;
-  const pnlPct = invested > 0 ? (pnl / invested) * 100 : 0;
+  const { invested, current, pnl, pnlPct } = summarizeOpenPositions(positions);
   const isPos = pnl >= 0;
 
   const fmt = (n: number) =>
