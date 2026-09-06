@@ -5,10 +5,12 @@ import { useQuery } from "@tanstack/react-query";
 import { TradesPnlBar } from "@/components/trades/trades-pnl-bar";
 import { TradesTable } from "@/components/trades/trades-table";
 import { TradeImportButton } from "@/components/trades/trade-import-button";
+import { RecordMergerDialog } from "@/components/trades/record-merger-dialog";
 import { AccountFilter } from "@/components/account/account-filter";
-import { useTradesData } from "@/hooks/use-trades-data";
+import { useTradesData, useInvalidateTrades } from "@/hooks/use-trades-data";
 import { getAccounts } from "@/app/(authenticated)/actions/account-actions";
 import type { DashboardAccount } from "@/hooks/use-dashboard-data";
+import { Button } from "@/components/ui/button";
 
 function useTradeAccounts() {
   return useQuery<DashboardAccount[]>({
@@ -20,8 +22,10 @@ function useTradeAccounts() {
 
 export default function TradesDashboardPage() {
   const [accountFilter, setAccountFilter] = useState("all");
+  const [mergerDialogOpen, setMergerDialogOpen] = useState(false);
   const { data: positions = [], isLoading } = useTradesData(accountFilter);
   const { data: accounts = [] } = useTradeAccounts();
+  const invalidateTrades = useInvalidateTrades();
 
   return (
     <div className="flex flex-col gap-4">
@@ -40,8 +44,20 @@ export default function TradesDashboardPage() {
             onChange={setAccountFilter}
           />
           <TradeImportButton />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setMergerDialogOpen(true)}
+          >
+            Record merger
+          </Button>
         </div>
       </div>
+      <RecordMergerDialog
+        open={mergerDialogOpen}
+        onClose={() => setMergerDialogOpen(false)}
+        onMerged={invalidateTrades}
+      />
 
       {/* Summary bar */}
       {positions.length > 0 && <TradesPnlBar positions={positions} />}
@@ -52,7 +68,12 @@ export default function TradesDashboardPage() {
           Loading positions…
         </div>
       ) : (
-        <TradesTable positions={positions} accountFilter={accountFilter} />
+        <TradesTable
+          positions={positions}
+          accountFilter={accountFilter}
+          accounts={accounts}
+          onChanged={invalidateTrades}
+        />
       )}
     </div>
   );
