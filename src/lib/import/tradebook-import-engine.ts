@@ -6,7 +6,7 @@ import { loadCorporateActionContext, loadRefForSecurities } from "./corporate-ac
 import { detectCorporateActions, type SecurityTrades } from "./corporate-action-detect";
 import { reconcileWithFeed, feedActionsToApply } from "./corporate-action-verify";
 import { securityKey } from "./corporate-actions";
-import { detectOrphanPairs } from "./merger-detect";
+import { detectOrphanPairs, matchOrphanPairsWithFeed } from "./merger-detect";
 import {
   deriveRemainingLots,
   aggregateOpenPositions,
@@ -353,7 +353,62 @@ export async function detectAndApplyForAccount(
       await recomputeFifoForAccount(admin, userId, accountId);
     }
 
-    const mergerSuggestions = detectOrphanPairs(securities, ca);
+    // Pass 3 — merger auto-apply: cross-reference orphan pairs against the
+    // merger ref feed. Confirmed pairs are applied here (no user action needed);
+    // unconfirmed ones surface as manual suggestions.
+    const allPairs = detectOrphanPairs(securities, ca);
+    const { confirmed: confirmedMergers, unconfirmed: mergerSuggestions } =
+      matchOrphanPairsWithFeed(allPairs, refBySymbol);
+
+    for (const m of confirmedMergers) {
+      // m.toStockId = absorbed (sell-only); m.fromStockId = surviving (buy-only).
+      // Both are guaranteed non-null by matchOrphanPairsWithFeed.
+
+      // 1. Point absorbed → surviving (canonical supersession).
+      const { error: canonErr } = await admin
+        .from("indian_stocks")
+        .update({ canonical_stock_id: m.fromStockId })
+        .eq("id", m.toStockId as string);
+      if (canonErr) {
+        log.warn("auto-merge: canonical update failed", { pair: m, error: canonErr.message });
+        mergerSuggestions.push(m);
+        continue;
+      }
+
+      // 2. Upsert merger corporate action on surviving stock.
+      const { error: caErr } = await admin
+        .from("corporate_actions")
+        .upsert(
+          {
+            stock_id: m.fromStockId,
+            action_type: "merger",
+            ex_date: m.ex_date,
+            factor: m.impliedRatio,
+            source: "nse",
+          },
+          { onConflict: "stock_id,action_type,ex_date" }
+        );
+      if (caErr) {
+        log.warn("auto-merge: corporate_actions upsert failed", { pair: m, error: caErr.message });
+        // Undo canonical update to leave state consistent before surfacing as suggestion.
+        await admin
+          .from("indian_stocks")
+          .update({ canonical_stock_id: null })
+          .eq("id", m.toStockId as string);
+        mergerSuggestions.push(m);
+        continue;
+      }
+
+      applied.push({
+        symbol: m.toSymbol,   // absorbed symbol shown in the import result
+        action_type: "merger",
+        factor: m.impliedRatio,
+        ex_date: m.ex_date,
+        source: "nse",
+      });
+      didApply = true;
+    }
+
     return { applied, pending, mergerSuggestions };
   } catch (e) {
     log.warn("detectAndApplyForAccount failed; skipping CA detection", {
