@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { recordMerger } from "@/app/(authenticated)/actions/tradebook-actions";
-import { getOpenPositions } from "@/app/(authenticated)/actions/trades-actions";
+import { getTradedSecurities } from "@/app/(authenticated)/actions/trades-actions";
 import { toastError } from "@/lib/toast-error";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -29,21 +29,20 @@ export function RecordMergerDialog({ open, onClose, onMerged }: Props) {
   const [exDate, setExDate] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // Fetch all open positions (no account filter) so the selects are populated
-  // with every security the user currently holds. Note: users should record a
-  // merger BEFORE applying it so the from-security still shows as an open
-  // position with quantity > 0.
-  const { data: positions = [] } = useQuery({
-    queryKey: ["open-positions-for-merger"],
-    queryFn: () => getOpenPositions(),
+  // Fetch all distinct securities ever traded (regardless of current quantity)
+  // so that both the from-security (absorbed, quantity > 0) and the to-security
+  // (surviving, net quantity may be 0 before merger is recorded) appear.
+  const { data: tradedSecurities = [] } = useQuery({
+    queryKey: ["traded-securities-for-merger"],
+    queryFn: () => getTradedSecurities(),
     enabled: open,
     staleTime: 30_000,
   });
 
-  const securities = positions
-    .filter((p) => p.stock_id != null)
-    .map((p) => ({ stockId: p.stock_id as string, symbol: p.symbol }))
-    .sort((a, b) => a.symbol.localeCompare(b.symbol));
+  const securities = tradedSecurities.map((s) => ({
+    stockId: s.stock_id,
+    symbol: s.symbol,
+  }));
 
   const reset = () => {
     setFromStockId("");

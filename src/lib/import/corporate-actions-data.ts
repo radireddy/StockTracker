@@ -17,28 +17,49 @@ export interface RefAction {
   factor: number;
 }
 
-/** Feed rows for the given symbols, grouped by symbol. Empty on missing table. */
-export async function loadRefBySymbols(
+/**
+ * Feed rows for the given securities, grouped by symbol. A security's list
+ * includes every feed row matching its symbol OR its ISIN, so a symbol change
+ * (e.g. HBLPOWER → HBLENGINE, same ISIN) still finds its actions. Empty on
+ * missing table.
+ */
+export async function loadRefForSecurities(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client: any,
-  symbols: string[]
+  securities: Array<{ symbol: string; isin: string }>
 ): Promise<Map<string, RefAction[]>> {
   const out = new Map<string, RefAction[]>();
-  const unique = [...new Set(symbols.filter(Boolean))];
-  if (unique.length === 0) return out;
+  const symbols = [...new Set(securities.map((s) => s.symbol).filter(Boolean))];
+  const isins = [...new Set(securities.map((s) => s.isin).filter(Boolean))];
+  if (symbols.length === 0 && isins.length === 0) return out;
   try {
-    const rows = await fetchAllRows<RefAction>((from, to) =>
-      client
-        .from("corporate_action_ref")
-        .select("symbol, isin, action_type, ex_date, factor")
-        .in("symbol", unique)
-        .order("ex_date", { ascending: true })
-        .range(from, to)
-    );
-    for (const r of rows) {
-      const list = out.get(r.symbol) ?? [];
-      list.push({ ...r, factor: Number(r.factor) });
-      out.set(r.symbol, list);
+    const rows: RefAction[] = [];
+    const load = (col: "symbol" | "isin", vals: string[]) =>
+      fetchAllRows<RefAction>((from, to) =>
+        client
+          .from("corporate_action_ref")
+          .select("symbol, isin, action_type, ex_date, factor")
+          .in(col, vals)
+          .order("ex_date", { ascending: true })
+          .range(from, to)
+      );
+    if (symbols.length) rows.push(...(await load("symbol", symbols)));
+    if (isins.length) rows.push(...(await load("isin", isins)));
+
+    // Dedup (a row can match both a symbol and an ISIN query).
+    const seen = new Set<string>();
+    const uniq = rows.filter((r) => {
+      const k = `${r.symbol}|${r.isin ?? ""}|${r.action_type}|${r.ex_date}|${r.factor}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+
+    for (const s of securities) {
+      const list = uniq
+        .filter((r) => r.symbol === s.symbol || (r.isin != null && r.isin === s.isin))
+        .map((r) => ({ ...r, factor: Number(r.factor) }));
+      if (list.length) out.set(s.symbol, list);
     }
   } catch {
     return out; // table not present yet → no verification, all candidates inferred
@@ -87,7 +108,7 @@ export async function loadCorporateActionContext(
     if (actErr) throw actErr;
     for (const a of (actions ?? []) as Array<{
       stock_id: string;
-      action_type: "split" | "bonus";
+      action_type: "split" | "bonus" | "merger";
       ex_date: string;
       factor: number | string;
     }>) {
