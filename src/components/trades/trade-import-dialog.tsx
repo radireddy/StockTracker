@@ -16,16 +16,22 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   importTradebookFile,
   recomputeTradebookAccounts,
   detectCorporateActionsAfterImport,
   applyCorporateAction,
 } from "@/app/(authenticated)/actions/tradebook-actions";
+import { getAccounts } from "@/app/(authenticated)/actions/account-actions";
 import { useInvalidateTrades } from "@/hooks/use-trades-data";
+import type { DashboardAccount } from "@/hooks/use-dashboard-data";
 import { toastError } from "@/lib/toast-error";
-import type { AppliedCorporateAction, PendingCorporateAction } from "@/lib/import/tradebook-types";
+import type { AppliedCorporateAction, PendingCorporateAction, OrphanPairSuggestion } from "@/lib/import/tradebook-types";
 
 const MAX_BATCH_FILES = 20;
 const ACCEPTED = /\.(xlsx|xls|csv)$/i;
@@ -59,10 +65,23 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
   const [corporateActions, setCorporateActions] = useState<{
     applied: AppliedCorporateAction[];
     pending: PendingCorporateAction[];
+    merger_suggestions: OrphanPairSuggestion[];
   } | null>(null);
   const [confirmingKey, setConfirmingKey] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<DashboardAccount[]>([]);
+  // "" = auto-detect the account from each file; otherwise import all files here.
+  const [overrideAccountId, setOverrideAccountId] = useState("");
 
   const busy = phase === "uploading" || phase === "finalizing";
+
+  // Load the user's accounts so they can override auto-detection (e.g. a CSV
+  // whose filename doesn't carry the Client ID).
+  useEffect(() => {
+    if (!open) return;
+    getAccounts()
+      .then((a) => setAccounts(a as DashboardAccount[]))
+      .catch(() => setAccounts([]));
+  }, [open]);
 
   // Elapsed-time ticker while work is in flight.
   useEffect(() => {
@@ -80,6 +99,7 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
     setElapsed(0);
     setCorporateActions(null);
     setConfirmingKey(null);
+    setOverrideAccountId("");
   };
 
   const handleOpenChange = (next: boolean) => {
@@ -123,6 +143,7 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
       patchEntry(i, { status: "uploading" });
       const fd = new FormData();
       fd.append("file", entries[i].file);
+      if (overrideAccountId) fd.append("accountId", overrideAccountId);
       const result = await importTradebookFile(fd);
 
       if (result.ok) {
@@ -250,6 +271,44 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
           </div>
         )}
 
+        {/* Account override (select phase) — needed when a CSV filename carries no Client ID */}
+        {phase === "select" && (
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="shrink-0 text-muted-foreground">Import into</span>
+              <Select
+                value={overrideAccountId || "auto"}
+                onValueChange={(v) => setOverrideAccountId(!v || v === "auto" ? "" : v)}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue>
+                    {(v) =>
+                      !v || v === "auto"
+                        ? "Auto-detect from file"
+                        : accounts.find((a) => a.id === v)?.label ?? "Auto-detect from file"
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto-detect from file</SelectItem>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {accounts.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No accounts yet — auto-detect creates one from the file, or{" "}
+                <Link href="/settings" className="text-primary underline underline-offset-2">
+                  add one in Settings
+                </Link>
+                .
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Progress bar (uploading / finalizing) */}
         {busy && (
           <div className="space-y-1.5">
@@ -338,7 +397,8 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
 
               {corporateActions.applied.map((a, i) => (
                 <p key={`ap-${i}`} className="text-xs text-green-700 dark:text-green-400">
-                  ✓ {a.symbol}: {a.action_type} ×{a.factor} on {a.ex_date} — auto-applied ({a.source})
+                  ✓ We detected a {a.action_type} (×{a.factor}) for {a.symbol} on {a.ex_date} and
+                  adjusted the trades accordingly.
                 </p>
               ))}
 
@@ -347,11 +407,25 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
                 .map((p, i) => {
                   const cardKey = `${p.stock_id}|${p.action_type}|${p.ex_date_window.from}`;
                   const isConfirming = confirmingKey === cardKey;
+                  // Show the evidence that actually triggered detection:
+                  //  - oversold (Signal A): sold more than bought — buy/sell math is the proof
+                  //  - holdings mismatch (Signal B): current holdings ≠ FIFO-open by a clean factor
+                  const isOversold = p.observed.sells > p.observed.buys;
                   return (
                     <div key={`pd-${i}`} className="rounded-md border bg-muted/30 p-2 text-xs">
                       <p>
-                        <span className="font-medium">{p.symbol}</span>: sold {p.observed.sells} but bought{" "}
-                        {p.observed.buys}. A ×{p.factor} {p.action_type} (~{p.ex_date_window.from}…{p.ex_date_window.to}) explains it.
+                        <span className="font-medium">{p.symbol}</span>:{" "}
+                        {isOversold ? (
+                          <>
+                            sold {p.observed.sells} but bought only {p.observed.buys} — impossible without
+                            extra shares.
+                          </>
+                        ) : (
+                          <>
+                            you hold {p.observed.holdings} shares but trades net to only {p.observed.fifoOpen}.
+                          </>
+                        )}{" "}
+                        A ×{p.factor} {p.action_type} (~{p.ex_date_window.from}…{p.ex_date_window.to}) explains it.
                       </p>
                       <div className="mt-1.5 flex gap-2">
                         <Button size="sm" onClick={() => confirmAction(p)} disabled={confirmingKey !== null}>
@@ -370,6 +444,12 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
                     ⚠ {p.symbol}: sold {p.observed.sells} vs bought {p.observed.buys} — no clean split/bonus explains it; review manually.
                   </p>
                 ))}
+
+              {corporateActions.pending.length > 0 && (
+                <p className="pt-1 text-xs text-muted-foreground">
+                  You can review, edit, or correct these trades anytime from the dashboard.
+                </p>
+              )}
             </div>
           )}
 

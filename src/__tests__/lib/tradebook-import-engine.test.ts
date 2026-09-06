@@ -109,17 +109,20 @@ function makeAdminMock() {
               Promise.resolve({ data: data.slice(from, to + 1), error: null }),
           });
 
+          // eq is chainable: trades filter by account_id AND excluded.
+          const eqChain = (_col: string, _val: unknown) => {
+            const filtered = tableData(); // simple mock: return all rows
+            return {
+              ...makeRangeable(filtered),
+              eq: eqChain,
+              // Support chaining: holdings.select().eq().then (direct await)
+              then: (resolve: (v: { data: unknown[]; error: null }) => void) =>
+                resolve({ data: filtered, error: null }),
+            };
+          };
           return {
-            // eq — used by trades (account_id filter) and holdings (account_id filter)
-            eq: (_col: string, _val: unknown) => {
-              const filtered = tableData(); // simple mock: return all rows
-              return {
-                ...makeRangeable(filtered),
-                // Support chaining: holdings.select().eq().then (direct await)
-                then: (resolve: (v: { data: unknown[]; error: null }) => void) =>
-                  resolve({ data: filtered, error: null }),
-              };
-            },
+            // eq — used by trades (account_id + excluded) and holdings (account_id)
+            eq: eqChain,
             // in — used by loadRefBySymbols and indian_stocks
             in: (_col: string, _vals: unknown[]) => {
               const filtered = tableData();
@@ -414,21 +417,68 @@ describe("executeTradebookImport", () => {
     _db.trades.push(
       { id: "b", user_id: "u", account_id: "acc-mock", symbol: "SYM", isin: "INE1", stock_id: "s1", trade_date: "2024-01-01", trade_type: "buy", quantity: 100, price: 1000, executed_at: null, broker_trade_id: "b" },
       { id: "s", user_id: "u", account_id: "acc-mock", symbol: "SYM", isin: "INE1", stock_id: "s1", trade_date: "2024-09-01", trade_type: "sell", quantity: 200, price: 600, executed_at: null, broker_trade_id: "s" },
-      // SYM2: trades that oversell (100 buy, 200 sell) but NO matching ref row (inferred).
+      // SYM2: oversells, and the feed HAS an action for it but out of the trade
+      // window (doesn't reconcile) → inferred, Apply button kept.
       { id: "b2", user_id: "u", account_id: "acc-mock", symbol: "SYM2", isin: "INE2", stock_id: "s2", trade_date: "2024-01-01", trade_type: "buy", quantity: 100, price: 1000, executed_at: null, broker_trade_id: "b2" },
       { id: "s2", user_id: "u", account_id: "acc-mock", symbol: "SYM2", isin: "INE2", stock_id: "s2", trade_date: "2024-09-01", trade_type: "sell", quantity: 200, price: 600, executed_at: null, broker_trade_id: "s2" },
+      // SYM3: oversells with NO feed record at all → downgraded to unexplained
+      // (no Apply — applying a guessed split with zero feed support is unsafe).
+      { id: "b3", user_id: "u", account_id: "acc-mock", symbol: "SYM3", isin: "INE3", stock_id: "s3", trade_date: "2024-01-01", trade_type: "buy", quantity: 100, price: 1000, executed_at: null, broker_trade_id: "b3" },
+      { id: "s3", user_id: "u", account_id: "acc-mock", symbol: "SYM3", isin: "INE3", stock_id: "s3", trade_date: "2024-09-01", trade_type: "sell", quantity: 200, price: 600, executed_at: null, broker_trade_id: "s3" },
+      // SYM4: buy-and-hold through a split — NO oversell, NO holdings gap. Bought
+      // 100, sold 40 (60 still held). Old mismatch-only logic never applied it;
+      // the proactive pass applies the feed split because it was held at ex_date.
+      { id: "b4", user_id: "u", account_id: "acc-mock", symbol: "SYM4", isin: "INE4", stock_id: "s4", trade_date: "2024-01-01", trade_type: "buy", quantity: 100, price: 1000, executed_at: null, broker_trade_id: "b4" },
+      { id: "s4", user_id: "u", account_id: "acc-mock", symbol: "SYM4", isin: "INE4", stock_id: "s4", trade_date: "2024-02-01", trade_type: "sell", quantity: 40, price: 1100, executed_at: null, broker_trade_id: "s4" },
     );
     _db.corporate_action_ref = [
       { symbol: "SYM", isin: "INE1", action_type: "split", ex_date: "2024-05-01", factor: 2 },
-      // NOTE: NO ref row for SYM2 — it will be detected as inferred, not verified.
+      // SYM2 has a feed row, but before the trade window → won't reconcile → inferred.
+      { symbol: "SYM2", isin: "INE2", action_type: "split", ex_date: "2020-01-01", factor: 2 },
+      // NOTE: NO ref row for SYM3 — it will be downgraded to unexplained.
+      { symbol: "SYM4", isin: "INE4", action_type: "split", ex_date: "2024-06-01", factor: 2 },
     ];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin = makeAdminMock() as any;
     const res = await recomputeAndDetect(admin, "u", "acc-mock"); // helper: recompute then detectAndApplyForAccount
     // ── Assert verified auto-applies ──
     expect(res.applied.some((a) => a.symbol === "SYM" && a.factor === 2)).toBe(true);
-    // ── Assert inferred candidate is returned in pending but NOT written to corporate_actions ──
-    expect(res.pending.some((p) => p.symbol === "SYM2")).toBe(true);
-    expect((_inserted["corporate_actions"] ?? []).every((r) => (r as any).stock_id !== "s2")).toBe(true);
+    // ── SYM2: feed has some record → stays inferred (Apply offered), not written ──
+    expect(res.pending.some((p) => p.symbol === "SYM2" && p.status === "inferred")).toBe(true);
+    // ── SYM3: no feed record → downgraded to unexplained (no Apply) ──
+    expect(res.pending.some((p) => p.symbol === "SYM3" && p.status === "unexplained")).toBe(true);
+    expect((_inserted["corporate_actions"] ?? []).every((r) => (r as any).stock_id !== "s2" && (r as any).stock_id !== "s3")).toBe(true);
+    // ── SYM4: held through a split, no mismatch → proactively auto-applied ──
+    expect(res.applied.some((a) => a.symbol === "SYM4" && a.factor === 2)).toBe(true);
+    expect(res.pending.some((p) => p.symbol === "SYM4")).toBe(false);
+  });
+
+  it("includes merger suggestions when orphan pairs exist", async () => {
+    // EQUITAS: buy-only (1020 shares net open), non-null stock_id → from-security.
+    // EQUITASBNK: sell-only (2356 shares total sold) → to-security.
+    // Same account (acc-1) → detectOrphanPairs should fire and emit one suggestion.
+    _db.trades.push(
+      {
+        id: "eq-buy-1", user_id: "user-1", account_id: "acc-1",
+        symbol: "EQUITAS", isin: "INE705T01012", stock_id: "stock-EQUITAS",
+        trade_date: "2021-01-10", trade_type: "buy",
+        quantity: 1020, price: 120, executed_at: null, broker_trade_id: "eb1",
+      },
+      {
+        id: "eqbnk-sell-1", user_id: "user-1", account_id: "acc-1",
+        symbol: "EQUITASBNK", isin: "INE063T01019", stock_id: "stock-EQUITASBNK",
+        trade_date: "2021-09-21", trade_type: "sell",
+        quantity: 2356, price: 54, executed_at: null, broker_trade_id: "es1",
+      },
+    );
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin = makeAdminMock() as any;
+    const result = await detectAndApplyForAccount(admin, "user-1", "acc-1");
+
+    expect(result.mergerSuggestions).toHaveLength(1);
+    expect(result.mergerSuggestions[0].fromSymbol).toBe("EQUITAS");
+    expect(result.mergerSuggestions[0].toSymbol).toBe("EQUITASBNK");
+    expect(result.mergerSuggestions[0].impliedRatio).toBeCloseTo(2356 / 1020, 2);
   });
 });

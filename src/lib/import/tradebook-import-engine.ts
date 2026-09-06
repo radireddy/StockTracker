@@ -2,9 +2,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveStocks } from "@/lib/stocks/resolve-stock";
 import { computeFifoMatches } from "./fifo-engine";
 import { fetchAllRows } from "@/lib/supabase/paginate";
-import { loadCorporateActionContext, loadRefBySymbols } from "./corporate-actions-data";
+import { loadCorporateActionContext, loadRefForSecurities } from "./corporate-actions-data";
 import { detectCorporateActions, type SecurityTrades } from "./corporate-action-detect";
-import { verifyCandidate } from "./corporate-action-verify";
+import { reconcileWithFeed, feedActionsToApply } from "./corporate-action-verify";
+import { securityKey } from "./corporate-actions";
+import { detectOrphanPairs } from "./merger-detect";
 import {
   deriveRemainingLots,
   aggregateOpenPositions,
@@ -18,6 +20,7 @@ import type {
   RawTradeForFifo,
   AppliedCorporateAction,
   PendingCorporateAction,
+  OrphanPairSuggestion,
 } from "./tradebook-types";
 
 const log = createLogger({ service: "tradebook-import-engine" });
@@ -62,6 +65,7 @@ export async function recomputeFifoForAccount(
           "id, user_id, account_id, symbol, isin, stock_id, trade_date, trade_type, quantity, price, executed_at, broker_trade_id"
         )
         .eq("account_id", accountId)
+        .eq("excluded", false)
         .order("id", { ascending: true })
         .range(from, to)
     );
@@ -177,7 +181,7 @@ export async function detectAndApplyForAccount(
   admin: AdminClient,
   userId: string,
   accountId: string
-): Promise<{ applied: AppliedCorporateAction[]; pending: PendingCorporateAction[] }> {
+): Promise<{ applied: AppliedCorporateAction[]; pending: PendingCorporateAction[]; mergerSuggestions: OrphanPairSuggestion[] }> {
   try {
     // Load all trades for this account (pages past PostgREST 1000-row cap).
     const rows = await fetchAllRows<Record<string, unknown>>((from, to) =>
@@ -187,6 +191,7 @@ export async function detectAndApplyForAccount(
           "id, user_id, account_id, symbol, isin, stock_id, trade_date, trade_type, quantity, price, executed_at, broker_trade_id"
         )
         .eq("account_id", accountId)
+        .eq("excluded", false)
         .order("id", { ascending: true })
         .range(from, to)
     );
@@ -240,20 +245,62 @@ export async function detectAndApplyForAccount(
       g.holdingsQty = q > 0 ? q : holdByIsin.size > 0 ? 0 : null;
     }
 
-    // Detect candidates, then verify against NSE reference data.
-    const candidates = detectCorporateActions([...bySymbol.values()], ca);
-    const refBySymbol = await loadRefBySymbols(
+    const securities = [...bySymbol.values()];
+    const refBySymbol = await loadRefForSecurities(
       admin,
-      candidates.map((c) => c.symbol)
+      securities.map((s) => ({ symbol: s.symbol, isin: s.isin }))
     );
 
     const applied: AppliedCorporateAction[] = [];
     const pending: PendingCorporateAction[] = [];
     let didApply = false;
 
+    // Pass 1 — proactively apply feed-confirmed actions for HELD positions, even
+    // with no mismatch. A buy-and-hold through a split produces no oversell and
+    // (for tradebook-only users) no holdings gap, so the mismatch detector never
+    // fires — yet the split still changes quantity/cost. Apply the authoritative
+    // feed fact directly, then reflect it in `ca` so detection sees adjusted units.
+    const today = new Date().toISOString().slice(0, 10);
+    for (const sec of securities) {
+      const toApply = feedActionsToApply(sec, refBySymbol.get(sec.symbol) ?? [], ca, today);
+      for (const act of toApply) {
+        await admin.from("corporate_actions").upsert(
+          {
+            stock_id: act.stock_id,
+            action_type: act.action_type,
+            ex_date: act.ex_date,
+            factor: act.factor,
+            source: "nse",
+          },
+          { onConflict: "stock_id,action_type,ex_date" }
+        );
+        applied.push({
+          symbol: sec.symbol,
+          action_type: act.action_type,
+          factor: act.factor,
+          ex_date: act.ex_date,
+          source: "nse",
+        });
+        const key = securityKey(sec.stock_id, sec.isin, ca.canonicalMap);
+        const list = ca.actionsBySecurity.get(key) ?? [];
+        list.push(act);
+        ca.actionsBySecurity.set(key, list);
+        didApply = true;
+      }
+    }
+
+    // Pass 2 — detect remaining mismatches (with Pass-1 actions reflected), then
+    // verify feed-first: the reference feed supplies the authoritative factor +
+    // ex_date, and we auto-apply only when applying it reconciles the mismatch.
+    const candidates = detectCorporateActions(securities, ca);
+
     for (const c of candidates) {
-      const v = verifyCandidate(c, refBySymbol);
-      if (v.status === "verified" && v.ex_date && c.stock_id) {
+      const sec = bySymbol.get(c.symbol);
+      const v = sec
+        ? reconcileWithFeed(c, sec, refBySymbol.get(c.symbol) ?? [], ca)
+        : ({ status: c.status, actions: [] } as const);
+
+      if (v.status === "verified" && v.actions.length > 0 && c.stock_id) {
         // Link ISIN-change fork: point superseded stock_ids at the canonical one.
         if (c.matched_stock_ids && c.matched_stock_ids.length > 1) {
           for (const old of c.matched_stock_ids) {
@@ -265,31 +312,39 @@ export async function detectAndApplyForAccount(
             }
           }
         }
-        // Persist the verified action (source = 'nse').
-        await admin
-          .from("corporate_actions")
-          .upsert(
-            {
-              stock_id: c.stock_id,
-              action_type: c.action_type,
-              ex_date: v.ex_date,
-              factor: c.factor,
-              source: "nse",
-            },
-            { onConflict: "stock_id,action_type,ex_date" }
-          );
-        applied.push({
-          symbol: c.symbol,
-          action_type: c.action_type,
-          factor: c.factor,
-          ex_date: v.ex_date,
-          source: "nse",
-        });
+        // Persist the feed-verified action(s) (source = 'nse').
+        for (const act of v.actions) {
+          await admin
+            .from("corporate_actions")
+            .upsert(
+              {
+                stock_id: act.stock_id,
+                action_type: act.action_type,
+                ex_date: act.ex_date,
+                factor: act.factor,
+                source: "nse",
+              },
+              { onConflict: "stock_id,action_type,ex_date" }
+            );
+          applied.push({
+            symbol: c.symbol,
+            action_type: act.action_type,
+            factor: act.factor,
+            ex_date: act.ex_date,
+            source: "nse",
+          });
+        }
         didApply = true;
       } else {
-        // v.status may be "verified" when stock_id/ex_date was missing — treat as inferred.
-        const pendingStatus = v.status === "verified" ? "inferred" : v.status;
-        pending.push({ ...c, status: pendingStatus });
+        // "verified" can only reach here if stock_id was missing → treat as inferred.
+        let status = v.status === "verified" ? "inferred" : v.status;
+        // Don't offer one-click Apply for a guessed split the feed has NO record
+        // of — applying it would fabricate a corporate action and corrupt cost
+        // basis. Downgrade to manual review unless the feed has some action for
+        // this security (even if it didn't reconcile).
+        const hasFeedSupport = (refBySymbol.get(c.symbol) ?? []).length > 0;
+        if (status === "inferred" && !hasFeedSupport) status = "unexplained";
+        pending.push({ ...c, status });
       }
     }
 
@@ -298,13 +353,14 @@ export async function detectAndApplyForAccount(
       await recomputeFifoForAccount(admin, userId, accountId);
     }
 
-    return { applied, pending };
+    const mergerSuggestions = detectOrphanPairs(securities, ca);
+    return { applied, pending, mergerSuggestions };
   } catch (e) {
     log.warn("detectAndApplyForAccount failed; skipping CA detection", {
       accountId,
       error: e instanceof Error ? e.message : String(e),
     });
-    return { applied: [], pending: [] };
+    return { applied: [], pending: [], mergerSuggestions: [] };
   }
 }
 

@@ -26,6 +26,7 @@ import type {
   TradebookParseResult,
   AppliedCorporateAction,
   PendingCorporateAction,
+  OrphanPairSuggestion,
 } from "@/lib/import/tradebook-types";
 
 const log = createLogger({ service: "tradebook-actions" });
@@ -46,7 +47,7 @@ async function resolveAccountForImport(
   if (!clientId) {
     throw new AppError(
       "Could not read a Client ID from the tradebook.",
-      "Ensure the file name is like 'tradebook-<ClientID>-EQ.csv', or use the Excel export."
+      "Pick the account in the import dialog, or use a file named like 'tradebook-<ClientID>-EQ.csv'."
     );
   }
 
@@ -73,6 +74,20 @@ async function resolveAccountForImport(
   return { accountId: created.id, accountLabel: created.label };
 }
 
+/** Use a user-chosen account (RLS verifies ownership) instead of auto-detecting. */
+async function resolveChosenAccount(
+  supabase: AuthCtx["supabase"],
+  accountId: string
+): Promise<{ accountId: string; accountLabel: string }> {
+  const { data } = await supabase
+    .from("accounts")
+    .select("id, label")
+    .eq("id", accountId)
+    .maybeSingle();
+  if (!data) throw new AppError("You don't have access to that account.");
+  return { accountId: data.id, accountLabel: data.label };
+}
+
 /**
  * Parse one file, resolve its account, and insert its trades. FIFO recompute is
  * controlled by `recompute` — the batch path defers it so it can recompute once
@@ -82,7 +97,7 @@ async function importOneFile(
   user: AuthCtx["user"],
   supabase: AuthCtx["supabase"],
   file: File,
-  opts: { recompute: boolean }
+  opts: { recompute: boolean; accountId?: string }
 ): Promise<TradebookImportResult> {
   if (file.size > MAX_FILE_SIZE) throw new AppError("File exceeds 10 MB limit.");
 
@@ -102,17 +117,17 @@ async function importOneFile(
     throw new AppError("No equity trades found in the file.");
   }
 
-  // CSV exports carry no Client ID in their content — recover it from the
-  // filename (e.g. "tradebook-YY7859-EQ.csv").
-  const clientId = parseResult.metadata.client_id ?? clientIdFromFileName(file.name);
-
-  const { accountId, accountLabel } = await resolveAccountForImport(
-    user,
-    supabase,
-    adapter,
-    parseResult,
-    clientId
-  );
+  const { accountId, accountLabel } = opts.accountId
+    ? await resolveChosenAccount(supabase, opts.accountId)
+    : await resolveAccountForImport(
+        user,
+        supabase,
+        adapter,
+        parseResult,
+        // CSV exports carry no Client ID in their content — recover it from the
+        // filename (e.g. "tradebook-YY7859-EQ.csv").
+        parseResult.metadata.client_id ?? clientIdFromFileName(file.name)
+      );
 
   const result = await executeTradebookImport(
     user.id,
@@ -208,11 +223,13 @@ export async function importTradebooks(
     // Detect and auto-apply verified corporate actions per affected account.
     const allApplied: AppliedCorporateAction[] = [];
     const allPending: PendingCorporateAction[] = [];
+    const allMergerSuggestions: OrphanPairSuggestion[] = [];
     const adminForCa = createAdminClient();
     for (const accountId of affectedAccounts) {
-      const { applied, pending } = await detectAndApplyForAccount(adminForCa, user.id, accountId);
+      const { applied, pending, mergerSuggestions } = await detectAndApplyForAccount(adminForCa, user.id, accountId);
       allApplied.push(...applied);
       allPending.push(...pending);
+      allMergerSuggestions.push(...mergerSuggestions);
     }
 
     log.info("Batch tradebook import via server action", {
@@ -221,6 +238,7 @@ export async function importTradebooks(
       accountsRecomputed: affectedAccounts.size,
       caApplied: allApplied.length,
       caPending: allPending.length,
+      mergerSuggestions: allMergerSuggestions.length,
     });
 
     return {
@@ -228,7 +246,7 @@ export async function importTradebooks(
       total_imported: fileResults.reduce((s, f) => s + f.imported_count, 0),
       total_skipped: fileResults.reduce((s, f) => s + f.skipped_count, 0),
       accounts_recomputed: affectedAccounts.size,
-      corporate_actions: { applied: allApplied, pending: allPending },
+      corporate_actions: { applied: allApplied, pending: allPending, merger_suggestions: allMergerSuggestions },
     };
   });
 }
@@ -245,7 +263,8 @@ export async function importTradebookFile(
     const { user, supabase } = await getAuthUser();
     const file = formData.get("file") as File | null;
     if (!file) throw new AppError("No file provided.");
-    return importOneFile(user, supabase, file, { recompute: false });
+    const accountId = (formData.get("accountId") as string | null) || undefined;
+    return importOneFile(user, supabase, file, { recompute: false, accountId });
   });
 }
 
@@ -284,11 +303,11 @@ export async function recomputeTradebookAccounts(
  */
 export async function detectCorporateActionsAfterImport(
   accountIds: string[]
-): Promise<ActionResult<{ applied: AppliedCorporateAction[]; pending: PendingCorporateAction[] }>> {
+): Promise<ActionResult<{ applied: AppliedCorporateAction[]; pending: PendingCorporateAction[]; merger_suggestions: OrphanPairSuggestion[] }>> {
   return action(async () => {
     const { user, supabase } = await getAuthUser();
     const unique = [...new Set(accountIds)];
-    if (unique.length === 0) return { applied: [], pending: [] };
+    if (unique.length === 0) return { applied: [], pending: [], merger_suggestions: [] };
 
     // RLS — verify all accounts belong to the caller.
     const { data: owned } = await supabase
@@ -299,15 +318,17 @@ export async function detectCorporateActionsAfterImport(
 
     const allApplied: AppliedCorporateAction[] = [];
     const allPending: PendingCorporateAction[] = [];
+    const allMergerSuggestions: OrphanPairSuggestion[] = [];
     const admin = createAdminClient();
     for (const accountId of unique) {
       if (!ownedIds.has(accountId)) continue;
-      const { applied, pending } = await detectAndApplyForAccount(admin, user.id, accountId);
+      const { applied, pending, mergerSuggestions } = await detectAndApplyForAccount(admin, user.id, accountId);
       allApplied.push(...applied);
       allPending.push(...pending);
+      allMergerSuggestions.push(...mergerSuggestions);
     }
 
-    return { applied: allApplied, pending: allPending };
+    return { applied: allApplied, pending: allPending, merger_suggestions: allMergerSuggestions };
   });
 }
 
@@ -367,6 +388,7 @@ export async function applyCorporateAction(input: {
         .from("trades")
         .select("id, user_id, account_id, symbol, isin, stock_id, trade_date, trade_type, quantity, price, executed_at, broker_trade_id")
         .in("stock_id", ids)
+        .eq("excluded", false)
         .range(from, to)
     );
 

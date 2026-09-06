@@ -123,6 +123,7 @@ export interface BatchImportResult {
   corporate_actions: {
     applied: AppliedCorporateAction[];
     pending: PendingCorporateAction[];
+    merger_suggestions: OrphanPairSuggestion[];
   };
 }
 
