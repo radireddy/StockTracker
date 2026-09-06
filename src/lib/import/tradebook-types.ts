@@ -103,6 +103,17 @@ export type PendingCorporateAction = CorporateActionCandidate & {
   status: "inferred" | "unexplained";
 };
 
+/** A possible cross-security merger suggested from orphan-pair heuristic. Never auto-applied. */
+export interface OrphanPairSuggestion {
+  fromSymbol: string;
+  fromStockId: string;
+  toSymbol: string;
+  toStockId: string | null;
+  impliedRatio: number;  // toQty / fromNetOpen (e.g. 2.31)
+  fromQty: number;       // net open shares in from-security
+  toQty: number;         // total sold shares in to-security
+}
+
 /** Aggregate result of a multi-file batch import. */
 export interface BatchImportResult {
   files: BatchFileResult[];
