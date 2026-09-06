@@ -92,7 +92,7 @@ export interface BatchFileResult {
 /** A corporate action that was auto-applied during import (verified against NSE reference). */
 export interface AppliedCorporateAction {
   symbol: string;
-  action_type: "split" | "bonus";
+  action_type: "split" | "bonus" | "merger";
   factor: number;
   ex_date: string;
   source: "nse";
@@ -160,4 +160,10 @@ export interface OpenLot {
   /** null when holding_days < 7 */
   cagr: number | null;
   broker_trade_id: string;
+  /** Underlying trade row id(s) this display lot collapses (for edit/delete). */
+  trade_ids: string[];
+  /** 'manual' if all underlying rows are user-entered, 'zerodha' if all imported, else 'mixed'. */
+  source: "zerodha" | "manual" | "mixed";
+  /** True if any underlying broker row has been overridden (has an `original` snapshot). */
+  edited: boolean;
 }

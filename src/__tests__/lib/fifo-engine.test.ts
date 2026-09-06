@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { computeFifoMatches } from "@/lib/import/fifo-engine";
 import type { RawTradeForFifo } from "@/lib/import/tradebook-types";
+import type { CorporateActionContext } from "@/lib/import/corporate-actions";
 
 const USER = "user-1";
 const ACC  = "acc-1";
@@ -212,5 +213,58 @@ describe("computeFifoMatches — realized_pnl and metadata", () => {
   it("returns empty array for empty input", () => {
     const matches = computeFifoMatches({ userId: USER, accountId: ACC, trades: [] });
     expect(matches).toHaveLength(0);
+  });
+});
+
+describe("computeFifoMatches — corporate actions", () => {
+  it("matches a pre-split buy against a post-split sell (1:5), unified by canonical id", () => {
+    const trades: RawTradeForFifo[] = [
+      { id: "b", isin: "OLD", stock_id: "old", trade_date: "2025-01-01", trade_type: "buy", quantity: 270, price: 100, executed_at: null },
+      { id: "s", isin: "NEW", stock_id: "new", trade_date: "2025-08-01", trade_type: "sell", quantity: 1350, price: 30, executed_at: null },
+    ];
+    const ca = {
+      canonicalMap: new Map([["old", "new"]]),
+      actionsBySecurity: new Map([
+        ["new", [{ stock_id: "new", action_type: "split" as const, ex_date: "2025-06-01", factor: 5 }]],
+      ]),
+    };
+    const matches = computeFifoMatches({ userId: USER, accountId: ACC, trades, ca });
+    const totalMatched = matches.reduce((s, m) => s + m.matched_quantity, 0);
+    expect(totalMatched).toBe(1350); // 270 buy × 5 == 1350 sold → fully closed
+    expect(matches.some((m) => m.buy_trade_id === "b" && m.sell_trade_id === "s")).toBe(true);
+  });
+
+  it("reconciles from-security buys against to-security sells at the swap ratio (merger)", () => {
+    // Equitas shape: bought 1020 EQUITAS (from-id), merged into EQUITASBNK (to-id)
+    // at ×2.31 on 2023-10-01, then sold 2356 EQUITASBNK on 2024-04-15.
+    const FROM = "from-id";
+    const TO   = "to-id";
+
+    const trades: RawTradeForFifo[] = [
+      { id: "b1", isin: "INE988K01017", stock_id: FROM,
+        trade_date: "2022-01-01", trade_type: "buy", quantity: 1020, price: 100, executed_at: null },
+      { id: "s1", isin: "INE063P01018", stock_id: TO,
+        trade_date: "2024-04-15", trade_type: "sell", quantity: 2356, price: 200, executed_at: null },
+    ];
+
+    const ca: CorporateActionContext = {
+      canonicalMap: new Map([[FROM, TO]]),
+      actionsBySecurity: new Map([
+        [TO, [{ stock_id: TO, action_type: "merger", ex_date: "2023-10-01", factor: 2.31 }]],
+      ]),
+    };
+
+    const matches = computeFifoMatches({ userId: USER, accountId: ACC, trades, ca });
+    // b1: 1020 × 2.31 = 2356.2 adjusted shares. s1 consumes 2356 of them.
+    expect(matches).toHaveLength(1);
+    const m = matches[0];
+    expect(m.buy_trade_id).toBe("b1");
+    expect(m.sell_trade_id).toBe("s1");
+    expect(m.matched_quantity).toBeCloseTo(2356, 0);
+    // Cost basis: ₹100 / 2.31 ≈ ₹43.29 per EQUITASBNK share
+    expect(m.buy_price).toBeCloseTo(100 / 2.31, 2);
+    // Realized PnL: (200 - 43.29) × 2356 ≈ positive
+    expect(m.realized_pnl).toBeGreaterThan(0);
+    expect(m.is_long_term).toBe(true); // > 365 days
   });
 });
