@@ -460,3 +460,59 @@ export async function applyCorporateAction(input: {
     }
   });
 }
+
+export async function recordMerger(input: {
+  fromStockId: string;
+  toStockId: string;
+  ratio: number;
+  exDate: string;
+}): Promise<ActionResult> {
+  return action(async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (!(input.ratio > 0)) throw new AppError("Merger ratio must be greater than zero.");
+    if (input.exDate > today) throw new AppError("Effective date cannot be in the future.");
+    if (input.fromStockId === input.toStockId) throw new AppError("From and to securities must be different.");
+
+    const { user, supabase } = await getAuthUser();
+    const admin = createAdminClient();
+
+    // Ownership gate: caller must have at least one non-excluded trade in the from-security.
+    const { data: trades, error: tradeErr } = await supabase
+      .from("trades")
+      .select("id")
+      .eq("stock_id", input.fromStockId)
+      .eq("excluded", false)
+      .limit(1);
+    if (tradeErr) throw new AppError(tradeErr.message);
+    if (!trades || trades.length === 0) {
+      throw new AppError("You don't have trades for this security.");
+    }
+
+    // 1. Point the from-security at the canonical (to-security).
+    //    The enforce_canonical_one_level trigger rejects chains automatically.
+    const { error: canonErr } = await admin
+      .from("indian_stocks")
+      .update({ canonical_stock_id: input.toStockId })
+      .eq("id", input.fromStockId);
+    if (canonErr) throw new AppError(canonErr.message);
+
+    // 2. Upsert the merger corporate action on the to-security.
+    const { error: caErr } = await admin.from("corporate_actions").upsert(
+      {
+        stock_id: input.toStockId,
+        action_type: "merger",
+        ex_date: input.exDate,
+        factor: input.ratio,
+        source: "manual",
+      },
+      { onConflict: "stock_id,action_type,ex_date" }
+    );
+    if (caErr) throw new AppError(caErr.message);
+
+    // 3. Recompute FIFO for all of the caller's accounts.
+    const { data: accts } = await supabase.from("accounts").select("id");
+    for (const a of (accts ?? []) as Array<{ id: string }>) {
+      await recomputeFifoForAccount(admin, user.id, a.id);
+    }
+  });
+}
