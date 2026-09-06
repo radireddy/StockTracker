@@ -26,6 +26,7 @@ import {
   recomputeTradebookAccounts,
   detectCorporateActionsAfterImport,
   applyCorporateAction,
+  recordMerger,
 } from "@/app/(authenticated)/actions/tradebook-actions";
 import { getAccounts } from "@/app/(authenticated)/actions/account-actions";
 import { useInvalidateTrades } from "@/hooks/use-trades-data";
@@ -52,6 +53,67 @@ type Phase = "select" | "uploading" | "finalizing" | "summary";
 interface TradeImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+function MergerSuggestionRow({
+  suggestion,
+  onConfirm,
+}: {
+  suggestion: OrphanPairSuggestion;
+  onConfirm: (ratio: number, exDate: string) => void;
+}) {
+  const [ratio, setRatio] = useState(Number(suggestion.impliedRatio.toFixed(4)));
+  const [exDate, setExDate] = useState("");
+  const [busy, setBusy] = useState(false);
+  const today = new Date().toISOString().slice(0, 10);
+
+  return (
+    <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950">
+      <p className="font-medium">
+        {suggestion.fromSymbol} → {suggestion.toSymbol}
+        <span className="ml-2 text-muted-foreground">
+          ({suggestion.fromQty.toLocaleString()} shares → {suggestion.toQty.toLocaleString()} shares)
+        </span>
+      </p>
+      <p className="mt-1 text-muted-foreground">
+        Implied swap ratio: ×{suggestion.impliedRatio.toFixed(4)}
+      </p>
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+        <label className="flex flex-col gap-1 text-xs">
+          Ratio
+          <input
+            type="number"
+            step="0.0001"
+            min="0.0001"
+            value={ratio}
+            onChange={(e) => setRatio(Number(e.target.value))}
+            className="w-24 rounded border px-2 py-1 text-sm"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs">
+          Effective date
+          <input
+            type="date"
+            max={today}
+            value={exDate}
+            onChange={(e) => setExDate(e.target.value)}
+            className="rounded border px-2 py-1 text-sm"
+          />
+        </label>
+        <Button
+          size="sm"
+          disabled={busy || ratio <= 0 || !exDate}
+          onClick={async () => {
+            setBusy(true);
+            try { await onConfirm(ratio, exDate); }
+            finally { setBusy(false); }
+          }}
+        >
+          {busy ? "Applying…" : "Confirm merger"}
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps) {
@@ -206,6 +268,25 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
       }
     } finally {
       setConfirmingKey(null);
+    }
+  };
+
+  const confirmMerger = async (s: OrphanPairSuggestion, ratio: number, exDate: string) => {
+    const result = await recordMerger({
+      fromStockId: s.fromStockId,
+      toStockId: s.toStockId ?? "",
+      ratio,
+      exDate,
+    });
+    if (result.ok) {
+      await invalidate();
+      setCorporateActions((prev) =>
+        prev
+          ? { ...prev, merger_suggestions: prev.merger_suggestions.filter((m) => m !== s) }
+          : prev
+      );
+    } else {
+      toastError(result);
     }
   };
 
@@ -391,7 +472,7 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
         {/* Corporate actions section (summary phase only) */}
         {phase === "summary" &&
           corporateActions &&
-          (corporateActions.applied.length > 0 || corporateActions.pending.length > 0) && (
+          (corporateActions.applied.length > 0 || corporateActions.pending.length > 0 || corporateActions.merger_suggestions.length > 0) && (
             <div className="space-y-2 rounded-lg border p-3 text-sm">
               <p className="font-medium">Corporate actions</p>
 
@@ -449,6 +530,19 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
                 <p className="pt-1 text-xs text-muted-foreground">
                   You can review, edit, or correct these trades anytime from the dashboard.
                 </p>
+              )}
+
+              {corporateActions.merger_suggestions.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Possible mergers detected</p>
+                  {corporateActions.merger_suggestions.map((s, i) => (
+                    <MergerSuggestionRow
+                      key={i}
+                      suggestion={s}
+                      onConfirm={(ratio, exDate) => confirmMerger(s, ratio, exDate)}
+                    />
+                  ))}
+                </div>
               )}
             </div>
           )}
