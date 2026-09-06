@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { detectOrphanPairs } from "@/lib/import/merger-detect";
+import { detectOrphanPairs, matchOrphanPairsWithFeed } from "@/lib/import/merger-detect";
 import type { SecurityTrades } from "@/lib/import/corporate-action-detect";
 import type { TradeForOpenPositions } from "@/lib/import/open-positions";
+import type { OrphanPairSuggestion } from "@/lib/import/tradebook-types";
+import type { RefAction } from "@/lib/import/corporate-actions-data";
 
 const EMPTY_CTX = { canonicalMap: new Map(), actionsBySecurity: new Map() };
 const ACC = "acc-1";
@@ -89,5 +91,67 @@ describe("detectOrphanPairs", () => {
       sec("TO",   "INE002", "id-b", [sell("TO", "INE002", "id-b", "2024-01-01", 2356)]),
     ];
     expect(detectOrphanPairs(securities, EMPTY_CTX)).toHaveLength(0);
+  });
+});
+
+function refAction(symbol: string, ex_date: string, acquirer_symbol: string | null = null): RefAction {
+  return { symbol, isin: null, action_type: "merger", ex_date, factor: null, acquirer_symbol };
+}
+
+function pair(fromSymbol: string, fromStockId: string, toSymbol: string, toStockId: string | null): OrphanPairSuggestion {
+  return { fromSymbol, fromStockId, toSymbol, toStockId, impliedRatio: 2.31, fromQty: 1020, toQty: 2356 };
+}
+
+describe("matchOrphanPairsWithFeed", () => {
+  it("confirms a pair when feed has merger for the sell-only (absorbed) symbol", () => {
+    const pairs = [pair("EQUITASBNK", "survives-id", "EQUITAS", "absorbed-id")];
+    // sell-only symbol = pair.toSymbol = "EQUITAS"
+    const refBySymbol = new Map<string, RefAction[]>([
+      ["EQUITAS", [refAction("EQUITAS", "2024-10-15")]],
+    ]);
+    const { confirmed, unconfirmed } = matchOrphanPairsWithFeed(pairs, refBySymbol);
+    expect(confirmed).toHaveLength(1);
+    expect(confirmed[0].ex_date).toBe("2024-10-15");
+    expect(confirmed[0].fromSymbol).toBe("EQUITASBNK");
+    expect(confirmed[0].toSymbol).toBe("EQUITAS");
+    expect(unconfirmed).toHaveLength(0);
+  });
+
+  it("leaves pair unconfirmed when feed has no merger for the absorbed symbol", () => {
+    const pairs = [pair("EQUITASBNK", "survives-id", "EQUITAS", "absorbed-id")];
+    const refBySymbol = new Map<string, RefAction[]>();
+    const { confirmed, unconfirmed } = matchOrphanPairsWithFeed(pairs, refBySymbol);
+    expect(confirmed).toHaveLength(0);
+    expect(unconfirmed).toHaveLength(1);
+  });
+
+  it("leaves pair unconfirmed when feed acquirer_symbol does not match fromSymbol", () => {
+    const pairs = [pair("EQUITASBNK", "survives-id", "EQUITAS", "absorbed-id")];
+    const refBySymbol = new Map<string, RefAction[]>([
+      // Feed says acquirer is SOMEBANK, but orphan pair says EQUITASBNK — mismatch
+      ["EQUITAS", [refAction("EQUITAS", "2024-10-15", "SOMEBANK")]],
+    ]);
+    const { confirmed, unconfirmed } = matchOrphanPairsWithFeed(pairs, refBySymbol);
+    expect(confirmed).toHaveLength(0);
+    expect(unconfirmed).toHaveLength(1);
+  });
+
+  it("skips pair when fromStockId or toStockId is null (cannot write canonical pointer)", () => {
+    const pairWithNullTo = pair("EQUITASBNK", "survives-id", "EQUITAS", null);
+    const refBySymbol = new Map<string, RefAction[]>([
+      ["EQUITAS", [refAction("EQUITAS", "2024-10-15")]],
+    ]);
+    const { confirmed, unconfirmed } = matchOrphanPairsWithFeed([pairWithNullTo], refBySymbol);
+    expect(confirmed).toHaveLength(0);
+    expect(unconfirmed).toHaveLength(1);
+  });
+
+  it("accepts pair when feed acquirer_symbol is null (no acquirer info in feed)", () => {
+    const pairs = [pair("EQUITASBNK", "survives-id", "EQUITAS", "absorbed-id")];
+    const refBySymbol = new Map<string, RefAction[]>([
+      ["EQUITAS", [refAction("EQUITAS", "2024-10-15", null)]],
+    ]);
+    const { confirmed } = matchOrphanPairsWithFeed(pairs, refBySymbol);
+    expect(confirmed).toHaveLength(1);
   });
 });

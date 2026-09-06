@@ -1,6 +1,7 @@
 import { adjustQtyPrice, securityKey, type CorporateActionContext } from "./corporate-actions";
 import type { SecurityTrades } from "./corporate-action-detect";
 import type { OrphanPairSuggestion } from "./tradebook-types";
+import type { RefAction } from "./corporate-actions-data";
 
 function gcd(a: number, b: number): number {
   return b === 0 ? a : gcd(b, a % b);
@@ -83,4 +84,59 @@ export function detectOrphanPairs(
   }
 
   return suggestions;
+}
+
+export interface ConfirmedMerger extends OrphanPairSuggestion {
+  ex_date: string;
+}
+
+/**
+ * Cross-reference orphan pairs with the NSE/BSE merger reference feed.
+ *
+ * In an orphan pair, pair.toSymbol is the sell-only (absorbed) company and
+ * pair.fromSymbol is the buy-only (surviving) company. The feed records the
+ * merger event on the absorbed symbol. When the feed confirms the event AND
+ * does not name a different acquirer, the pair is promoted to auto-apply.
+ *
+ * A pair is left unconfirmed when:
+ *   - No merger ref exists for the absorbed symbol.
+ *   - The ref's acquirer_symbol is non-null and differs from pair.fromSymbol.
+ *   - Either stockId is null (can't write the canonical pointer).
+ */
+export function matchOrphanPairsWithFeed(
+  pairs: OrphanPairSuggestion[],
+  refBySymbol: Map<string, RefAction[]>
+): { confirmed: ConfirmedMerger[]; unconfirmed: OrphanPairSuggestion[] } {
+  const confirmed: ConfirmedMerger[] = [];
+  const unconfirmed: OrphanPairSuggestion[] = [];
+
+  for (const pair of pairs) {
+    if (!pair.fromStockId || !pair.toStockId) {
+      unconfirmed.push(pair);
+      continue;
+    }
+
+    // pair.toSymbol = sell-only = absorbed company = what the feed records on.
+    const feedForAbsorbed = (refBySymbol.get(pair.toSymbol) ?? []).filter(
+      (r) => r.action_type === "merger"
+    );
+
+    if (feedForAbsorbed.length === 0) {
+      unconfirmed.push(pair);
+      continue;
+    }
+
+    // Use the latest merger ref entry (most relevant if multiple exist).
+    const mergerRef = feedForAbsorbed[feedForAbsorbed.length - 1];
+
+    // If feed names a specific acquirer, it must match the buy-only (surviving) symbol.
+    if (mergerRef.acquirer_symbol !== null && mergerRef.acquirer_symbol !== pair.fromSymbol) {
+      unconfirmed.push(pair);
+      continue;
+    }
+
+    confirmed.push({ ...pair, ex_date: mergerRef.ex_date });
+  }
+
+  return { confirmed, unconfirmed };
 }
