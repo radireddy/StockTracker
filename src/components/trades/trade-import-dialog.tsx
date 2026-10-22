@@ -46,6 +46,7 @@ interface FileEntry {
   skipped: number;
   accountLabel: string | null;
   error: string | null;
+  hint: string | null;
 }
 
 type Phase = "select" | "uploading" | "finalizing" | "summary";
@@ -183,6 +184,7 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
           skipped: 0,
           accountLabel: null,
           error: null,
+          hint: null,
         }));
       return [...prev, ...fresh].slice(0, MAX_BATCH_FILES);
     });
@@ -221,6 +223,7 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
         patchEntry(i, {
           status: "failed",
           error: result.error ?? "Import failed.",
+          hint: result.hint ?? null,
         });
       }
     }
@@ -428,7 +431,12 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
                     </p>
                   )}
                   {e.status === "failed" && (
-                    <p className="text-xs text-red-600 dark:text-red-400">{e.error}</p>
+                    <div>
+                      <p className="text-xs text-red-600 dark:text-red-400">{e.error}</p>
+                      {e.hint && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">{e.hint}</p>
+                      )}
+                    </div>
                   )}
                 </div>
                 {e.status === "pending" && phase === "select" && (
@@ -535,6 +543,7 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
               {corporateActions.merger_suggestions.length > 0 && (
                 <div className="mt-3 space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">Possible mergers detected</p>
+                  <div className="max-h-60 space-y-2 overflow-y-auto">
                   {corporateActions.merger_suggestions.map((s, i) => (
                     <MergerSuggestionRow
                       key={i}
@@ -542,6 +551,7 @@ export function TradeImportDialog({ open, onOpenChange }: TradeImportDialogProps
                       onConfirm={(ratio, exDate) => confirmMerger(s, ratio, exDate)}
                     />
                   ))}
+                  </div>
                 </div>
               )}
             </div>

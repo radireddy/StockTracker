@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stock Search Redesign — 3 Options</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    background: #f5f5f7;
+    color: #111;
+    padding: 32px 24px;
+    min-height: 100vh;
+  }
+
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+  .page-subtitle { font-size: 13px; color: #666; margin-bottom: 40px; }
+
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+  .option { background: #fff; border-radius: 16px; border: 1px solid #e5e5ea; overflow: visible; }
+
+  .option-label {
+    background: #f5f5f7;
+    border-bottom: 1px solid #e5e5ea;
+    padding: 12px 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #888;
+    border-radius: 16px 16px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .option-label .badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 99px;
+    letter-spacing: 0.05em;
+  }
+  .badge-rec { background: #7c3aed; color: #fff; }
+  .badge-alt { background: #e5e5ea; color: #555; }
+
+  .option-body { padding: 24px 20px; }
+
+  .option-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .option-desc { font-size: 12px; color: #666; margin-bottom: 20px; line-height: 1.5; }
+
+  /* ——— Shared card chrome ——— */
+  .mock-card {
+    background: #fff;
+    border: 1px solid #e5e5ea;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  .section-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .icon-box {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: rgba(109,40,217,.10);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .icon-box svg { color: #6d28d9; }
+  .section-title { font-size: 13px; font-weight: 600; }
+  .section-hint { font-size: 11px; color: #888; margin-top: 1px; }
+  .required-dot { color: #dc2626; margin-left: 3px; }
+
+  /* ——— CURRENT STATE (what it looks like today) ——— */
+  .current-section {
+    background: #fff8f1;
+    border: 1px solid #fed7aa;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 32px;
+  }
+  .current-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #92400e;
+    margin-bottom: 12px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .current-row { display: flex; gap: 16px; }
+  .current-item { flex: 1; }
+  .current-item-label { font-size: 11px; color: #888; margin-bottom: 6px; font-weight: 600; }
+  .problem-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: #fef2f2; border: 1px solid #fecaca;
+    color: #dc2626; font-size: 10px; font-weight: 600;
+    padding: 2px 8px; border-radius: 99px;
+    margin-left: 6px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+
+  /* ——— Option A: Inline Pill ——— */
+  .pill-input {
+    display: flex;
+    align-items: center;
+    height: 40px;
+    border: 1.5px solid #7c3aed;
+    border-radius: 9px;
+    padding: 0 10px;
+    gap: 8px;
+    background: #f5f3ff;
+  }
+  .pill-check {
+    width: 20px; height: 20px;
+    border-radius: 99px;
+    background: #16a34a;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .pill-check svg { color: #fff; }
+  .pill-name { font-size: 13px; font-weight: 600; color: #111; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pill-symbol {
+    font-size: 11px; font-weight: 700;
+    background: #ede9fe; color: #5b21b6;
+    padding: 1px 6px; border-radius: 5px;
+    flex-shrink: 0;
+  }
+  .pill-x {
+    width: 22px; height: 22px;
+    border: none; background: none; cursor: pointer;
+    border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    color: #999;
+    flex-shrink: 0;
+    transition: background 0.1s;
+  }
+  .pill-x:hover { background: #ede9fe; color: #5b21b6; }
+
+  /* Dropdown for Option A */
+  .dropdown-a {
+    margin-top: 4px;
+    border: 1px solid #e5e5ea;
+    border-radius: 9px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,.10);
+  }
+  .drop-item {
+    padding: 9px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f5f5f7;
+  }
+  .drop-item:last-child { border-bottom: none; }
+  .drop-item-name { font-size: 13px; font-weight: 500; }
+  .drop-item-sub { font-size: 11px; color: #888; margin-top: 1px; }
+  .drop-item.active-a {
+    background: #ede9fe;
+  }
+  .drop-item.active-a .drop-item-name { color: #5b21b6; font-weight: 600; }
+  .drop-item.active-a .drop-item-sub { color: #7c3aed; }
+
+  .search-input-mock {
+    display: flex;
+    align-items: center;
+    height: 40px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 9px;
+    padding: 0 10px;
+    font-size: 13px;
+    color: #111;
+    gap: 8px;
+  }
+  .search-input-mock.focused { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,.12); }
+  .search-input-mock input {
+    border: none; outline: none; flex: 1; font-size: 13px;
+    background: transparent; color: #111;
+  }
+
+  .spacer { height: 10px; }
+  .spacer-sm { height: 6px; }
+
+  /* ——— Option B: Rich confirmation panel ——— */
+  .confirm-panel {
+    border: 1.5px solid #7c3aed;
+    border-radius: 9px;
+    padding: 12px 14px;
+    background: #f5f3ff;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .confirm-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: #16a34a;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .confirm-icon svg { color: #fff; }
+  .confirm-body { flex: 1; min-width: 0; }
+  .confirm-name { font-size: 14px; font-weight: 600; color: #111; }
+  .confirm-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+  .chip {
+    font-size: 10px; font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 5px;
+    letter-spacing: 0.02em;
+  }
+  .chip-nse { background: #dbeafe; color: #1e40af; }
+  .chip-bse { background: #d1fae5; color: #065f46; }
+  .chip-sector { background: #fef3c7; color: #92400e; }
+  .confirm-change {
+    border: none; background: none; cursor: pointer;
+    font-size: 11px; font-weight: 600; color: #7c3aed;
+    text-decoration: underline; text-underline-offset: 2px;
+    padding: 0;
+    flex-shrink: 0;
+    align-self: flex-start;
+  }
+
+  /* Dropdown for Option B */
+  .drop-item.active-b {
+    background: #ede9fe;
+  }
+  .drop-item.active-b .drop-item-name { color: #5b21b6; font-weight: 600; }
+  .drop-item.active-b .drop-item-sub { color: #7c3aed; }
+
+  /* ——— Option C: Input transforms ——— */
+  .transform-box {
+    border: 1.5px solid #7c3aed;
+    border-radius: 9px;
+    overflow: hidden;
+  }
+  .transform-search-row {
+    display: flex; align-items: center;
+    padding: 0 10px; height: 40px; gap: 8px;
+    border-bottom: 1px solid #e5e5ea;
+    background: #fff;
+  }
+  .transform-search-row input {
+    flex: 1; border: none; outline: none; font-size: 13px; color: #111; background: transparent;
+  }
+  .transform-selected-row {
+    display: flex; align-items: center;
+    padding: 10px 14px; gap: 12px;
+    background: #f5f3ff;
+  }
+  .transform-check {
+    width: 24px; height: 24px;
+    border-radius: 99px; background: #16a34a;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .transform-check svg { color: #fff; }
+  .transform-info { flex: 1; min-width: 0; }
+  .transform-name { font-size: 13px; font-weight: 600; }
+  .transform-meta { font-size: 11px; color: #888; margin-top: 2px; }
+  .transform-clear {
+    border: none; background: none; cursor: pointer;
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: #aaa;
+  }
+  .transform-clear:hover { background: #ede9fe; color: #7c3aed; }
+
+  /* Dropdown for Option C */
+  .drop-item.active-c {
+    background: #f0fdf4;
+  }
+  .drop-item.active-c .drop-item-name { color: #15803d; font-weight: 600; }
+  .drop-item.active-c .drop-item-sub { color: #16a34a; }
+  .drop-item.active-c::after {
+    content: "↵ select";
+    float: right;
+    font-size: 10px;
+    color: #16a34a;
+    font-weight: 600;
+    background: #dcfce7;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  /* ——— Problem annotations ——— */
+  .annotation {
+    font-size: 11px; color: #dc2626;
+    margin-top: 5px;
+    display: flex; align-items: flex-start; gap: 4px;
+  }
+  .annotation::before { content: "↑"; }
+
+  /* ——— Fix notes ——— */
+  .fix-list {
+    margin-top: 16px;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .fix-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    font-size: 12px;
+    color: #444;
+    line-height: 1.4;
+  }
+  .fix-dot {
+    width: 16px; height: 16px;
+    border-radius: 99px;
+    background: #7c3aed;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* ——— section divider ——— */
+  .section-divider {
+    display: flex; align-items: center; gap: 12px;
+    margin: 8px 0;
+  }
+  .section-divider-line { flex: 1; height: 1px; background: #e5e5ea; }
+  .section-divider-text { font-size: 10px; color: #aaa; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+</style>
+</head>
+<body>
+
+<h1>Stock Search — UI Redesign Options</h1>
+<p class="page-subtitle">Three approaches to fix: (1) orange accent contrast in dropdown, (2) redundant dual display after selection, (3) weak "selected" visual state.</p>
+
+<!-- CURRENT PROBLEMS -->
+<div class="current-section">
+  <div class="current-label">
+    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#92400e" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+    Current problems
+  </div>
+  <div class="current-row">
+    <div class="current-item">
+      <div class="current-item-label">Dropdown hover <span class="problem-tag">contrast fail</span></div>
+      <div style="border:1px solid #e5e5ea;border-radius:8px;overflow:hidden;width:240px">
+        <div style="padding:8px 12px;background:#c2410c;color:#fff;">
+          <div style="font-size:13px;font-weight:500">Biocon Limited</div>
+          <div style="font-size:11px;color:rgba(194,65,12,0.85);margin-top:2px">NSE: BIOCON / BSE: 532523</div>
+        </div>
+        <div style="padding:8px 12px;font-size:13px">Natural Biocon (India) Limited <span style="font-size:11px;color:#888">BSE: 543207</span></div>
+      </div>
+      <div class="annotation">Sub-text (orange on orange) is ~1.3:1 — illegible</div>
+    </div>
+    <div class="current-item">
+      <div class="current-item-label">After selection <span class="problem-tag">shown twice</span></div>
+      <div style="border:1.5px solid #e5e5ea;border-radius:9px;padding:10px 12px;font-size:13px;background:#f9f9f9;display:flex;align-items:center;justify-content:space-between;width:260px">
+        <div>
+          <span style="font-weight:500">Sterlite Technologies</span>
+          <span style="color:#888;font-size:11px"> (NSE: STLTECH)</span>
+        </div>
+        <span style="font-size:16px;color:#aaa;cursor:pointer">×</span>
+      </div>
+      <div style="margin-top:6px;border:1.5px solid rgba(109,40,217,.15);background:rgba(109,40,217,.05);border-radius:9px;padding:8px 12px;display:flex;align-items:center;gap:8px;width:260px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        <span style="font-size:13px;font-weight:500">Sterlite Technologies</span>
+        <span style="font-size:11px;color:#888">(STLTECH)</span>
+      </div>
+      <div class="annotation">Same info shown in two different elements</div>
+    </div>
+  </div>
+</div>
+
+<!-- THREE OPTIONS GRID -->
+<div class="grid">
+
+  <!-- ======= OPTION A ======= -->
+  <div class="option">
+    <div class="option-label">
+      Option A — Inline Pill
+      <span class="badge badge-rec">Recommended</span>
+    </div>
+    <div class="option-body">
+      <div class="option-title">Selection becomes a token inside the input</div>
+      <p class="option-desc">The text input transforms into a styled "pill" in place — no extra element below. Hover state uses purple (primary) instead of orange. Single source of truth.</p>
+
+      <!-- Searching state -->
+      <div class="section-divider">
+        <div class="section-divider-line"></div>
+        <div class="section-divider-text">Searching</div>
+        <div class="section-divider-line"></div>
+      </div>
+
+      <div class="mock-card">
+        <div class="section-header">
+          <div class="icon-box">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </div>
+          <div>
+            <div class="section-title">Select stock <span class="required-dot">*</span></div>
+            <div class="section-hint">Search the NSE by name or symbol</div>
+          </div>
+        </div>
+
+        <div class="search-input-mock focused">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#aaa" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" value="sterli" readonly />
+        </div>
+
+        <div class="spacer-sm"></div>
+
+        <div class="dropdown-a">
+          <div class="drop-item">
+            <div class="drop-item-name">Sterling and Wilson Renewable Energy</div>
+            <div class="drop-item-sub">NSE: SWSOLAR · BSE: 542760</div>
+          </div>
+          <div class="drop-item active-a">
+            <div class="drop-item-name">Sterlite Technologies Limited</div>
+            <div class="drop-item-sub">NSE: STLTECH · BSE: 532374 · Telecom</div>
+          </div>
+          <div class="drop-item">
+            <div class="drop-item-name">Sterling Tools Limited</div>
+            <div class="drop-item-sub">NSE: STERTOOLS · BSE: 530759</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Selected state -->
+      <div class="section-divider" style="margin-top:16px">
+        <div class="section-divider-line"></div>
+        <div class="section-divider-text">After selection</div>
+        <div class="section-divider-line"></div>
+      </div>
+
+      <div class="mock-card">
+        <div class="section-header">
+          <div class="icon-box">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </div>
+          <div>
+            <div class="section-title">Select stock <span class="required-dot">*</span></div>
+            <div class="section-hint">Search the NSE by name or symbol</div>
+          </div>
+        </div>
+
+        <div class="pill-input">
+          <div class="pill-check">
+            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <span class="pill-name">Sterlite Technologies Limited</span>
+          <span class="pill-symbol">STLTECH</span>
+          <button class="pill-x" title="Clear selection">
+            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <!-- NO second element here — pill is the only display -->
+      </div>
+
+      <div class="fix-list">
+        <div class="fix-item"><div class="fix-dot">1</div>Dropdown hover: purple (`bg-primary/10 text-primary`) instead of orange accent</div>
+        <div class="fix-item"><div class="fix-dot">2</div>Sub-text on hover: `text-primary/70` — stays readable on purple background</div>
+        <div class="fix-item"><div class="fix-dot">3</div>Remove the second `TrendingUp` card from company-form.tsx entirely</div>
+        <div class="fix-item"><div class="fix-dot">4</div>Pill is the single selected display — no muted box, no duplicate</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= OPTION B ======= -->
+  <div class="option">
+    <div class="option-label">
+      Option B — Rich Confirmation
+      <span class="badge badge-alt">Alternative</span>
+    </div>
+    <div class="option-body">
+      <div class="option-title">Selected state becomes an info card</div>
+      <p class="option-desc">A richer read-only confirmation panel replaces the input on selection — shows company name, exchange badges, sector. Single element, clear affordance to change.</p>
+
+      <!-- Searching state -->
+      <div class="section-divider">
+        <div class="section-divider-line"></div>
+        <div class="section-divider-text">Searching</div>
+        <div class="section-divider-line"></div>
+      </div>
+
+      <div class="mock-card">
+        <div class="section-header">
+          <div class="icon-box">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </div>
+          <div>
+            <div class="section-title">Select stock <span class="required-dot">*</span></div>
+            <div class="section-hint">Search the NSE by name or symbol</div>
+          </div>
+        </div>
+
+        <div class="search-input-mock focused">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#aaa" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" value="sterli" readonly />
+        </div>
+        <div class="spacer-sm"></div>
+
+        <div class="dropdown-a">
+          <div class="drop-item">
+            <div class="drop-item-name">Sterling and Wilson Renewable Energy</div>
+            <div class="drop-item-sub">NSE: SWSOLAR · BSE: 542760</div>
+          </div>
+          <div class="drop-item active-b">
+            <div class="drop-item-name">Sterlite Technologies Limited</div>
+            <div class="drop-item-sub">NSE: STLTECH · BSE: 532374 · Telecom</div>
+          </div>
+          <div class="drop-item">
+            <div class="drop-item-name">Sterling Tools Limited</div>
+            <div class="drop-item-sub">NSE: STERTOOLS · BSE: 530759</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Selected state -->
+      <div class="section-divider" style="margin-top:16px">
+        <div class="section-divider-line"></div>
+        <div class="section-divider-text">After selection</div>
+        <div class="section-divider-line"></div>
+      </div>
+
+      <div class="mock-card">
+        <div class="section-header">
+          <div class="icon-box">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </div>
+          <div>
+            <div class="section-title">Select stock <span class="required-dot">*</span></div>
+            <div class="section-hint">Search the NSE by name or symbol</div>
+          </div>
+        </div>
+
+        <div class="confirm-panel">
+          <div class="confirm-icon">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="confirm-body">
+            <div class="confirm-name">Sterlite Technologies Limited</div>
+            <div class="confirm-chips">
+              <span class="chip chip-nse">NSE: STLTECH</span>
+              <span class="chip chip-bse">BSE: 532374</span>
+              <span class="chip chip-sector">Telecom</span>
+            </div>
+          </div>
+          <button class="confirm-change">Change</button>
+        </div>
+      </div>
+
+      <div class="fix-list">
+        <div class="fix-item"><div class="fix-dot">1</div>Dropdown hover: purple (`bg-primary/10`) — no more orange accent on rows</div>
+        <div class="fix-item"><div class="fix-dot">2</div>Replaces both current elements (muted box + TrendingUp card) with one panel</div>
+        <div class="fix-item"><div class="fix-dot">3</div>Exchange info shown as coloured badges — NSE blue, BSE green, sector amber</div>
+        <div class="fix-item"><div class="fix-dot">4</div>"Change" link is explicit — user knows how to re-search</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= OPTION C ======= -->
+  <div class="option">
+    <div class="option-label">
+      Option C — Two-row Transform
+      <span class="badge badge-alt">Alternative</span>
+    </div>
+    <div class="option-body">
+      <div class="option-title">Input + result in one fused block</div>
+      <p class="option-desc">The entire search area is one bordered block. Typing happens on top, selected result expands below inside the same container. Feels like a command palette.</p>
+
+      <!-- Searching state -->
+      <div class="section-divider">
+        <div class="section-divider-line"></div>
+        <div class="section-divider-text">Searching</div>
+        <div class="section-divider-line"></div>
+      </div>
+
+      <div class="mock-card">
+        <div class="section-header">
+          <div class="icon-box">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </div>
+          <div>
+            <div class="section-title">Select stock <span class="required-dot">*</span></div>
+            <div class="section-hint">Search the NSE by name or symbol</div>
+          </div>
+        </div>
+
+        <div class="search-input-mock focused">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#aaa" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" value="sterli" readonly />
+        </div>
+        <div class="spacer-sm"></div>
+        <div class="dropdown-a">
+          <div class="drop-item">
+            <div class="drop-item-name">Sterling and Wilson Renewable Energy</div>
+            <div class="drop-item-sub">NSE: SWSOLAR · BSE: 542760</div>
+          </div>
+          <div class="drop-item active-c">
+            <div class="drop-item-name">Sterlite Technologies Limited</div>
+            <div class="drop-item-sub">NSE: STLTECH · BSE: 532374 · Telecom</div>
+          </div>
+          <div class="drop-item">
+            <div class="drop-item-name">Sterling Tools Limited</div>
+            <div class="drop-item-sub">NSE: STERTOOLS · BSE: 530759</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Selected state -->
+      <div class="section-divider" style="margin-top:16px">
+        <div class="section-divider-line"></div>
+        <div class="section-divider-text">After selection</div>
+        <div class="section-divider-line"></div>
+      </div>
+
+      <div class="mock-card">
+        <div class="section-header">
+          <div class="icon-box">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </div>
+          <div>
+            <div class="section-title">Select stock <span class="required-dot">*</span></div>
+            <div class="section-hint">Search the NSE by name or symbol</div>
+          </div>
+        </div>
+
+        <div class="transform-box">
+          <div class="transform-search-row" style="background:#f9f5ff;">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#aaa" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" value="Search again to change…" style="color:#bbb;font-size:12px;" readonly />
+          </div>
+          <div class="transform-selected-row">
+            <div class="transform-check">
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="transform-info">
+              <div class="transform-name">Sterlite Technologies Limited</div>
+              <div class="transform-meta">NSE: STLTECH · BSE: 532374 · Telecom</div>
+            </div>
+            <button class="transform-clear" title="Clear">
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="fix-list">
+        <div class="fix-item"><div class="fix-dot">1</div>Dropdown: green highlight (`bg-green-50 text-green-700`) — clear "pick this" affordance</div>
+        <div class="fix-item"><div class="fix-dot">2</div>Single fused box — input row + selection row share one border</div>
+        <div class="fix-item"><div class="fix-dot">3</div>Input dims to a placeholder when selected, so user knows to type to change</div>
+        <div class="fix-item"><div class="fix-dot">4</div>Remove second card from company-form — this box is the only display</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:32px;padding:20px;background:#f0f0f5;border-radius:12px;font-size:13px;color:#555">
+  <strong style="color:#333">Common fix across all three options:</strong> Change <code style="background:#e5e5ea;padding:1px 5px;border-radius:4px;font-size:11px">bg-accent text-accent-foreground</code> to <code style="background:#e5e5ea;padding:1px 5px;border-radius:4px;font-size:11px">bg-primary/10 text-primary</code> on hover rows. Change sub-text class inside active rows from <code style="background:#e5e5ea;padding:1px 5px;border-radius:4px;font-size:11px">text-muted-foreground</code> to <code style="background:#e5e5ea;padding:1px 5px;border-radius:4px;font-size:11px">text-primary/70</code>. Remove the <code style="background:#e5e5ea;padding:1px 5px;border-radius:4px;font-size:11px">selectedStock &&</code> block (lines 220–228) in company-form.tsx.
+</div>
+</body>
+</html>

@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Timeline & Holdings — Separation Redesign</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    background: #f0f0f5;
+    color: #111;
+    padding: 32px 24px;
+  }
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .page-sub { font-size: 13px; color: #666; margin-bottom: 40px; }
+
+  /* ——— layout ——— */
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+
+  /* ——— option wrapper ——— */
+  .option { }
+  .option-label {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #888;
+    margin-bottom: 10px;
+  }
+  .badge {
+    font-size: 10px; font-weight: 700; padding: 2px 8px;
+    border-radius: 99px; letter-spacing: 0.04em;
+  }
+  .badge-rec { background: #6d28d9; color: #fff; }
+  .badge-alt { background: #e5e5ea; color: #555; }
+
+  .option-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .option-desc { font-size: 12px; color: #666; line-height: 1.5; margin-bottom: 16px; }
+
+  /* ——— page chrome ——— */
+  .page-chrome {
+    background: #f0f0f5;
+    border-radius: 14px;
+    border: 1px solid #ddd;
+    overflow: hidden;
+  }
+  .tab-bar {
+    background: #fff;
+    border-bottom: 1px solid #e5e5ea;
+    padding: 0 16px;
+    display: flex; gap: 0;
+  }
+  .tab {
+    padding: 10px 14px;
+    font-size: 12px; font-weight: 500; color: #888;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+  }
+  .tab.active { color: #6d28d9; border-bottom-color: #6d28d9; font-weight: 600; }
+
+  .tab-content { padding: 16px; }
+
+  /* ——— shared pieces ——— */
+  .section-title {
+    font-size: 14px; font-weight: 700;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .btn-primary {
+    font-size: 11px; font-weight: 600;
+    background: #6d28d9; color: #fff;
+    border: none; border-radius: 7px;
+    padding: 5px 10px; cursor: pointer;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .summary-bar {
+    display: flex; gap: 20px;
+    font-size: 11px;
+    padding: 10px 14px;
+    border-radius: 9px;
+    margin-bottom: 10px;
+  }
+  .summary-label { color: #888; }
+  .summary-val { font-weight: 600; }
+  .positive { color: #16a34a; }
+  .negative { color: #dc2626; }
+
+  /* ——— table shared ——— */
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { font-weight: 600; text-align: left; color: #888; padding: 6px 10px; }
+  th.right, td.right { text-align: right; }
+  th.center, td.center { text-align: center; }
+  td { padding: 8px 10px; }
+
+  /* ——— badges ——— */
+  .source-badge {
+    font-size: 10px; font-weight: 600;
+    padding: 1px 6px; border-radius: 5px;
+    background: #f0f0f5; color: #555;
+  }
+  .action-icon {
+    width: 26px; height: 26px;
+    border: none; border-radius: 6px; background: none;
+    cursor: pointer; display: inline-flex;
+    align-items: center; justify-content: center;
+    color: #aaa;
+  }
+  .action-icon:hover { background: #f0f0f5; color: #555; }
+
+  /* ——— divider ——— */
+  .divider {
+    display: flex; align-items: center; gap: 10px;
+    margin: 14px 0 12px;
+  }
+  .divider-line { flex: 1; height: 1px; background: #e5e5ea; }
+  .divider-text { font-size: 10px; color: #bbb; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* ——— fix list ——— */
+  .fix-list { margin-top: 14px; display: flex; flex-direction: column; gap: 5px; }
+  .fix-item { display: flex; align-items: flex-start; gap: 6px; font-size: 11.5px; color: #444; line-height: 1.4; }
+  .fix-dot { width: 16px; height: 16px; border-radius: 99px; background: #6d28d9; color: #fff; font-size: 9px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+
+  /* ============================
+     OPTION A — White cards
+  ============================ */
+  /* Holdings */
+  .opt-a .summary-bar { background: #fff; border: 1px solid #e5e5ea; }
+  .opt-a .table-wrap {
+    background: #fff;
+    border: 1px solid #e5e5ea;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  }
+  .opt-a table thead tr { background: #f7f7fa; }
+  .opt-a table tbody tr { border-top: 1px solid #f0f0f5; }
+  .opt-a table tbody tr:hover { background: #fafafa; }
+
+  /* Timeline */
+  .opt-a .tl-entry {
+    background: #fff;
+    border: 1px solid #e5e5ea;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+  .opt-a .tl-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+  .opt-a .tl-quarter { font-size: 11px; font-weight: 700; background: #ede9fe; color: #5b21b6; padding: 2px 8px; border-radius: 5px; }
+  .opt-a .tl-date { font-size: 10px; color: #aaa; margin-left: 6px; }
+  .opt-a .tl-actions { display: flex; gap: 4px; }
+  .opt-a .tl-action { font-size: 10px; font-weight: 600; color: #aaa; border: none; background: none; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+  .opt-a .tl-action:hover { background: #f0f0f5; color: #555; }
+  .opt-a .tl-body { font-size: 12px; color: #333; line-height: 1.6; }
+
+  /* ============================
+     OPTION B — Left border / timeline spine
+  ============================ */
+  /* Holdings */
+  .opt-b .summary-bar { background: #fff; border: 1px solid #e5e5ea; }
+  .opt-b .table-wrap {
+    background: #fff;
+    border: 1px solid #e5e5ea;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  }
+  .opt-b table thead tr { background: #f7f7fa; }
+  .opt-b table tbody tr { border-top: 1px solid #f0f0f5; }
+
+  /* Timeline with spine */
+  .opt-b .tl-spine { display: flex; gap: 0; padding-left: 4px; }
+  .opt-b .tl-line-col { display: flex; flex-direction: column; align-items: center; width: 20px; flex-shrink: 0; }
+  .opt-b .tl-dot {
+    width: 10px; height: 10px;
+    border-radius: 99px;
+    background: #6d28d9;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #6d28d9;
+    flex-shrink: 0;
+    margin-top: 14px;
+    z-index: 1;
+  }
+  .opt-b .tl-connector { flex: 1; width: 2px; background: #e5e5ea; margin-top: 2px; margin-bottom: 2px; }
+  .opt-b .tl-card-col { flex: 1; padding: 0 0 12px 10px; }
+  .opt-b .tl-card {
+    background: #fff;
+    border: 1px solid #e5e5ea;
+    border-left: 3px solid #6d28d9;
+    border-radius: 8px;
+    padding: 10px 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+  .opt-b .tl-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .opt-b .tl-quarter { font-size: 11px; font-weight: 700; color: #5b21b6; }
+  .opt-b .tl-date { font-size: 10px; color: #aaa; margin-left: 6px; }
+  .opt-b .tl-actions { display: flex; gap: 4px; }
+  .opt-b .tl-action { font-size: 10px; font-weight: 600; color: #aaa; border: none; background: none; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+  .opt-b .tl-action:hover { background: #f0f0f5; color: #555; }
+  .opt-b .tl-body { font-size: 12px; color: #333; line-height: 1.6; }
+
+  /* ============================
+     OPTION C — Tinted label header
+  ============================ */
+  /* Holdings */
+  .opt-c .summary-bar { background: #fff; border: 1px solid #e5e5ea; }
+  .opt-c .table-wrap {
+    background: #fff;
+    border: 1px solid #e5e5ea;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  }
+  .opt-c table thead tr { background: #f2eeff; }
+  .opt-c table thead th { color: #5b21b6; }
+  .opt-c table tbody tr { border-top: 1px solid #f0f0f5; }
+  .opt-c table tbody tr:nth-child(even) { background: #fafafa; }
+
+  /* Timeline with header rows */
+  .opt-c .tl-entry { border: 1px solid #e5e5ea; border-radius: 10px; overflow: hidden; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+  .opt-c .tl-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px;
+    background: #f5f3ff;
+    border-bottom: 1px solid #e5e5ea;
+  }
+  .opt-c .tl-header-left { display: flex; align-items: center; gap: 8px; }
+  .opt-c .tl-quarter { font-size: 11px; font-weight: 700; color: #5b21b6; }
+  .opt-c .tl-date { font-size: 10px; color: #9ca3af; }
+  .opt-c .tl-actions { display: flex; gap: 4px; }
+  .opt-c .tl-action { font-size: 10px; font-weight: 600; color: #aaa; border: none; background: none; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+  .opt-c .tl-action:hover { background: #ede9fe; color: #5b21b6; }
+  .opt-c .tl-body { font-size: 12px; color: #333; line-height: 1.6; padding: 10px 12px; background: #fff; }
+
+  /* ——— current box ——— */
+  .current-box {
+    background: #fff8f1; border: 1px solid #fed7aa; border-radius: 12px;
+    padding: 18px 20px; margin-bottom: 32px;
+  }
+  .current-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #92400e; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .current-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .current-col-title { font-size: 11px; font-weight: 600; color: #888; margin-bottom: 8px; }
+  .problem-tag { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; margin-left: 6px; text-transform: uppercase; }
+
+  /* Current timeline entry (problem) */
+  .cur-tl-entry { padding: 10px 0; border-bottom: 1px solid #f0f0f5; }
+  .cur-tl-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .cur-tl-date { font-size: 10px; color: #aaa; }
+  .cur-tl-acts { font-size: 10px; color: #aaa; display: flex; gap: 8px; }
+  .cur-tl-body { font-size: 11px; color: #333; line-height: 1.5; }
+
+  /* Current table (problem) */
+  .cur-table-wrap { border: 1px solid #e5e5ea; border-radius: 8px; overflow: hidden; background: transparent; }
+  .cur-table-wrap table thead tr { background: rgba(0,0,0,.04); }
+  .cur-table-wrap table tbody tr { border-top: 1px solid rgba(0,0,0,.05); background: transparent; }
+  .problem-note { font-size: 10px; color: #dc2626; margin-top: 6px; }
+  .problem-note::before { content: "↑ "; }
+
+  /* show-more */
+  .show-more { text-align: center; padding: 6px 0; font-size: 11px; color: #6d28d9; font-weight: 600; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<h1>Timeline & Holdings — Visual Separation</h1>
+<p class="page-sub">Fix: content areas and entries blend into the <code style="font-size:11px;background:#eee;padding:1px 5px;border-radius:4px">#f0f0f5</code> page background. Three options — all use white card surfaces; they differ in how timeline entries are structured.</p>
+
+<!-- CURRENT STATE -->
+<div class="current-box">
+  <div class="current-label">
+    <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#92400e" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+    Current problems
+  </div>
+  <div class="current-cols">
+    <div>
+      <div class="current-col-title">Timeline entries <span class="problem-tag">no separation</span></div>
+      <div style="background:#f0f0f5;border-radius:8px;padding:10px 12px;">
+        <div class="cur-tl-entry">
+          <div class="cur-tl-row">
+            <span class="cur-tl-date">2026-06-20</span>
+            <div class="cur-tl-acts"><span>Edit</span><span>Delete</span></div>
+          </div>
+          <div class="cur-tl-body">• No fresh equity announced; CAPEX funded through internal accruals + term loans.</div>
+        </div>
+        <div class="cur-tl-entry" style="border-bottom:none">
+          <div class="cur-tl-row">
+            <span class="cur-tl-date">2026-06-20</span>
+            <div class="cur-tl-acts"><span>Edit</span><span>Delete</span></div>
+          </div>
+          <div class="cur-tl-body">• FY-26 revenue guidance = +15% → ~₹925–930 cr, potential ₹1,000 cr by Q3/Q4.</div>
+        </div>
+      </div>
+      <div class="problem-note">Entries separated only by a faint divider line — content blends into gray page</div>
+    </div>
+    <div>
+      <div class="current-col-title">Holdings table <span class="problem-tag">transparent bg</span></div>
+      <div style="background:#f0f0f5;border-radius:8px;padding:10px 12px;">
+        <div style="display:flex;gap:14px;font-size:11px;border:1px solid #e0e0e8;border-radius:7px;padding:8px 10px;background:rgba(255,255,255,0.4);margin-bottom:8px;">
+          <span><span style="color:#888">Total Qty:</span> <strong>1,950</strong></span>
+          <span><span style="color:#888">Avg:</span> <strong>₹830</strong></span>
+          <span style="color:#16a34a"><strong>+₹6,73,335</strong></span>
+        </div>
+        <div class="cur-table-wrap">
+          <table>
+            <thead><tr><th style="font-size:10px;padding:5px 8px;">Account</th><th class="right" style="font-size:10px;padding:5px 8px;">Qty</th><th class="right" style="font-size:10px;padding:5px 8px;">P&L</th></tr></thead>
+            <tbody>
+              <tr><td style="font-size:11px;padding:6px 8px;">YY7859 (Zerodha)</td><td class="right" style="font-size:11px;padding:6px 8px;">1,200</td><td class="right positive" style="font-size:11px;padding:6px 8px;">+₹4,06,360</td></tr>
+              <tr><td style="font-size:11px;padding:6px 8px;">XD6134 (Zerodha)</td><td class="right" style="font-size:11px;padding:6px 8px;">750</td><td class="right positive" style="font-size:11px;padding:6px 8px;">+₹2,66,975</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="problem-note">Table has no white background — reads as floating on the gray page</div>
+    </div>
+  </div>
+</div>
+
+<!-- THREE OPTIONS -->
+<div class="grid">
+
+  <!-- ========== OPTION A ========== -->
+  <div class="option opt-a">
+    <div class="option-label">Option A — White cards <span class="badge badge-rec">Recommended</span></div>
+    <div class="option-title">Each entry is a white card</div>
+    <p class="option-desc">Simplest fix. Every timeline entry becomes an individual white rounded card. Summary bar and table also get white backgrounds. Strong contrast against the gray page.</p>
+
+    <div class="page-chrome">
+      <div class="tab-bar">
+        <div class="tab">Holdings</div>
+        <div class="tab active">Timeline</div>
+      </div>
+
+      <div class="tab-content">
+        <!-- Holdings preview -->
+        <div style="margin-bottom:14px;">
+          <div class="section-title" style="font-size:12px;font-weight:700;color:#888;margin-bottom:8px;">HOLDINGS TAB</div>
+          <div class="summary-bar">
+            <span><span class="summary-label">Total Qty: </span><span class="summary-val">1,950</span></span>
+            <span><span class="summary-label">Avg: </span><span class="summary-val">₹830</span></span>
+            <span class="positive summary-val">+₹6,73,335 (+41.6%)</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Account</th><th class="right">Qty</th><th class="right">Avg Price</th><th class="right">P&L</th><th class="center">Source</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>YY7859 (Zerodha)</td>
+                  <td class="right">1,200</td>
+                  <td class="right">₹836.67</td>
+                  <td class="right positive">+₹4,06,360<br><span style="font-size:10px">+40.5%</span></td>
+                  <td class="center"><span class="source-badge">Zerodha</span></td>
+                </tr>
+                <tr>
+                  <td>XD6134 (Zerodha)</td>
+                  <td class="right">750</td>
+                  <td class="right">₹819.33</td>
+                  <td class="right positive">+₹2,66,975<br><span style="font-size:10px">+43.4%</span></td>
+                  <td class="center"><span class="source-badge">Zerodha</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="border-top:1px solid #e5e5ea;margin-bottom:12px;"></div>
+        <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:8px;">TIMELINE TAB</div>
+
+        <!-- Timeline entries -->
+        <div class="tl-entry">
+          <div class="tl-meta">
+            <div>
+              <span class="tl-quarter">Q4FY26</span>
+              <span class="tl-date">2026-06-20</span>
+            </div>
+            <div class="tl-actions">
+              <button class="tl-action">Edit</button>
+              <button class="tl-action">Delete</button>
+            </div>
+          </div>
+          <div class="tl-body">• No fresh equity announced; CAPEX funded through internal accruals + term loans. • Gross debt ₹265.5 cr, cash + FD ₹68 cr; debt/equity &lt; 0.5.</div>
+        </div>
+
+        <div class="tl-entry">
+          <div class="tl-meta">
+            <div>
+              <span class="tl-quarter">Q3FY26</span>
+              <span class="tl-date">2026-06-20</span>
+            </div>
+            <div class="tl-actions">
+              <button class="tl-action">Edit</button>
+              <button class="tl-action">Delete</button>
+            </div>
+          </div>
+          <div class="tl-body">• FY-26 revenue guidance = +15% → ~₹925–930 cr. • EBITDA margin 18–20% reaffirmed as higher-value products scale.</div>
+        </div>
+
+        <div class="tl-entry">
+          <div class="tl-meta">
+            <div>
+              <span style="font-size:10px;color:#aaa;font-style:italic">No label</span>
+              <span class="tl-date" style="margin-left:0">2026-06-20</span>
+            </div>
+            <div class="tl-actions">
+              <button class="tl-action">Edit</button>
+              <button class="tl-action">Delete</button>
+            </div>
+          </div>
+          <div class="tl-body">• Quartz-sink operations at 65% utilisation, guided ≥85% in 3–4 months. • Daily inbound enquiries, multi-year retail programmes.</div>
+        </div>
+
+        <div class="show-more">Show More (15 remaining)</div>
+      </div>
+    </div>
+
+    <div class="fix-list">
+      <div class="fix-item"><div class="fix-dot">1</div>Timeline: wrap each entry in <code style="font-size:10px;background:#eee;padding:1px 4px;border-radius:3px">bg-card border rounded-xl shadow-sm p-4</code></div>
+      <div class="fix-item"><div class="fix-dot">2</div>Quarter label becomes a small purple badge chip inside the card</div>
+      <div class="fix-item"><div class="fix-dot">3</div>Summary bar: add <code style="font-size:10px;background:#eee;padding:1px 4px;border-radius:3px">bg-card</code>. Table: already has border — add <code style="font-size:10px;background:#eee;padding:1px 4px;border-radius:3px">bg-card</code></div>
+      <div class="fix-item"><div class="fix-dot">4</div>Replace <code style="font-size:10px;background:#eee;padding:1px 4px;border-radius:3px">divide-y divide-border/30</code> list with mapped cards — no divider needed</div>
+    </div>
+  </div>
+
+  <!-- ========== OPTION B ========== -->
+  <div class="option opt-b">
+    <div class="option-label">Option B — Timeline spine <span class="badge badge-alt">Alternative</span></div>
+    <div class="option-title">Vertical line connects entries</div>
+    <p class="option-desc">Classic timeline treatment — a purple dot and vertical connector on the left ties entries into a chronological story. White card with left accent border. Good for time-ordered data.</p>
+
+    <div class="page-chrome">
+      <div class="tab-bar">
+        <div class="tab">Holdings</div>
+        <div class="tab active">Timeline</div>
+      </div>
+
+      <div class="tab-content">
+        <!-- Holdings same as A -->
+        <div style="margin-bottom:14px;">
+          <div class="section-title" style="font-size:12px;font-weight:700;color:#888;margin-bottom:8px;">HOLDINGS TAB</div>
+          <div class="summary-bar">
+            <span><span class="summary-label">Total Qty: </span><span class="summary-val">1,950</span></span>
+            <span><span class="summary-label">Avg: </span><span class="summary-val">₹830</span></span>
+            <span class="positive summary-val">+₹6,73,335 (+41.6%)</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Account</th><th class="right">Qty</th><th class="right">Avg Price</th><th class="right">P&L</th><th class="center">Source</th></tr></thead>
+              <tbody>
+                <tr><td>YY7859 (Zerodha)</td><td class="right">1,200</td><td class="right">₹836.67</td><td class="right positive">+₹4,06,360</td><td class="center"><span class="source-badge">Zerodha</span></td></tr>
+                <tr><td>XD6134 (Zerodha)</td><td class="right">750</td><td class="right">₹819.33</td><td class="right positive">+₹2,66,975</td><td class="center"><span class="source-badge">Zerodha</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="border-top:1px solid #e5e5ea;margin-bottom:12px;"></div>
+        <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:8px;">TIMELINE TAB</div>
+
+        <!-- Spine entries -->
+        <div class="tl-spine">
+          <div class="tl-line-col">
+            <div class="tl-dot"></div>
+            <div class="tl-connector"></div>
+          </div>
+          <div class="tl-card-col">
+            <div class="tl-card">
+              <div class="tl-meta">
+                <div><span class="tl-quarter">Q4FY26</span><span class="tl-date">· 2026-06-20</span></div>
+                <div class="tl-actions"><button class="tl-action">Edit</button><button class="tl-action">Delete</button></div>
+              </div>
+              <div class="tl-body">• No fresh equity announced; CAPEX funded through internal accruals + term loans. • Gross debt ₹265.5 cr.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tl-spine">
+          <div class="tl-line-col">
+            <div class="tl-dot"></div>
+            <div class="tl-connector"></div>
+          </div>
+          <div class="tl-card-col">
+            <div class="tl-card">
+              <div class="tl-meta">
+                <div><span class="tl-quarter">Q3FY26</span><span class="tl-date">· 2026-06-20</span></div>
+                <div class="tl-actions"><button class="tl-action">Edit</button><button class="tl-action">Delete</button></div>
+              </div>
+              <div class="tl-body">• FY-26 revenue guidance = +15% → ~₹925–930 cr. • EBITDA margin 18–20% reaffirmed.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tl-spine" style="margin-bottom:0">
+          <div class="tl-line-col">
+            <div class="tl-dot"></div>
+          </div>
+          <div class="tl-card-col" style="padding-bottom:0">
+            <div class="tl-card">
+              <div class="tl-meta">
+                <div><span style="font-size:10px;color:#aaa;font-style:italic">No label</span><span class="tl-date">· 2026-06-20</span></div>
+                <div class="tl-actions"><button class="tl-action">Edit</button><button class="tl-action">Delete</button></div>
+              </div>
+              <div class="tl-body">• Quartz-sink at 65% utilisation, guided ≥85% in 3–4 months.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="show-more">Show More (15 remaining)</div>
+      </div>
+    </div>
+
+    <div class="fix-list">
+      <div class="fix-item"><div class="fix-dot">1</div>Add a two-column flex wrapper: left col = dot + connector line, right col = card</div>
+      <div class="fix-item"><div class="fix-dot">2</div>Card gets <code style="font-size:10px;background:#eee;padding:1px 4px;border-radius:3px">border-l-2 border-l-primary</code> for the accent strip</div>
+      <div class="fix-item"><div class="fix-dot">3</div>More markup per entry — works well but adds complexity vs Option A</div>
+      <div class="fix-item"><div class="fix-dot">4</div>Holdings table: same white card treatment as Option A</div>
+    </div>
+  </div>
+
+  <!-- ========== OPTION C ========== -->
+  <div class="option opt-c">
+    <div class="option-label">Option C — Label header row <span class="badge badge-alt">Alternative</span></div>
+    <div class="option-title">Tinted header per entry card</div>
+    <p class="option-desc">Each timeline entry is a card with a tinted purple header row showing the quarter/label and date, and a white body below. Works well when every entry has a label. Holdings table gets a purple-tinted header.</p>
+
+    <div class="page-chrome">
+      <div class="tab-bar">
+        <div class="tab">Holdings</div>
+        <div class="tab active">Timeline</div>
+      </div>
+
+      <div class="tab-content">
+        <!-- Holdings with tinted header -->
+        <div style="margin-bottom:14px;">
+          <div class="section-title" style="font-size:12px;font-weight:700;color:#888;margin-bottom:8px;">HOLDINGS TAB</div>
+          <div class="summary-bar">
+            <span><span class="summary-label">Total Qty: </span><span class="summary-val">1,950</span></span>
+            <span><span class="summary-label">Avg: </span><span class="summary-val">₹830</span></span>
+            <span class="positive summary-val">+₹6,73,335 (+41.6%)</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Account</th><th class="right">Qty</th><th class="right">Avg Price</th><th class="right">P&L</th><th class="center">Source</th></tr></thead>
+              <tbody>
+                <tr><td>YY7859 (Zerodha)</td><td class="right">1,200</td><td class="right">₹836.67</td><td class="right positive">+₹4,06,360</td><td class="center"><span class="source-badge">Zerodha</span></td></tr>
+                <tr><td>XD6134 (Zerodha)</td><td class="right">750</td><td class="right">₹819.33</td><td class="right positive">+₹2,66,975</td><td class="center"><span class="source-badge">Zerodha</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="border-top:1px solid #e5e5ea;margin-bottom:12px;"></div>
+        <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:8px;">TIMELINE TAB</div>
+
+        <!-- Header-row entries -->
+        <div class="tl-entry">
+          <div class="tl-header">
+            <div class="tl-header-left">
+              <span class="tl-quarter">Q4FY26</span>
+              <span class="tl-date">2026-06-20</span>
+            </div>
+            <div class="tl-actions">
+              <button class="tl-action">Edit</button>
+              <button class="tl-action">Delete</button>
+            </div>
+          </div>
+          <div class="tl-body">• No fresh equity announced; CAPEX funded through internal accruals + term loans. • Gross debt ₹265.5 cr, cash + FD ₹68 cr; debt/equity &lt; 0.5.</div>
+        </div>
+
+        <div class="tl-entry">
+          <div class="tl-header">
+            <div class="tl-header-left">
+              <span class="tl-quarter">Q3FY26</span>
+              <span class="tl-date">2026-06-20</span>
+            </div>
+            <div class="tl-actions">
+              <button class="tl-action">Edit</button>
+              <button class="tl-action">Delete</button>
+            </div>
+          </div>
+          <div class="tl-body">• FY-26 revenue guidance = +15% → ~₹925–930 cr. • EBITDA margin 18–20% reaffirmed.</div>
+        </div>
+
+        <div class="tl-entry">
+          <div class="tl-header">
+            <div class="tl-header-left">
+              <span style="font-size:10px;color:#9ca3af;font-style:italic">No label</span>
+              <span class="tl-date">2026-06-20</span>
+            </div>
+            <div class="tl-actions">
+              <button class="tl-action">Edit</button>
+              <button class="tl-action">Delete</button>
+            </div>
+          </div>
+          <div class="tl-body">• Quartz-sink at 65% utilisation, guided ≥85% in 3–4 months. • Daily inbound enquiries, multi-year retail programmes.</div>
+        </div>
+
+        <div class="show-more">Show More (15 remaining)</div>
+      </div>
+    </div>
+
+    <div class="fix-list">
+      <div class="fix-item"><div class="fix-dot">1</div>Entry card split into <code style="font-size:10px;background:#eee;padding:1px 4px;border-radius:3px">tl-header (bg-primary/5)</code> + <code style="font-size:10px;background:#eee;padding:1px 4px;border-radius:3px">tl-body (bg-card)</code></div>
+      <div class="fix-item"><div class="fix-dot">2</div>Quarter label is plain bold text inside the tinted header — no badge needed</div>
+      <div class="fix-item"><div class="fix-dot">3</div>Holdings table: thead uses <code style="font-size:10px;background:#eee;padding:1px 4px;border-radius:3px">bg-primary/5</code> to match the tinted theme</div>
+      <div class="fix-item"><div class="fix-dot">4</div>Looks best when every entry has a label — unlabelled entries look a bit empty</div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:32px;padding:18px 20px;background:#f0f0f5;border:1px solid #e0e0e8;border-radius:12px;font-size:12px;color:#555;">
+  <strong style="color:#333">Common fix across all three:</strong>
+  Add <code style="background:#e5e5ea;padding:1px 5px;border-radius:4px">bg-card</code> to the summary bar and <code style="background:#e5e5ea;padding:1px 5px;border-radius:4px">bg-card</code> to the table wrapper in <code style="background:#e5e5ea;padding:1px 5px;border-radius:4px">holdings-tab.tsx</code>.
+  In <code style="background:#e5e5ea;padding:1px 5px;border-radius:4px">timeline-tab.tsx</code>, replace the <code style="background:#e5e5ea;padding:1px 5px;border-radius:4px">divide-y</code> list with individually-carded entries.
+</div>
+
+</body>
+</html>

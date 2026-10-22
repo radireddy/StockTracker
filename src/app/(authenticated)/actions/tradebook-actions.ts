@@ -47,7 +47,7 @@ async function resolveAccountForImport(
   if (!clientId) {
     throw new AppError(
       "Could not read a Client ID from the tradebook.",
-      "Pick the account in the import dialog, or use a file named like 'tradebook-<ClientID>-EQ.csv'."
+      "Select an account from the 'Import into' dropdown before importing, or rename the file to include your Client ID (e.g. tradebook-YY1234-EQ.csv)."
     );
   }
 
@@ -201,6 +201,7 @@ export async function importTradebooks(
           skipped_count: result.skipped_count,
           account_label: result.account_label,
           error: null,
+          hint: null,
         });
       } catch (e) {
         fileResults.push({
@@ -210,6 +211,7 @@ export async function importTradebooks(
           skipped_count: 0,
           account_label: null,
           error: e instanceof AppError ? e.message : "Import failed.",
+          hint: e instanceof AppError ? (e.hint ?? null) : null,
         });
       }
     }

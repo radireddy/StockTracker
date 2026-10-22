@@ -7,6 +7,10 @@ import type { TradeForOpenPositions } from "@/lib/import/open-positions";
 
 const EMPTY_CTX: CorporateActionContext = { canonicalMap: new Map(), actionsBySecurity: new Map() };
 
+function ref(symbol: string, action_type: RefAction["action_type"], ex_date: string, factor: number): RefAction {
+  return { symbol, isin: "I1", action_type, ex_date, factor, acquirer_symbol: null };
+}
+
 function trade(
   o: Partial<TradeForOpenPositions> & Pick<TradeForOpenPositions, "trade_date" | "trade_type" | "quantity" | "price">
 ): TradeForOpenPositions {
@@ -37,7 +41,7 @@ describe("reconcileWithFeed — feed-first, trade-aware", () => {
         trade({ trade_date: "2024-09-01", trade_type: "sell", quantity: 670, price: 110 }),
       ],
     });
-    const feed: RefAction[] = [{ symbol: "SYM", isin: "I1", action_type: "split", ex_date: "2024-07-09", factor: 10 }];
+    const feed: RefAction[] = [ref("SYM", "split", "2024-07-09", 10)];
     const v = reconcileWithFeed(oversoldCandidate, s, feed, EMPTY_CTX);
     expect(v.status).toBe("verified");
     expect(v.actions).toEqual([{ stock_id: "s1", action_type: "split", ex_date: "2024-07-09", factor: 10 }]);
@@ -48,7 +52,7 @@ describe("reconcileWithFeed — feed-first, trade-aware", () => {
       holdingsQty: 200,
       trades: [trade({ trade_date: "2024-06-10", trade_type: "buy", quantity: 100, price: 100 })],
     });
-    const feed: RefAction[] = [{ symbol: "SYM", isin: "I1", action_type: "split", ex_date: "2024-07-09", factor: 2 }];
+    const feed: RefAction[] = [ref("SYM", "split", "2024-07-09", 2)];
     expect(reconcileWithFeed(oversoldCandidate, s, feed, EMPTY_CTX).status).toBe("verified");
   });
 
@@ -64,7 +68,7 @@ describe("reconcileWithFeed — feed-first, trade-aware", () => {
         trade({ trade_date: "2024-09-01", trade_type: "sell", quantity: 120, price: 110 }),
       ],
     });
-    const feed: RefAction[] = [{ symbol: "SYM", isin: "I1", action_type: "split", ex_date: "2024-01-01", factor: 10 }];
+    const feed: RefAction[] = [ref("SYM", "split", "2024-01-01", 10)];
     expect(reconcileWithFeed(oversoldCandidate, s, feed, EMPTY_CTX).status).toBe("unexplained");
   });
 
@@ -77,13 +81,13 @@ describe("reconcileWithFeed — feed-first, trade-aware", () => {
         trade({ trade_date: "2024-09-01", trade_type: "sell", quantity: 120, price: 110 }),
       ],
     });
-    const feed: RefAction[] = [{ symbol: "SYM", isin: "I1", action_type: "split", ex_date: "2024-07-09", factor: 10 }];
+    const feed: RefAction[] = [ref("SYM", "split", "2024-07-09", 10)];
     expect(reconcileWithFeed(oversoldCandidate, s, feed, EMPTY_CTX).status).toBe("unexplained");
   });
 
   it("cannot apply without a canonical stock_id", () => {
     const s = sec({ stock_id: null, trades: [trade({ trade_date: "2024-06-10", trade_type: "buy", quantity: 50, price: 1000 })] });
-    const feed: RefAction[] = [{ symbol: "SYM", isin: "I1", action_type: "split", ex_date: "2024-07-09", factor: 10 }];
+    const feed: RefAction[] = [ref("SYM", "split", "2024-07-09", 10)];
     expect(reconcileWithFeed(oversoldCandidate, s, feed, EMPTY_CTX)).toEqual({ status: "unexplained", actions: [] });
   });
 });
@@ -99,7 +103,7 @@ describe("feedActionsToApply — held-through-split (no mismatch needed)", () =>
         trade({ trade_date: "2026-06-23", trade_type: "sell", quantity: 1470, price: 1357 }),
       ],
     });
-    const feed: RefAction[] = [{ symbol: "SYM", isin: "I1", action_type: "split", ex_date: "2026-08-23", factor: 2 }];
+    const feed: RefAction[] = [ref("SYM", "split", "2026-08-23", 2)];
     expect(feedActionsToApply(s, feed, EMPTY_CTX, TODAY)).toEqual([
       { stock_id: "s1", action_type: "split", ex_date: "2026-08-23", factor: 2 },
     ]);
@@ -112,7 +116,7 @@ describe("feedActionsToApply — held-through-split (no mismatch needed)", () =>
         trade({ trade_date: "2024-03-01", trade_type: "sell", quantity: 100, price: 12 }),
       ],
     });
-    const feed: RefAction[] = [{ symbol: "SYM", isin: "I1", action_type: "bonus", ex_date: "2024-06-01", factor: 2 }];
+    const feed: RefAction[] = [ref("SYM", "bonus", "2024-06-01", 2)];
     expect(feedActionsToApply(s, feed, EMPTY_CTX, TODAY)).toEqual([]);
   });
 
@@ -122,19 +126,19 @@ describe("feedActionsToApply — held-through-split (no mismatch needed)", () =>
       actionsBySecurity: new Map([["s1", [{ stock_id: "s1", action_type: "split" as const, ex_date: "2026-08-23", factor: 2 }]]]),
     };
     const s = sec({ trades: [trade({ trade_date: "2025-02-07", trade_type: "buy", quantity: 100, price: 390 })] });
-    const feed: RefAction[] = [{ symbol: "SYM", isin: "I1", action_type: "split", ex_date: "2026-08-23", factor: 2 }];
+    const feed: RefAction[] = [ref("SYM", "split", "2026-08-23", 2)];
     expect(feedActionsToApply(s, feed, ca, TODAY)).toEqual([]);
   });
 
   it("skips a future-dated action", () => {
     const s = sec({ trades: [trade({ trade_date: "2025-02-07", trade_type: "buy", quantity: 100, price: 390 })] });
-    const feed: RefAction[] = [{ symbol: "SYM", isin: "I1", action_type: "split", ex_date: "2027-01-01", factor: 2 }];
+    const feed: RefAction[] = [ref("SYM", "split", "2027-01-01", 2)];
     expect(feedActionsToApply(s, feed, EMPTY_CTX, TODAY)).toEqual([]);
   });
 
   it("returns nothing without a canonical stock_id", () => {
     const s = sec({ stock_id: null, trades: [trade({ trade_date: "2025-02-07", trade_type: "buy", quantity: 100, price: 390 })] });
-    const feed: RefAction[] = [{ symbol: "SYM", isin: "I1", action_type: "split", ex_date: "2026-08-23", factor: 2 }];
+    const feed: RefAction[] = [ref("SYM", "split", "2026-08-23", 2)];
     expect(feedActionsToApply(s, feed, EMPTY_CTX, TODAY)).toEqual([]);
   });
 });

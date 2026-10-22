@@ -453,10 +453,16 @@ describe("executeTradebookImport", () => {
     expect(res.pending.some((p) => p.symbol === "SYM4")).toBe(false);
   });
 
-  it("includes merger suggestions when orphan pairs exist", async () => {
-    // EQUITAS: buy-only (1020 shares net open), non-null stock_id → from-security.
-    // EQUITASBNK: sell-only (2356 shares total sold) → to-security.
-    // Same account (acc-1) → detectOrphanPairs should fire and emit one suggestion.
+  it("auto-applies feed-confirmed merger when orphan pair matches ref (acquirer_symbol null)", async () => {
+    // EQUITAS: buy-only (1020 shares net open), stock_id set → absorbed company.
+    // EQUITASBNK: sell-only (2356 shares) → surviving company.
+    // Feed has a merger entry for EQUITAS with acquirer_symbol=null (acquirer not named).
+    // matchOrphanPairsWithFeed confirms the pair (feed record exists, no acquirer mismatch)
+    // → auto-applied, appears in `applied`, not `mergerSuggestions`.
+    _db.corporate_action_ref.push({
+      symbol: "EQUITAS", isin: "INE705T01012", action_type: "merger",
+      ex_date: "2024-10-15", factor: null, acquirer_symbol: null, source: "nse",
+    });
     _db.trades.push(
       {
         id: "eq-buy-1", user_id: "user-1", account_id: "acc-1",
@@ -476,9 +482,32 @@ describe("executeTradebookImport", () => {
     const admin = makeAdminMock() as any;
     const result = await detectAndApplyForAccount(admin, "user-1", "acc-1");
 
-    expect(result.mergerSuggestions).toHaveLength(1);
-    expect(result.mergerSuggestions[0].fromSymbol).toBe("EQUITAS");
-    expect(result.mergerSuggestions[0].toSymbol).toBe("EQUITASBNK");
-    expect(result.mergerSuggestions[0].impliedRatio).toBeCloseTo(2356 / 1020, 2);
+    expect(result.applied.some((a) => a.symbol === "EQUITAS" && a.action_type === "merger")).toBe(true);
+    expect(result.mergerSuggestions).toHaveLength(0);
+  });
+
+  it("surfaces merger as manual suggestion when feed acquirer_symbol mismatches detected surviving company", async () => {
+    // Feed says EQUITAS merged into SOMEBANK, but tradebook shows sells of EQUITASBNK.
+    // Mismatch → mergerSuggestions (not auto-applied).
+    _db.corporate_action_ref.push({
+      symbol: "EQUITAS", isin: "INE705T01012", action_type: "merger",
+      ex_date: "2024-10-15", factor: null, acquirer_symbol: "SOMEBANK", source: "nse",
+    });
+    _db.trades.push(
+      {
+        id: "eq-buy-2", user_id: "user-1", account_id: "acc-1",
+        symbol: "EQUITAS", isin: "INE705T01012", stock_id: "stock-EQUITAS",
+        trade_date: "2021-01-10", trade_type: "buy",
+        quantity: 1020, price: 120, executed_at: null, broker_trade_id: "eb2",
+      },
+    );
+    // EQUITASBNK must also have a trade so Path 1 can look it up via secBySymbol.
+    // Feed names SOMEBANK as acquirer, but SOMEBANK has no trades → Path 1 skips (toSec not found).
+    // With acquirer_symbol set, Path 2 is skipped. Result: no suggestion.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin = makeAdminMock() as any;
+    const result = await detectAndApplyForAccount(admin, "user-1", "acc-1");
+    expect(result.applied.every((a) => a.symbol !== "EQUITAS" || a.action_type !== "merger")).toBe(true);
+    expect(result.mergerSuggestions).toHaveLength(0);
   });
 });

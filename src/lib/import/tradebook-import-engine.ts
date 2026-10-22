@@ -356,26 +356,29 @@ export async function detectAndApplyForAccount(
     // Pass 3 — merger auto-apply: cross-reference orphan pairs against the
     // merger ref feed. Confirmed pairs are applied here (no user action needed);
     // unconfirmed ones surface as manual suggestions.
-    const allPairs = detectOrphanPairs(securities, ca);
+    const allPairs = detectOrphanPairs(securities, ca, refBySymbol);
     const { confirmed: confirmedMergers, unconfirmed: mergerSuggestions } =
       matchOrphanPairsWithFeed(allPairs, refBySymbol);
 
     for (const m of confirmedMergers) {
-      // m.toStockId = absorbed (sell-only); m.fromStockId = surviving (buy-only).
+      // m.fromStockId = absorbed company (was merged away; user bought it)
+      // m.toStockId   = surviving company (received shares after merger)
       // Both are guaranteed non-null by matchOrphanPairsWithFeed.
 
-      // 1. Point absorbed → surviving (canonical supersession).
+      // 1. Set absorbed.canonical_stock_id → surviving, so FIFO can bridge buys
+      //    of the absorbed company against sells of the surviving company.
       const { error: canonErr } = await admin
         .from("indian_stocks")
-        .update({ canonical_stock_id: m.fromStockId })
-        .eq("id", m.toStockId as string);
+        .update({ canonical_stock_id: m.toStockId })
+        .eq("id", m.fromStockId as string);
       if (canonErr) {
         log.warn("auto-merge: canonical update failed", { pair: m, error: canonErr.message });
         mergerSuggestions.push(m);
         continue;
       }
 
-      // 2. Upsert merger corporate action on surviving stock.
+      // 2. Upsert merger CA on the absorbed stock — adjustQtyPrice reads CAs
+      //    keyed by the absorbed stock_id when computing adjusted buy quantities.
       const { error: caErr } = await admin
         .from("corporate_actions")
         .upsert(
@@ -390,17 +393,17 @@ export async function detectAndApplyForAccount(
         );
       if (caErr) {
         log.warn("auto-merge: corporate_actions upsert failed", { pair: m, error: caErr.message });
-        // Undo canonical update to leave state consistent before surfacing as suggestion.
+        // Undo canonical update before surfacing as manual suggestion.
         await admin
           .from("indian_stocks")
           .update({ canonical_stock_id: null })
-          .eq("id", m.toStockId as string);
+          .eq("id", m.fromStockId as string);
         mergerSuggestions.push(m);
         continue;
       }
 
       applied.push({
-        symbol: m.toSymbol,   // absorbed symbol shown in the import result
+        symbol: m.fromSymbol, // absorbed (merged-away) symbol shown in import result
         action_type: "merger",
         factor: m.impliedRatio,
         ex_date: m.ex_date,

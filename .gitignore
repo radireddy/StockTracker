@@ -48,3 +48,9 @@ next-env.d.ts
 
 # Playwright e2e auth state (contains live session cookies)
 .playwright/
+
+# local corporate-action scraping artifacts (contains cookies)
+.ca-downloads/
+
+# throwaway Playwright screenshots
+test-*.png

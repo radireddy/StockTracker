@@ -23,6 +23,7 @@ function argFrom(): Date | null {
 
 async function main() {
   const now = new Date();
+  const explicitFrom = argFrom(); // --from bypasses watermark when set
   for (const source of corporateActionSources) {
     const { data: state } = await admin
       .from("corporate_action_sync_state").select("last_synced_at").eq("source", source.name).maybeSingle();
@@ -30,10 +31,12 @@ async function main() {
     let from: Date;
     if (!source.supportsHistory) {
       from = new Date(now); from.setDate(from.getDate() - 30); // forthcoming-only; short lookback
+    } else if (explicitFrom) {
+      from = explicitFrom; // explicit --from overrides watermark
     } else if (state?.last_synced_at) {
       from = new Date(state.last_synced_at); from.setDate(from.getDate() - OVERLAP_DAYS);
     } else {
-      from = argFrom() ?? new Date(now.getFullYear() - 15, now.getMonth(), now.getDate());
+      from = new Date(now.getFullYear() - 15, now.getMonth(), now.getDate());
     }
 
     try {

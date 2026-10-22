@@ -87,6 +87,8 @@ export interface BatchFileResult {
   account_label: string | null;
   /** Present only when status is "failed". */
   error: string | null;
+  /** Optional follow-up guidance for the user (e.g. "select an account"). */
+  hint: string | null;
 }
 
 /** A corporate action that was auto-applied during import (verified against NSE reference). */
