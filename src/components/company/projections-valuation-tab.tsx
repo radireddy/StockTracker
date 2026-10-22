@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -30,7 +29,6 @@ import {
   saveAllProjections,
   setDefaultProjectionModel,
 } from "@/app/(authenticated)/actions/projection-actions";
-import { updateCompany } from "@/app/(authenticated)/actions/company-actions";
 import { fmtNum, marketCapInCrores } from "@/lib/utils/calculations";
 import { toastError } from "@/lib/toast-error";
 import { useAutoSave } from "@/hooks/use-auto-save";
@@ -164,8 +162,6 @@ export function ProjectionsValuationTab({
   projectionModels: ProjectionModel[];
   onBaseIrrChange?: (irr: number | null) => void;
 }) {
-  const router = useRouter();
-
   const [modelStates, setModelStates] = useState<ModelState[]>(() =>
     projectionModels.map((m) => initModelState(m, company))
   );
@@ -229,13 +225,8 @@ export function ProjectionsValuationTab({
       };
     });
     const expReturns = states[0]?.expReturns ?? 25;
-    const [saveRes] = await Promise.all([
-      saveAllProjections(company.id, models),
-      updateCompany(company.id, { expected_returns: expReturns / 100 }),
-    ]);
-    if (saveRes.ok) router.refresh();
-    return saveRes;
-  }, [company, router]);
+    return saveAllProjections(company.id, models, expReturns / 100);
+  }, [company]);
 
   const projectionsAutoSave = useAutoSave(projectionsAutoSaveFn, { delay: 1500 });
 
@@ -347,18 +338,25 @@ export function ProjectionsValuationTab({
     setModelStates((prev) => prev.map((ms) => ({ ...ms, expReturns: val })));
   }, []);
 
+  const addingModelRef = useRef(false);
   const handleAddModel = useCallback(async (type: ProjectionType, label: string) => {
-    const isDefault = modelStates.length === 0;
-    const res = await createProjectionModel(company.id, type, label, isDefault);
-    if (!res.ok) return toastError(res);
-    const pm: ProjectionModel = {
-      ...(res.data as unknown as ProjectionModel),
-      financial_years: [],
-      valuation_scenarios: [],
-    };
-    const ms = initModelState(pm, company);
-    setModelStates((prev) => [...prev, ms]);
-    setActiveModelId(pm.id);
+    if (addingModelRef.current) return;
+    addingModelRef.current = true;
+    try {
+      const isDefault = modelStates.length === 0;
+      const res = await createProjectionModel(company.id, type, label, isDefault);
+      if (!res.ok) return toastError(res);
+      const pm: ProjectionModel = {
+        ...(res.data as unknown as ProjectionModel),
+        financial_years: [],
+        valuation_scenarios: [],
+      };
+      const ms = initModelState(pm, company);
+      setModelStates((prev) => [...prev, ms]);
+      setActiveModelId(pm.id);
+    } finally {
+      addingModelRef.current = false;
+    }
   }, [company, modelStates.length]);
 
   const handleSetDefault = useCallback(async (modelId: string) => {

@@ -16,11 +16,12 @@ type Scenario = {
   buy_price: number | null;
 };
 
-/** Valuation scenarios of the company's default projection model. */
+/** Valuation scenarios of the company's default projection model, falling back to the first model if none is flagged default. */
 export function getDefaultScenarios(company: {
   projection_models: { is_default: boolean; valuation_scenarios: Scenario[] }[];
 }): Scenario[] {
-  return company.projection_models?.find((pm) => pm.is_default)?.valuation_scenarios ?? [];
+  const models = company.projection_models ?? [];
+  return (models.find((pm) => pm.is_default) ?? models[0])?.valuation_scenarios ?? [];
 }
 
 /** Live-computed IRR for a scenario, falling back to the stored value. */

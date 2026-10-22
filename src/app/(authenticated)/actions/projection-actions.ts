@@ -45,7 +45,25 @@ export async function createProjectionModel(
   return action(async () => {
     const { supabase, user } = await getAuthUser();
 
-    // If this will be the default, unset any existing default first
+    // Insert as non-default first so a failed insert (e.g. duplicate projection_type) can't strip the company's existing default.
+    const { data, error } = await supabase
+      .from("projection_models")
+      .insert({
+        company_id: companyId,
+        user_id: user.id,
+        projection_type: projectionType,
+        name,
+        is_default: false,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      log.error("createProjectionModel failed", { error: error.message, companyId, projectionType });
+      throw describeDbError(error, "Couldn't create the projection model.");
+    }
+
+    // Promote to default only after the insert succeeded; unset others first for the one-default partial unique index.
     if (isDefault) {
       const { error: unsetErr } = await supabase
         .from("projection_models")
@@ -56,24 +74,17 @@ export async function createProjectionModel(
         log.error("createProjectionModel unset-default failed", { error: unsetErr.message, companyId });
         throw describeDbError(unsetErr, "Couldn't update the existing default model.");
       }
+      const { error: setErr } = await supabase
+        .from("projection_models")
+        .update({ is_default: true })
+        .eq("id", (data as { id: string }).id);
+      if (setErr) {
+        log.error("createProjectionModel set-default failed", { error: setErr.message, companyId });
+        throw describeDbError(setErr, "Couldn't set the new model as default.");
+      }
+      (data as Record<string, unknown>).is_default = true;
     }
 
-    const { data, error } = await supabase
-      .from("projection_models")
-      .insert({
-        company_id: companyId,
-        user_id: user.id,
-        projection_type: projectionType,
-        name,
-        is_default: isDefault,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      log.error("createProjectionModel failed", { error: error.message, companyId, projectionType });
-      throw describeDbError(error, "Couldn't create the projection model.");
-    }
     revalidatePath(`/company/${companyId}`);
     log.info("Projection model created", { companyId, projectionType, isDefault });
     return data as Record<string, unknown>;
@@ -154,13 +165,64 @@ export async function setDefaultProjectionModel(
   });
 }
 
+type ActionSupabase = Awaited<ReturnType<typeof getAuthUser>>["supabase"];
+
+// Self-heals a company left without a default model, then syncs investment_horizon_years from it; best-effort, never throws so it can't fail the surrounding save.
+async function updateHorizonFromDefault(supabase: ActionSupabase, companyId: string): Promise<void> {
+  const { data: models, error: modelsErr } = await supabase
+    .from("projection_models")
+    .select("id, is_default, sort_order")
+    .eq("company_id", companyId);
+
+  if (modelsErr || !models || models.length === 0) {
+    if (modelsErr) log.warn("updateHorizonFromDefault model lookup failed", { error: modelsErr.message, companyId });
+    return;
+  }
+
+  let defaultModel = models.find((m) => m.is_default);
+  if (!defaultModel) {
+    // Self-heal: promote the first model (by sort_order) to default.
+    defaultModel = [...models].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))[0];
+    const { error: healErr } = await supabase
+      .from("projection_models")
+      .update({ is_default: true })
+      .eq("id", defaultModel.id);
+    if (healErr) {
+      log.warn("updateHorizonFromDefault self-heal failed", { error: healErr.message, companyId });
+      return;
+    }
+    log.info("updateHorizonFromDefault promoted a default model", { companyId, projectionModelId: defaultModel.id });
+  }
+
+  const { count, error: countErr } = await supabase
+    .from("financial_years")
+    .select("*", { count: "exact", head: true })
+    .eq("projection_model_id", defaultModel.id)
+    .eq("is_estimate", true);
+
+  if (countErr) {
+    log.warn("updateHorizonFromDefault estimate-count failed", { error: countErr.message, companyId });
+    return;
+  }
+
+  const { error: horizonErr } = await supabase
+    .from("companies")
+    .update({ investment_horizon_years: Math.max(0, count ?? 0) })
+    .eq("id", companyId);
+
+  if (horizonErr) {
+    log.warn("updateHorizonFromDefault horizon update failed", { error: horizonErr.message, companyId });
+  }
+}
+
 export async function saveAllProjections(
   companyId: string,
   models: Array<{
     projection_model_id: string;
     financial_years: Record<string, unknown>[];
     valuation_scenarios: Record<string, unknown>[];
-  }>
+  }>,
+  expectedReturns?: number
 ): Promise<ActionResult> {
   return action(async () => {
     const { supabase, user } = await getAuthUser();
@@ -215,44 +277,22 @@ export async function saveAllProjections(
       }
     }
 
-    // Update investment_horizon_years from the default model's estimate count
-    const { data: defaultModel, error: defaultErr } = await supabase
-      .from("projection_models")
-      .select("id")
-      .eq("company_id", companyId)
-      .eq("is_default", true)
-      .single();
-
-    if (defaultErr) {
-      log.error("saveAllProjections default-model lookup failed", { error: defaultErr.message, companyId });
-      throw describeDbError(defaultErr, "Projections were saved, but the investment horizon couldn't be updated.");
-    }
-
-    if (defaultModel) {
-      const { count, error: countErr } = await supabase
-        .from("financial_years")
-        .select("*", { count: "exact", head: true })
-        .eq("projection_model_id", defaultModel.id)
-        .eq("is_estimate", true);
-
-      if (countErr) {
-        log.error("saveAllProjections estimate-count failed", { error: countErr.message, companyId });
-        throw describeDbError(countErr, "Projections were saved, but the investment horizon couldn't be updated.");
-      }
-
-      const { error: horizonErr } = await supabase
+    if (expectedReturns != null) {
+      const { error: erError } = await supabase
         .from("companies")
-        .update({ investment_horizon_years: Math.max(0, count ?? 0) })
+        .update({ expected_returns: expectedReturns })
         .eq("id", companyId);
-
-      if (horizonErr) {
-        log.error("saveAllProjections horizon update failed", { error: horizonErr.message, companyId });
-        throw describeDbError(horizonErr, "Projections were saved, but the investment horizon couldn't be updated.");
+      if (erError) {
+        log.error("saveAllProjections expected-returns update failed", { error: erError.message, companyId });
+        throw describeDbError(erError, "Couldn't save the expected return.");
       }
     }
 
+    // Secondary side effect; must never make the save itself report failure.
+    await updateHorizonFromDefault(supabase, companyId);
+
+    // No revalidatePath("/"): the dashboard reads via React Query, not the RSC cache, so it would only thrash the router cache and re-prefetch the nav each save.
     revalidatePath(`/company/${companyId}`);
-    revalidatePath("/");
     log.info("All projections saved", { companyId, modelCount: models.length });
   });
 }
