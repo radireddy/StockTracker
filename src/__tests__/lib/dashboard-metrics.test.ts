@@ -4,6 +4,7 @@ import {
   totalCurrentValue,
   holdingSortValue,
   getScenarioReturn,
+  getDefaultScenarios,
 } from "@/lib/utils/dashboard-metrics";
 import { DEFAULT_ALLOCATION_RANGES } from "@/types/database";
 import type { DashboardCompanyRow } from "@/hooks/use-dashboard-data";
@@ -74,6 +75,34 @@ describe("getScenarioReturn", () => {
       { scenario_type: "base", target_market_cap: null, irr: 12, buy_price: null },
     ];
     expect(getScenarioReturn(scenarios, "base", null, null)).toBe(12);
+  });
+});
+
+describe("getDefaultScenarios", () => {
+  const scen = (t: string) => ({ scenario_type: t, target_market_cap: 1, irr: 1, buy_price: null });
+
+  it("returns the scenarios of the default model", () => {
+    const company = {
+      projection_models: [
+        { is_default: false, valuation_scenarios: [scen("base")] },
+        { is_default: true, valuation_scenarios: [scen("bull")] },
+      ],
+    };
+    expect(getDefaultScenarios(company).map((s) => s.scenario_type)).toEqual(["bull"]);
+  });
+
+  it("falls back to the first model when none is marked default", () => {
+    const company = {
+      projection_models: [
+        { is_default: false, valuation_scenarios: [scen("base")] },
+        { is_default: false, valuation_scenarios: [scen("bull")] },
+      ],
+    };
+    expect(getDefaultScenarios(company).map((s) => s.scenario_type)).toEqual(["base"]);
+  });
+
+  it("returns empty when there are no models", () => {
+    expect(getDefaultScenarios({ projection_models: [] })).toEqual([]);
   });
 });
 

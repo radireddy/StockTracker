@@ -81,8 +81,9 @@ type DashboardCompany = {
 type CompanyWithProjections = DashboardCompany;
 
 function getDefaultScenarios(company: CompanyWithProjections): DashboardValuationScenario[] {
-  const defaultModel = company.projection_models?.find((pm) => pm.is_default);
-  return defaultModel?.valuation_scenarios ?? [];
+  const models = company.projection_models ?? [];
+  const model = models.find((pm) => pm.is_default) ?? models[0];
+  return model?.valuation_scenarios ?? [];
 }
 
 function getScenarioReturn(
