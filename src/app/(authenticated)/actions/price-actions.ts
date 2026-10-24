@@ -165,14 +165,14 @@ export async function manualRefreshPrices() {
     }
 
     attemptedSymbols.push(symbol);
-    // market_cap is intentionally omitted so the RPC leaves the existing
-    // value untouched (manual refresh has never updated market_cap).
+    // market_cap stays omitted so the RPC keeps its stored value; trailing_pe is sent so a manual refresh updates TTM PE too.
     rows.push({
       isin,
       price: quote.price,
       change: quote.change,
       change_pct: quote.changePct,
       volume: quote.volume ?? null,
+      trailing_pe: quote.trailingPe ?? null,
       last_updated: now,
     });
   }

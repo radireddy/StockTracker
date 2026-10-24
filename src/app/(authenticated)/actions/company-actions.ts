@@ -26,7 +26,7 @@ export async function getCompanyCore(id: string) {
     .select(`
       id, portfolio_id, isin, buy_price, star_rating, strategy,
       investment_horizon_years, expected_returns,
-      indian_stocks(name, nse_symbol, price, market_cap, sector),
+      indian_stocks(name, nse_symbol, price, market_cap, sector, trailing_pe),
       projection_models(id, is_default, valuation_scenarios(scenario_type, target_market_cap, irr, buy_price))
     `)
     .eq("id", id)
