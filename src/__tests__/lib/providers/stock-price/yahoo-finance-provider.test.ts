@@ -39,6 +39,28 @@ describe("YahooFinanceProvider", () => {
     expect(quote.volume).toBe(1000);
   });
 
+  it("maps Yahoo's trailingPE into trailingPe", async () => {
+    quoteMock.mockResolvedValue({
+      symbol: "RELIANCE.NS",
+      regularMarketPrice: 1000,
+      trailingPE: 22.345,
+    });
+
+    const quote = await provider.fetchQuote("RELIANCE");
+    expect(quote.trailingPe).toBe(22.35);
+  });
+
+  it("omits trailingPe when Yahoo has no positive value", async () => {
+    quoteMock.mockResolvedValue({
+      symbol: "RELIANCE.NS",
+      regularMarketPrice: 1000,
+      trailingPE: 0,
+    });
+
+    const quote = await provider.fetchQuote("RELIANCE");
+    expect(quote.trailingPe).toBeUndefined();
+  });
+
   it("wraps fetch failures in a provider-neutral StockPriceError", async () => {
     quoteMock.mockRejectedValue(new Error("network down"));
 

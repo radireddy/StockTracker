@@ -97,6 +97,15 @@ function fmtField(key: string, val: number | null): string {
   return fmtNum(val);
 }
 
+// PEG assessment bands: ≤1 undervalued, 1–1.5 fairly valued, 1.5–2 overvalued, >2 avoid.
+function pegAssessment(peg: number | null): { label: string; color: string } {
+  if (peg == null) return { label: "—", color: "text-muted-foreground" };
+  if (peg <= 1) return { label: "Undervalued", color: "text-positive" };
+  if (peg <= 1.5) return { label: "Fairly Valued", color: "text-amber-600 dark:text-amber-400" };
+  if (peg <= 2) return { label: "Overvalued", color: "text-orange-600 dark:text-orange-400" };
+  return { label: "Very expensive, avoid", color: "text-destructive" };
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface ValuationScenariosProps {
@@ -107,6 +116,7 @@ interface ValuationScenariosProps {
   company: {
     market_cap: number | null;
     current_price: number | null;
+    trailing_pe: number | null;
     expected_returns: number | null;
     investment_horizon_years: number | null;
   };
@@ -149,8 +159,10 @@ export function ValuationScenarios({
 
   const horizonPeg = useMemo(() => {
     if (!strategy.computeHorizonPeg) return null;
-    return strategy.computeHorizonPeg(financialYears, company.market_cap);
-  }, [strategy, financialYears, company.market_cap]);
+    return strategy.computeHorizonPeg(financialYears, company.trailing_pe);
+  }, [strategy, financialYears, company.trailing_pe]);
+
+  const pegBand = pegAssessment(horizonPeg?.forwardPeg ?? null);
 
   const horizon = company.investment_horizon_years ?? 2;
 
@@ -268,13 +280,8 @@ export function ValuationScenarios({
               </p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground">Forward PEG</p>
-              <p className={`text-sm font-bold tabular-nums mt-0.5 ${
-                horizonPeg.forwardPeg == null ? "" :
-                horizonPeg.forwardPeg < 1 ? "text-positive" :
-                horizonPeg.forwardPeg <= 2 ? "text-amber-600 dark:text-amber-400" :
-                "text-destructive"
-              }`}>
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground">PEG</p>
+              <p className={`text-sm font-bold tabular-nums mt-0.5 ${pegBand.color}`}>
                 {horizonPeg.forwardPeg != null
                   ? horizonPeg.forwardPeg.toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 })
                   : "—"}
@@ -282,16 +289,8 @@ export function ValuationScenarios({
             </div>
             <div className="px-4 py-3">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground">Assessment</p>
-              <p className={`text-sm font-semibold mt-0.5 ${
-                horizonPeg.forwardPeg == null ? "text-muted-foreground" :
-                horizonPeg.forwardPeg < 1 ? "text-positive" :
-                horizonPeg.forwardPeg <= 2 ? "text-amber-600 dark:text-amber-400" :
-                "text-destructive"
-              }`}>
-                {horizonPeg.forwardPeg == null ? "—"
-                  : horizonPeg.forwardPeg < 1 ? "Undervalued"
-                  : horizonPeg.forwardPeg <= 2 ? "Fair Value"
-                  : "Overvalued"}
+              <p className={`text-sm font-semibold mt-0.5 ${pegBand.color}`}>
+                {pegBand.label}
               </p>
             </div>
           </div>

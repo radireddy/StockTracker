@@ -111,6 +111,12 @@ export class YahooFinanceProvider implements StockPriceProvider {
     const change = q.regularMarketChange ?? (prevClose ? price - prevClose : 0);
     const changePct = q.regularMarketChangePercent ?? (prevClose ? (change / prevClose) * 100 : 0);
 
+    // Yahoo omits trailingPE for loss-making stocks; keep only a real positive number.
+    const trailingPe =
+      typeof q.trailingPE === "number" && isFinite(q.trailingPE) && q.trailingPE > 0
+        ? Math.round(q.trailingPE * 100) / 100
+        : undefined;
+
     return {
       symbol: originalSymbol,
       price: Math.round(price * 100) / 100,
@@ -118,6 +124,7 @@ export class YahooFinanceProvider implements StockPriceProvider {
       changePct: Math.round(changePct * 100) / 100,
       volume: q.regularMarketVolume ?? undefined,
       marketCap: q.marketCap ?? undefined,
+      trailingPe,
       timestamp: new Date(),
     };
   }

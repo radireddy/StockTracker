@@ -14,6 +14,8 @@ export interface PriceUpdateRow {
   volume: number | null;
   /** Omit the key entirely to leave the existing market_cap untouched. */
   market_cap?: number | null;
+  /** Omit the key entirely to leave the existing trailing_pe untouched. */
+  trailing_pe?: number | null;
   last_updated: string;
 }
 
@@ -177,6 +179,7 @@ export async function refreshPrices(
       change_pct: quote.changePct,
       volume: quote.volume ?? null,
       market_cap: quote.marketCap ?? null,
+      trailing_pe: quote.trailingPe ?? null,
       last_updated: now,
     });
   }
