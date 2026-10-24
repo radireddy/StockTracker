@@ -172,6 +172,7 @@ export function ProjectionsValuationTab({
   });
 
   const [projOpen, setProjOpen] = useState(true);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   // Compute and report base IRR from default model
@@ -460,7 +461,7 @@ export function ProjectionsValuationTab({
 
         {/* + Add Model */}
         {availableTypes.length > 0 && (
-          <DropdownMenu>
+          <DropdownMenu open={addMenuOpen} onOpenChange={setAddMenuOpen}>
             <DropdownMenuTrigger className="inline-flex items-center gap-1.5 px-3 py-2 ml-1 rounded-t text-xs font-medium border border-dashed border-border/60 -mb-px text-muted-foreground hover:border-border hover:text-foreground transition-colors cursor-pointer">
               <Plus className="h-3 w-3" />
               Add Model
@@ -473,7 +474,7 @@ export function ProjectionsValuationTab({
                 <button
                   key={t.type}
                   type="button"
-                  onClick={() => handleAddModel(t.type, t.label)}
+                  onClick={() => { setAddMenuOpen(false); handleAddModel(t.type, t.label); }}
                   className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors border-b border-border/30 last:border-0 cursor-pointer"
                 >
                   <span>
@@ -618,6 +619,7 @@ export function ProjectionsValuationTab({
               company={{
                 market_cap: marketCapInCrores(company.indian_stocks?.market_cap),
                 current_price: company.indian_stocks?.price ?? null,
+                trailing_pe: company.indian_stocks?.trailing_pe ?? null,
                 expected_returns: company.expected_returns,
                 investment_horizon_years: activeEstimateYears || company.investment_horizon_years,
               }}

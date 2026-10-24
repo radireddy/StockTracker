@@ -116,17 +116,17 @@ export function effectiveBuyPrice(
 // --- Horizon PEG ---
 
 /**
- * Compute Forward PEG metrics using previous year (FY before current) and terminal year.
- * - Trailing PE = Market Cap / Previous Year PAT
+ * Compute PEG metrics from Yahoo's trailing-twelve-months PE and the model's earnings growth.
+ * - Trailing PE = Yahoo TTM PE (passed in); blank when Yahoo has no value.
  * - Earnings CAGR = (Terminal PAT / Previous Year PAT)^(1/n) - 1
- * - Forward PEG = Trailing PE / Earnings CAGR (%)
+ * - PEG = Trailing PE / Earnings CAGR (%)
  * Current FY from calendar, previous year = current FY - 1, n = terminal FY - previous FY.
  */
 export function computeHorizonPegMetrics(
   financialYears: FinancialYear[],
-  marketCap: number | null
+  trailingPe: number | null
 ): HorizonPegMetrics | null {
-  if (financialYears.length < 2 || marketCap == null) return null;
+  if (financialYears.length < 2) return null;
 
   // Current FY from calendar (e.g. June 2026 → FY27)
   const now = new Date();
@@ -154,12 +154,6 @@ export function computeHorizonPegMetrics(
 
   const prevPat = prevYear.pat;
   const terminalPat = terminalYear.pat;
-
-  // Trailing PE = Market Cap / Previous Year PAT
-  const trailingPe =
-    prevPat != null && prevPat > 0
-      ? Math.round((marketCap / prevPat) * 10) / 10
-      : null;
 
   // Earnings CAGR = (Terminal PAT / Previous Year PAT)^(1/n) - 1
   const earningsCagr =

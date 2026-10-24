@@ -5,6 +5,8 @@ export interface StockQuote {
   changePct: number;
   volume?: number;
   marketCap?: number;
+  /** Yahoo's trailing-twelve-months PE; omitted when Yahoo has no value (e.g. loss-making). */
+  trailingPe?: number;
   timestamp: Date;
 }
 

@@ -57,6 +57,8 @@ export interface IndianStock {
   change_pct: number | null;
   volume: number | null;
   market_cap: number | null;
+  /** Yahoo's trailing-twelve-months PE; null when Yahoo has no value. */
+  trailing_pe: number | null;
   last_updated: string | null;
   created_at: string;
 }

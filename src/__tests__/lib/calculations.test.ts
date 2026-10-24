@@ -403,44 +403,65 @@ describe("computeHorizonPegMetrics", () => {
     vi.useRealTimers();
   });
 
-  it("computes horizon PEG metrics correctly", () => {
+  it("uses the passed-in Yahoo trailing PE as currentPe", () => {
     const financialYears = [
       { year: "FY25", pat: 80 },
       { year: "FY26", pat: 100 },
       { year: "FY27E", pat: 120 },
       { year: "FY28E", pat: 150 },
     ] as any;
-    const marketCap = 2000;
+    const trailingPe = 20;
 
-    const result = computeHorizonPegMetrics(financialYears, marketCap);
+    const result = computeHorizonPegMetrics(financialYears, trailingPe);
     expect(result).not.toBeNull();
-    expect(result!.currentPe).toBe(20); // 2000/100
+    expect(result!.currentPe).toBe(20);
     expect(result!.earningsCagr).not.toBeNull();
     expect(result!.forwardPeg).not.toBeNull();
   });
 
-  it("returns null when fewer than 2 financial years", () => {
-    expect(computeHorizonPegMetrics([{ year: "FY26", pat: 100 }] as any, 2000)).toBeNull();
+  it("computes PEG as trailing PE divided by earnings CAGR", () => {
+    // FY26→FY28E: (121/100)^(1/2) - 1 = 10% CAGR; PEG = 20 / 10 = 2.00
+    const fys = [
+      { year: "FY26", pat: 100 },
+      { year: "FY28E", pat: 121 },
+    ] as any;
+    const result = computeHorizonPegMetrics(fys, 20);
+    expect(result).not.toBeNull();
+    expect(result!.earningsCagr).toBe(10);
+    expect(result!.forwardPeg).toBe(2);
   });
 
-  it("returns null when marketCap is null", () => {
-    const fys = [{ year: "FY25", pat: 80 }, { year: "FY26", pat: 100 }] as any;
-    expect(computeHorizonPegMetrics(fys, null)).toBeNull();
+  it("blanks PE and PEG when trailing PE is missing but still shows earnings CAGR", () => {
+    const fys = [
+      { year: "FY26", pat: 100 },
+      { year: "FY28E", pat: 121 },
+    ] as any;
+    const result = computeHorizonPegMetrics(fys, null);
+    expect(result).not.toBeNull();
+    expect(result!.currentPe).toBeNull();
+    expect(result!.forwardPeg).toBeNull();
+    expect(result!.earningsCagr).toBe(10);
+  });
+
+  it("returns null when fewer than 2 financial years", () => {
+    expect(computeHorizonPegMetrics([{ year: "FY26", pat: 100 }] as any, 20)).toBeNull();
   });
 
   it("returns null when previous year not found", () => {
     const fys = [{ year: "FY24", pat: 80 }, { year: "FY25", pat: 100 }] as any;
-    expect(computeHorizonPegMetrics(fys, 2000)).toBeNull();
+    expect(computeHorizonPegMetrics(fys, 20)).toBeNull();
   });
 
-  it("handles zero PAT in previous year (null PE)", () => {
+  it("returns null earnings CAGR and PEG when previous year PAT is zero", () => {
     const fys = [
       { year: "FY26", pat: 0 },
       { year: "FY28E", pat: 100 },
     ] as any;
-    const result = computeHorizonPegMetrics(fys, 2000);
+    const result = computeHorizonPegMetrics(fys, 20);
     expect(result).not.toBeNull();
-    expect(result!.currentPe).toBeNull();
+    expect(result!.currentPe).toBe(20);
+    expect(result!.earningsCagr).toBeNull();
+    expect(result!.forwardPeg).toBeNull();
   });
 
   it("returns null when terminal year has no FY match", () => {
@@ -448,7 +469,7 @@ describe("computeHorizonPegMetrics", () => {
       { year: "FY26", pat: 100 },
       { year: "invalid", pat: 150 },
     ] as any;
-    expect(computeHorizonPegMetrics(fys, 2000)).toBeNull();
+    expect(computeHorizonPegMetrics(fys, 20)).toBeNull();
   });
 
   it("returns null when n <= 0 (terminal year same as prev)", () => {
@@ -456,7 +477,7 @@ describe("computeHorizonPegMetrics", () => {
       { year: "FY26", pat: 100 },
       { year: "FY26", pat: 100 },
     ] as any;
-    expect(computeHorizonPegMetrics(fys, 2000)).toBeNull();
+    expect(computeHorizonPegMetrics(fys, 20)).toBeNull();
   });
 
   it("handles Jan-March date (month < 3, currentFYNum uses current year)", () => {
@@ -470,9 +491,9 @@ describe("computeHorizonPegMetrics", () => {
       { year: "FY25", pat: 100 },
       { year: "FY28E", pat: 150 },
     ] as any;
-    const result = computeHorizonPegMetrics(fys, 2000);
+    const result = computeHorizonPegMetrics(fys, 20);
     expect(result).not.toBeNull();
-    expect(result!.currentPe).toBe(20); // 2000/100
+    expect(result!.currentPe).toBe(20);
   });
 
   it("returns null earningsCagr when terminal PAT is null", () => {
@@ -480,7 +501,7 @@ describe("computeHorizonPegMetrics", () => {
       { year: "FY26", pat: 100 },
       { year: "FY28E", pat: null },
     ] as any;
-    const result = computeHorizonPegMetrics(fys, 2000);
+    const result = computeHorizonPegMetrics(fys, 20);
     expect(result).not.toBeNull();
     expect(result!.earningsCagr).toBeNull();
   });
@@ -490,7 +511,7 @@ describe("computeHorizonPegMetrics", () => {
       { year: "FY26", pat: 100 },
       { year: "FY28E", pat: 100 }, // same PAT = 0% growth
     ] as any;
-    const result = computeHorizonPegMetrics(fys, 2000);
+    const result = computeHorizonPegMetrics(fys, 20);
     // earningsCagr = 0, so forwardPeg should be null
     expect(result).not.toBeNull();
     expect(result!.forwardPeg).toBeNull();
@@ -501,7 +522,7 @@ describe("computeHorizonPegMetrics", () => {
       { year: "FY26E", pat: 100 },
       { year: "FY28E", pat: 150 },
     ] as any;
-    const result = computeHorizonPegMetrics(fys, 2000);
+    const result = computeHorizonPegMetrics(fys, 20);
     expect(result).not.toBeNull();
   });
 
@@ -511,7 +532,7 @@ describe("computeHorizonPegMetrics", () => {
       { year: "FY28E", pat: 150 },
     ] as any;
     // First year doesn't match, so prevYear won't be found
-    const result = computeHorizonPegMetrics(fys, 2000);
+    const result = computeHorizonPegMetrics(fys, 20);
     expect(result).toBeNull();
   });
 });

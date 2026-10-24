@@ -39,5 +39,5 @@ export interface ProjectionStrategy {
   ): Record<string, number | null>;
   getTerminalMetricLabel(): string;
   getTerminalMetricValue(terminalYear: FinancialYear | null): number | null;
-  computeHorizonPeg?(financialYears: FinancialYear[], marketCap: number | null): HorizonPegMetrics | null;
+  computeHorizonPeg?(financialYears: FinancialYear[], trailingPe: number | null): HorizonPegMetrics | null;
 }

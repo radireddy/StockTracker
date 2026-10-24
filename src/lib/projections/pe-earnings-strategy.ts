@@ -191,7 +191,7 @@ export class PeEarningsStrategy implements ProjectionStrategy {
     return terminalYear?.pat ?? null;
   }
 
-  computeHorizonPeg(financialYears: FinancialYear[], marketCap: number | null): HorizonPegMetrics | null {
-    return computeHorizonPegMetrics(financialYears, marketCap);
+  computeHorizonPeg(financialYears: FinancialYear[], trailingPe: number | null): HorizonPegMetrics | null {
+    return computeHorizonPegMetrics(financialYears, trailingPe);
   }
 }
